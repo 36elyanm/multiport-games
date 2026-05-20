@@ -95,7 +95,7 @@ function loop(){
     ctx.fillText('GAME OVER',400,120);
     ctx.font='20px Arial';ctx.fillText('Tap or Space to restart',400,158);
     document.getElementById('score-display').textContent=`Score: ${score} | Hi: ${hi}`;
-    return;
+    requestAnimationFrame(loop);return;
   }
 
   if(!started){
