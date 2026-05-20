@@ -71,6 +71,17 @@ function loop(){
     drawBird();requestAnimationFrame(loop);return;
   }
 
+  if(state==='dead'){
+    pipes.forEach(p=>drawPipe(p));
+    drawBird();
+    ctx.fillStyle='#fff';ctx.font='bold 32px Arial';ctx.textAlign='center';ctx.fillText(score,240,50);
+    ctx.fillStyle='rgba(0,0,0,.55)';ctx.fillRect(80,220,320,140);
+    ctx.fillStyle='#ff4444';ctx.font='bold 32px Arial';ctx.fillText('DEAD',240,265);
+    ctx.fillStyle='#fff';ctx.font='18px Arial';ctx.fillText(`Score: ${score}  Best: ${hi}`,240,298);
+    ctx.fillText('Tap to retry',240,328);
+    requestAnimationFrame(loop);return;
+  }
+
   frame++;
   bird.vy+=0.45;bird.y+=bird.vy;
 
@@ -87,13 +98,6 @@ function loop(){
 
   drawBird();
   ctx.fillStyle='#fff';ctx.font='bold 32px Arial';ctx.textAlign='center';ctx.fillText(score,240,50);
-
-  if(state==='dead'){
-    ctx.fillStyle='rgba(0,0,0,.55)';ctx.fillRect(80,220,320,140);
-    ctx.fillStyle='#ff4444';ctx.font='bold 32px Arial';ctx.fillText('DEAD',240,265);
-    ctx.fillStyle='#fff';ctx.font='18px Arial';ctx.fillText(`Score: ${score}  Best: ${hi}`,240,298);
-    ctx.fillText('Tap to retry',240,328);
-  }
   requestAnimationFrame(loop);
 }
 loop();
