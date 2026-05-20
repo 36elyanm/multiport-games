@@ -15,23 +15,16 @@
 const c=document.getElementById('c'),ctx=c.getContext('2d');
 let paddle,ball,rings,score,combo,lives,frame;
 
-function start(){
-  paddle={x:200,w:90,h=14,y:480};
-  ball={x:240,y:420,vx:3,vy:-5,r:12};
-  rings=[];score=0;combo=1;lives=3;frame=0;
-  for(let i=0;i<6;i++)rings.push(makeRing());
+function makeRing(){
+  const colors=['#f44336','#2196f3','#4caf50','#ff9800','#9c27b0','#00bcd4','#ffeb3b'];
+  return{x:40+Math.random()*400,y:60+Math.random()*200,r:16+Math.random()*16,color:colors[Math.floor(Math.random()*colors.length)],hits:0};
 }
-// fix syntax
+
 function startGame(){
   paddle={x:200,w:90,h:14,y:480};
   ball={x:240,y:420,vx:3,vy:-5,r:12};
   rings=[];score=0;combo=1;lives=3;frame=0;
   for(let i=0;i<6;i++)rings.push(makeRing());
-}
-
-function makeRing(){
-  const colors=['#f44336','#2196f3','#4caf50','#ff9800','#9c27b0','#00bcd4','#ffeb3b'];
-  return{x:40+Math.random()*(400),y:60+Math.random()*200,r:16+Math.random()*16,color:colors[Math.floor(Math.random()*colors.length)],hits:0};
 }
 
 c.addEventListener('mousemove',e=>{const r=c.getBoundingClientRect();paddle.x=(e.clientX-r.left)*c.width/r.width-paddle.w/2;});
@@ -53,21 +46,24 @@ function loop(){
     ball.vy=-Math.abs(ball.vy)-.5;ball.vx+=((ball.x-(paddle.x+paddle.w/2))/(paddle.w/2))*3;combo++;
   }
 
-  if(ball.y>c.height+30){lives--;combo=1;ball.x=240;ball.y=420;ball.vx=(Math.random()-.5)*6;ball.vy=-7;if(lives<=0)startGame();}
+  if(ball.y>c.height+30){
+    lives--;combo=1;
+    if(lives<=0){startGame();}
+    else{ball.x=240;ball.y=420;ball.vx=(Math.random()-.5)*6;ball.vy=-7;}
+  }
 
   // Rings
   rings.forEach((ring,i)=>{
     ctx.strokeStyle=ring.color;ctx.lineWidth=4;
     ctx.beginPath();ctx.arc(ring.x,ring.y,ring.r,0,Math.PI*2);ctx.stroke();
-    ctx.fillStyle='rgba('+ring.color.slice(1).match(/../g).map(x=>parseInt(x,16)).join(',')+',.1)';
-    ctx.fill();
+    const rgb=ring.color.slice(1).match(/../g).map(x=>parseInt(x,16)).join(',');
+    ctx.fillStyle=`rgba(${rgb},.1)`;ctx.fill();
     const d=Math.hypot(ball.x-ring.x,ball.y-ring.y);
     if(Math.abs(d-ring.r)<ball.r+2){
       score+=10*combo;ring.hits++;
       const ang=Math.atan2(ball.y-ring.y,ball.x-ring.x);
-      if(d<ring.r){ball.vx=Math.cos(ang)*5;ball.vy=Math.sin(ang)*5;}
-      else{ball.vx=Math.cos(ang)*5;ball.vy=Math.sin(ang)*5;}
-      if(ring.hits>=3){rings[i]=makeRing();}
+      ball.vx=Math.cos(ang)*5;ball.vy=Math.sin(ang)*5;
+      if(ring.hits>=3)rings[i]=makeRing();
     }
   });
 

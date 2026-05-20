@@ -36,8 +36,6 @@ function loop(){
   // Ground
   ctx.fillStyle='#5d4037';ctx.fillRect(0,320,c.width,20);ctx.fillStyle='#388e3c';ctx.fillRect(0,316,c.width,8);
 
-  if(!pressing&&!state==='play'||false){} // no-op
-
   if(state!=='play'){
     ctx.fillStyle='rgba(0,0,0,.55)';ctx.fillRect(0,0,c.width,c.height);
     ctx.fillStyle='#87ceeb';ctx.font='bold 32px Arial';ctx.textAlign='center';ctx.fillText('GAME OVER',300,150);

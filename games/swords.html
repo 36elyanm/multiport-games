@@ -107,7 +107,6 @@ function loop(){
   ctx.fillStyle='rgba(0,0,0,.4)';ctx.fillRect(10,10,100,14);
   ctx.fillStyle='#66bb6a';ctx.fillRect(10,10,player.stamina*20,14);
   ctx.fillStyle='#fff';ctx.font='11px Arial';ctx.textAlign='left';ctx.fillText('Stamina',12,22);
-  setInterval(()=>{if(player.stamina<5&&state==='play')player.stamina=Math.min(5,player.stamina+.02);},100);
 
   // Controls hint
   ctx.fillStyle='rgba(255,255,255,.4)';ctx.font='12px Arial';ctx.textAlign='center';
@@ -124,4 +123,5 @@ function loop(){
   requestAnimationFrame(loop);
 }
 start();loop();
+setInterval(()=>{if(player&&player.stamina<5&&state==='play')player.stamina=Math.min(5,player.stamina+.02);},100);
 </script></body></html>

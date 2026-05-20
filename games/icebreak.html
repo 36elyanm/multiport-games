@@ -16,18 +16,6 @@ const c=document.getElementById('c'),ctx=c.getContext('2d');
 const COLS=8,ROWS=5,BW=52,BH=20,OFFX=14,OFFY=30,GAP=4;
 let paddle,ball,blocks,score,lives,state,frame;
 
-function start(){
-  paddle={x:210,w:80,h=12,y:430};
-  ball={x:250,y:400,vx:3.5,vy:-4,r=9,launched:false};
-  score=0;lives=3;state='play';frame=0;
-  blocks=[];
-  for(let r=0;r<ROWS;r++)for(let col=0;col<COLS;col++){
-    const hp=Math.max(1,ROWS-r);
-    blocks.push({x:OFFX+col*(BW+GAP),y:OFFY+r*(BH+GAP),hp,maxHp:hp});
-  }
-}
-
-// fix h= syntax
 function startGame(){
   paddle={x:210,w:80,h:12,y:430};
   ball={x:250,y:400,vx:3.5,vy:-4,r:9,launched:false};
@@ -46,7 +34,6 @@ c.addEventListener('touchstart',()=>{if(state==='over'){startGame();return;}if(!
 
 function loop(){
   ctx.fillStyle='#0d2137';ctx.fillRect(0,0,500,460);
-  // Ice texture
   for(let i=0;i<500;i+=40)for(let j=0;j<460;j+=40){ctx.strokeStyle='rgba(100,180,255,.04)';ctx.beginPath();ctx.moveTo(i,j);ctx.lineTo(i+40,j+40);ctx.stroke();}
 
   if(ball.launched){
@@ -54,7 +41,11 @@ function loop(){
     if(ball.x-ball.r<0){ball.x=ball.r;ball.vx*=-1;}
     if(ball.x+ball.r>500){ball.x=500-ball.r;ball.vx*=-1;}
     if(ball.y-ball.r<0){ball.y=ball.r;ball.vy*=-1;}
-    if(ball.y+ball.r>460){lives--;if(lives<=0)state='over';else{ball.launched=false;ball.x=paddle.x+paddle.w/2;ball.y=paddle.y-ball.r-2;ball.vy=-5;}}
+    if(ball.y+ball.r>460){
+      lives--;
+      if(lives<=0){state='over';}
+      else{ball.launched=false;ball.x=paddle.x+paddle.w/2;ball.y=paddle.y-ball.r-2;ball.vy=-5;}
+    }
     if(ball.y+ball.r>=paddle.y&&ball.y<=paddle.y+paddle.h&&ball.x>paddle.x&&ball.x<paddle.x+paddle.w){
       ball.vy=-Math.abs(ball.vy);ball.vx=((ball.x-(paddle.x+paddle.w/2))/(paddle.w/2))*5;
     }
@@ -67,7 +58,6 @@ function loop(){
 
   if(blocks.every(bl=>bl.hp<=0)){score+=lives*50;startGame();}
 
-  // Draw blocks (ice)
   blocks.forEach(bl=>{if(bl.hp<=0)return;
     const t=bl.hp/bl.maxHp;
     ctx.fillStyle=`rgba(${100+t*50},${180+t*40},${220+t*35},${.4+t*.6})`;
@@ -77,12 +67,10 @@ function loop(){
     if(bl.maxHp>1){ctx.fillStyle='rgba(255,255,255,.7)';ctx.font='10px Arial';ctx.textAlign='center';ctx.fillText(bl.hp,bl.x+BW/2,bl.y+13);}
   });
 
-  // Paddle
   const pg=ctx.createLinearGradient(paddle.x,paddle.y,paddle.x,paddle.y+paddle.h);
   pg.addColorStop(0,'#b3e5fc');pg.addColorStop(1,'#0277bd');
   ctx.fillStyle=pg;ctx.beginPath();ctx.roundRect(paddle.x,paddle.y,paddle.w,paddle.h,5);ctx.fill();
 
-  // Ball
   ctx.fillStyle='rgba(173,216,230,.9)';ctx.shadowBlur=10;ctx.shadowColor='#b3e5fc';
   ctx.beginPath();ctx.arc(ball.x,ball.y,ball.r,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
 

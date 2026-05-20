@@ -17,8 +17,6 @@ const RW=200,RX=(400-RW)/2;
 let car,obstacles,fuel,score,lives,spd,frame,state,lineY,keys={};
 
 function start(){
-  car={x:200,y:400,w:28,h=44};
-  // fix
   car={x:200,y:400,w:28,h:44};
   obstacles=[];fuel=[];score=0;lives=3;spd=4;frame=0;state='play';lineY=0;
 }
@@ -65,17 +63,21 @@ function loop(){
   if(frame%60===0)spawnObs();if(frame%150===0)spawnFuel();
 
   obstacles=obstacles.filter(o=>o.y<c.height+30);
+  const hitObs=new Set();
   obstacles.forEach(o=>{o.y+=spd;
     ctx.fillStyle=o.type==='crack'?'#111':'#616161';ctx.fillRect(o.x,o.y,o.w,o.h);
     if(o.type==='stone'){ctx.fillStyle='#757575';ctx.fillRect(o.x+3,o.y+2,o.w-6,o.h-4);}
-    if(car.x<o.x+o.w&&car.x+car.w>o.x&&car.y<o.y+o.h&&car.y+car.h>o.y){lives--;if(lives<=0)state='over';obstacles=obstacles.filter(ob=>ob!==o);}
+    if(car.x<o.x+o.w&&car.x+car.w>o.x&&car.y<o.y+o.h&&car.y+car.h>o.y){lives--;if(lives<=0)state='over';hitObs.add(o);}
   });
+  obstacles=obstacles.filter(o=>!hitObs.has(o));
 
   fuel=fuel.filter(f=>f.y<c.height+20);
+  const hitFuel=new Set();
   fuel.forEach(f=>{f.y+=spd;
     ctx.fillStyle='#69f0ae';ctx.font='20px serif';ctx.textAlign='center';ctx.fillText('⛽',f.x+12,f.y+18);
-    if(car.x<f.x+24&&car.x+car.w>f.x&&car.y<f.y+24&&car.y+car.h>f.y){score+=100;fuel=fuel.filter(fl=>fl!==f);}
+    if(car.x<f.x+24&&car.x+car.w>f.x&&car.y<f.y+24&&car.y+car.h>f.y){score+=100;hitFuel.add(f);}
   });
+  fuel=fuel.filter(f=>!hitFuel.has(f));
 
   // Car
   ctx.fillStyle='#bf360c';ctx.beginPath();ctx.roundRect(car.x,car.y,car.w,car.h,5);ctx.fill();
