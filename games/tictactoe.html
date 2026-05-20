@@ -7,33 +7,28 @@ body{background:#1a1a2e}
 .cell:hover{background:#1e2a4a}
 .cell.x{color:#ef9a9a}.cell.o{color:#90caf9}
 #ui{text-align:center;padding:12px;font-size:1.1rem;font-weight:700;color:#eee}
-#mode{display:flex;gap:10px;justify-content:center;margin-bottom:10px}
-#mode button{padding:7px 18px;border-radius:20px;border:none;cursor:pointer;font-weight:600}
-#mode button.active{background:#e94560;color:#fff}
-#mode button:not(.active){background:#16213e;color:#aaa}
 </style></head><body>
 <div class="game-page">
   <a href="../index.html" class="back-btn">← Back</a>
   <div class="game-title">Tic Tac Toe</div>
   <div class="game-frame" style="padding:20px">
-    <div id="mode">
-      <button class="active" id="btn2p" onclick="setMode(false)">2 Players</button>
-      <button id="btnAI" onclick="setMode(true)">vs AI</button>
-    </div>
-    <div id="ui">X's turn</div>
+    <div id="ui">Your turn (X)</div>
     <div id="board"></div>
     <button onclick="reset()" style="margin-top:14px;padding:8px 24px;background:#e94560;border:none;border-radius:20px;color:#fff;cursor:pointer;font-size:1rem">New Game</button>
   </div>
-  <div class="game-instructions">Play vs a friend or vs the unbeatable AI. Get 3 in a row to win!</div>
+  <div class="game-instructions">You are X, AI is O. Get 3 in a row to win!</div>
 </div>
 <script>
-let board,turn,over,vsAI=false;
+let board,over;
 const WINS=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
 
-function setMode(ai){vsAI=ai;document.getElementById('btn2p').className=ai?'':'active';document.getElementById('btnAI').className=ai?'active':'';reset();}
-function reset(){board=Array(9).fill('');turn='X';over=false;render();}
+function reset(){board=Array(9).fill('');over=false;render();}
 
-function check(b){for(const w of WINS)if(b[w[0]]&&b[w[0]]===b[w[1]]&&b[w[0]]===b[w[2]])return b[w[0]];if(b.every(c=>c))return 'draw';return null;}
+function check(b){
+  for(const w of WINS)if(b[w[0]]&&b[w[0]]===b[w[1]]&&b[w[0]]===b[w[2]])return b[w[0]];
+  if(b.every(c=>c))return 'draw';
+  return null;
+}
 
 function minimax(b,isMax){
   const r=check(b);
@@ -42,28 +37,36 @@ function minimax(b,isMax){
   b.forEach((v,i)=>{if(!v){const nb=[...b];nb[i]=isMax?'O':'X';scores.push(minimax(nb,!isMax));}});
   return isMax?Math.max(...scores):Math.min(...scores);
 }
+
 function bestMove(){
   let best=-Infinity,move=0;
   board.forEach((v,i)=>{if(!v){const nb=[...board];nb[i]='O';const s=minimax(nb,false);if(s>best){best=s;move=i;}}});
   return move;
 }
 
-function click(i){
+function cellClick(i){
   if(over||board[i])return;
-  board[i]=turn;
+  board[i]='X';
   const r=check(board);
   if(r){over=true;render(r);return;}
-  turn=turn==='X'?'O':'X';
   render();
-  if(vsAI&&turn==='O'&&!over)setTimeout(()=>{board[bestMove()]='O';const r2=check(board);if(r2){over=true;render(r2);return;}turn='X';render();},350);
+  setTimeout(()=>{
+    board[bestMove()]='O';
+    const r2=check(board);
+    if(r2){over=true;render(r2);return;}
+    render();
+  },350);
 }
 
 function render(result){
-  document.getElementById('board').innerHTML=board.map((v,i)=>`<div class="cell ${v.toLowerCase()}" onclick="click(${i})">${v==='X'?'✕':v==='O'?'○':''}</div>`).join('');
+  document.getElementById('board').innerHTML=board.map((v,i)=>
+    `<div class="cell ${v.toLowerCase()}" onclick="cellClick(${i})">${v==='X'?'✕':v==='O'?'○':''}</div>`
+  ).join('');
   const ui=document.getElementById('ui');
   if(result==='draw')ui.textContent="It's a draw! 🤝";
-  else if(result)ui.textContent=`${result} wins! 🎉`;
-  else ui.textContent=`${turn}'s turn`;
+  else if(result==='X')ui.textContent='You win! 🎉';
+  else if(result==='O')ui.textContent='AI wins! 🤖';
+  else ui.textContent='Your turn (X)';
 }
 reset();
 </script></body></html>
