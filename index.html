@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MiniArcade – 50 Free Games</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header>
+  <h1>Mini<span>Arcade</span></h1>
+  <input id="search-bar" type="text" placeholder="Search games…" oninput="filterGames()">
+</header>
+
+<div class="categories">
+  <button class="cat-btn active" onclick="filterCat('all',this)">All Games</button>
+  <button class="cat-btn" onclick="filterCat('arcade',this)">Arcade</button>
+  <button class="cat-btn" onclick="filterCat('puzzle',this)">Puzzle</button>
+  <button class="cat-btn" onclick="filterCat('action',this)">Action</button>
+  <button class="cat-btn" onclick="filterCat('racing',this)">Racing</button>
+  <button class="cat-btn" onclick="filterCat('sports',this)">Sports</button>
+  <button class="cat-btn" onclick="filterCat('skill',this)">Skill</button>
+</div>
+
+<div class="section-title">🎮 All Games</div>
+
+<div class="games-grid" id="games-grid"></div>
+
+<footer>MiniArcade &copy; 2025 – 50 Free Browser Games</footer>
+
+<script>
+const GAMES = [
+  { id:'dino',        name:'Dino Run',         tag:'arcade', emoji:'🦕', c1:'#2d5a27',c2:'#7ec850' },
+  { id:'flappy',      name:'Flappy Bird',       tag:'arcade', emoji:'🐦', c1:'#1a6db5',c2:'#56cfe1' },
+  { id:'snake',       name:'Snake',             tag:'arcade', emoji:'🐍', c1:'#155724',c2:'#28a745' },
+  { id:'tetris',      name:'Tetris',            tag:'puzzle', emoji:'🟦', c1:'#0d47a1',c2:'#42a5f5' },
+  { id:'breakout',    name:'Breakout',          tag:'arcade', emoji:'🧱', c1:'#6a0572',c2:'#e040fb' },
+  { id:'pong',        name:'Pong',              tag:'sports', emoji:'🏓', c1:'#1b2838',c2:'#66c0f4' },
+  { id:'minesweeper', name:'Minesweeper',       tag:'puzzle', emoji:'💣', c1:'#424242',c2:'#9e9e9e' },
+  { id:'2048',        name:'2048',              tag:'puzzle', emoji:'🔢', c1:'#f57c00',c2:'#ffcc02' },
+  { id:'memory',      name:'Memory Match',      tag:'puzzle', emoji:'🃏', c1:'#4a148c',c2:'#ce93d8' },
+  { id:'tictactoe',   name:'Tic Tac Toe',       tag:'puzzle', emoji:'❌', c1:'#b71c1c',c2:'#ef9a9a' },
+  { id:'dodge',       name:'Dodge Blitz',       tag:'action', emoji:'⚡', c1:'#e65100',c2:'#ffb74d' },
+  { id:'asteroids',   name:'Asteroids',         tag:'action', emoji:'☄️', c1:'#0d0d2b',c2:'#4fc3f7' },
+  { id:'platformer',  name:'Pixel Platformer',  tag:'action', emoji:'🏃', c1:'#1b5e20',c2:'#aed581' },
+  { id:'shooter',     name:'Space Shooter',     tag:'action', emoji:'🚀', c1:'#0a0a1a',c2:'#7c4dff' },
+  { id:'racer',       name:'Top-Down Racer',    tag:'racing', emoji:'🏎️', c1:'#880e4f',c2:'#f48fb1' },
+  { id:'jumper',      name:'High Jumper',       tag:'skill',  emoji:'🤸', c1:'#006064',c2:'#4dd0e1' },
+  { id:'catching',    name:'Fruit Catch',       tag:'skill',  emoji:'🍎', c1:'#4e342e',c2:'#ff7043' },
+  { id:'whackamole',  name:'Whack-a-Mole',      tag:'arcade', emoji:'🔨', c1:'#33691e',c2:'#cddc39' },
+  { id:'typing',      name:'Type Rush',         tag:'skill',  emoji:'⌨️', c1:'#01579b',c2:'#81d4fa' },
+  { id:'simon',       name:'Simon Says',        tag:'puzzle', emoji:'🔵', c1:'#1a237e',c2:'#7986cb' },
+  { id:'reaction',    name:'Reaction Test',     tag:'skill',  emoji:'⏱️', c1:'#37474f',c2:'#90a4ae' },
+  { id:'clicker',     name:'Cookie Clicker',    tag:'arcade', emoji:'🍪', c1:'#5d4037',c2:'#a1887f' },
+  { id:'maze',        name:'Maze Runner',       tag:'puzzle', emoji:'🌀', c1:'#263238',c2:'#78909c' },
+  { id:'gravity',     name:'Gravity Flip',      tag:'skill',  emoji:'🌐', c1:'#4527a0',c2:'#9575cd' },
+  { id:'pinball',     name:'Pinball',           tag:'arcade', emoji:'🔵', c1:'#b71c1c',c2:'#ef5350' },
+  { id:'bubble',      name:'Bubble Shooter',    tag:'puzzle', emoji:'🫧', c1:'#006064',c2:'#26c6da' },
+  { id:'slingshot',   name:'Slingshot',         tag:'skill',  emoji:'🎯', c1:'#3e2723',c2:'#8d6e63' },
+  { id:'connect4',    name:'Connect Four',      tag:'puzzle', emoji:'🔴', c1:'#e65100',c2:'#ffb300' },
+  { id:'wordjump',    name:'Word Jump',         tag:'puzzle', emoji:'🔤', c1:'#1565c0',c2:'#64b5f6' },
+  { id:'ballbounce',  name:'Ball Bounce',       tag:'skill',  emoji:'⚽', c1:'#2e7d32',c2:'#81c784' },
+  { id:'colorflood',  name:'Color Flood',       tag:'puzzle', emoji:'🎨', c1:'#ad1457',c2:'#f48fb1' },
+  { id:'icebreak',    name:'Ice Breaker',       tag:'action', emoji:'❄️', c1:'#0277bd',c2:'#b3e5fc' },
+  { id:'stackfall',   name:'Stack Fall',        tag:'skill',  emoji:'📦', c1:'#4e342e',c2:'#ff8a65' },
+  { id:'crossword',   name:'Number Cross',      tag:'puzzle', emoji:'#️⃣', c1:'#1a237e',c2:'#9fa8da' },
+  { id:'lander',      name:'Moon Lander',       tag:'skill',  emoji:'🌕', c1:'#090916',c2:'#ffe082' },
+  { id:'brickroad',   name:'Brick Road',        tag:'racing', emoji:'🧱', c1:'#bf360c',c2:'#ff8a65' },
+  { id:'swords',      name:'Sword Duel',        tag:'action', emoji:'⚔️', c1:'#37474f',c2:'#cfd8dc' },
+  { id:'archery',     name:'Archery',           tag:'sports', emoji:'🏹', c1:'#1b5e20',c2:'#c8e6c9' },
+  { id:'slots',       name:'Lucky Slots',       tag:'arcade', emoji:'🎰', c1:'#6a1b9a',c2:'#ce93d8' },
+  { id:'fishing',     name:'Pixel Fishing',     tag:'skill',  emoji:'🎣', c1:'#0d47a1',c2:'#64b5f6' },
+  { id:'hovercraft',  name:'Hovercraft',        tag:'racing', emoji:'🛸', c1:'#006064',c2:'#80deea' },
+  { id:'cannon',      name:'Cannon Ball',       tag:'skill',  emoji:'💥', c1:'#b71c1c',c2:'#ff8a80' },
+  { id:'chess',       name:'Mini Chess',        tag:'puzzle', emoji:'♟️', c1:'#3e2723',c2:'#d7ccc8' },
+  { id:'soccer',      name:'Penalty Kick',      tag:'sports', emoji:'⚽', c1:'#2e7d32',c2:'#a5d6a7' },
+  { id:'jetpack',     name:'Jetpack Rider',     tag:'action', emoji:'🚀', c1:'#0a0a2e',c2:'#ff6e40' },
+  { id:'birdfly',     name:'Bird Fly',          tag:'arcade', emoji:'🦅', c1:'#01579b',c2:'#87ceeb' },
+  { id:'numguess',    name:'Number Guess',      tag:'puzzle', emoji:'🔍', c1:'#4a148c',c2:'#ba68c8' },
+  { id:'blockslide',  name:'Block Slide',       tag:'puzzle', emoji:'🔲', c1:'#1b2838',c2:'#66c0f4' },
+  { id:'ballpit',     name:'Ball Pit',          tag:'arcade', emoji:'🎱', c1:'#880e4f',c2:'#f48fb1' },
+  { id:'knifecut',    name:'Knife Smash',       tag:'skill',  emoji:'🔪', c1:'#bf360c',c2:'#ffcc80' },
+];
+
+let currentCat = 'all';
+
+function renderGames(list) {
+  const grid = document.getElementById('games-grid');
+  grid.innerHTML = list.map(g => `
+    <a class="game-card" href="games/${g.id}.html" style="--c1:${g.c1};--c2:${g.c2}">
+      <div class="thumb">${g.emoji}</div>
+      <div class="info">
+        <div class="name">${g.name}</div>
+        <div class="tag">${g.tag}</div>
+      </div>
+    </a>`).join('');
+}
+
+function filterGames() {
+  const q = document.getElementById('search-bar').value.toLowerCase();
+  const list = GAMES.filter(g =>
+    (currentCat === 'all' || g.tag === currentCat) &&
+    g.name.toLowerCase().includes(q)
+  );
+  renderGames(list);
+}
+
+function filterCat(cat, btn) {
+  currentCat = cat;
+  document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  filterGames();
+}
+
+renderGames(GAMES);
+</script>
+</body>
+</html>

@@ -1,0 +1,96 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Slingshot</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>body{background:#1a1a2e}#c{display:block;border-radius:8px;margin:0 auto}#ui{color:#8d6e63;text-align:center;padding:8px;font-size:1.1rem;font-weight:700}</style>
+</head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Slingshot</div>
+  <div class="game-frame" style="padding:10px">
+    <div id="ui">Score: 0 | Shots: 5</div>
+    <canvas id="c" width="600" height="420"></canvas>
+  </div>
+  <div class="game-instructions">Drag from the slingshot to aim, release to shoot! Hit all the targets.</div>
+</div>
+<script>
+const c=document.getElementById('c'),ctx=c.getContext('2d');
+const SLING={x:80,y:340};
+let dragging,dragX,dragY,projectile,targets,shots,score,state,frame;
+
+function start(){
+  dragging=false;projectile=null;shots=5;score=0;state='play';frame=0;
+  targets=Array.from({length:6},()=>({x:300+Math.random()*260,y:80+Math.random()*200,r:18+Math.random()*10,hp:1,vx:(Math.random()-.5)*1.5,color:`hsl(${Math.random()*360},70%,55%)`}));
+}
+
+function getMousePos(e){const rect=c.getBoundingClientRect();return{x:(e.clientX-rect.left)*600/rect.width,y:(e.clientY-rect.top)*420/rect.height};}
+function getTouchPos(e){const rect=c.getBoundingClientRect();return{x:(e.touches[0].clientX-rect.left)*600/rect.width,y:(e.touches[0].clientY-rect.top)*420/rect.height};}
+
+function startDrag(x,y){if(state!=='play'||projectile)return;const d=Math.hypot(x-SLING.x,y-SLING.y);if(d<60){dragging=true;dragX=x;dragY=y;}}
+function endDrag(){
+  if(!dragging)return;dragging=false;
+  const dx=SLING.x-dragX,dy=SLING.y-dragY;
+  const spd=Math.hypot(dx,dy)/8;
+  projectile={x:SLING.x,y:SLING.y,vx:dx/8,vy:dy/8,r:10,trail:[]};shots--;
+}
+
+c.addEventListener('mousedown',e=>{const p=getMousePos(e);if(state!=='play'){start();return;}startDrag(p.x,p.y);});
+c.addEventListener('mousemove',e=>{if(dragging){const p=getMousePos(e);dragX=p.x;dragY=p.y;}});
+document.addEventListener('mouseup',endDrag);
+c.addEventListener('touchstart',e=>{e.preventDefault();const p=getTouchPos(e);if(state!=='play'){start();return;}startDrag(p.x,p.y);},{passive:false});
+c.addEventListener('touchmove',e=>{e.preventDefault();if(dragging){const p=getTouchPos(e);dragX=p.x;dragY=p.y;}},{passive:false});
+c.addEventListener('touchend',endDrag,{passive:true});
+
+function loop(){
+  const sky=ctx.createLinearGradient(0,0,0,420);sky.addColorStop(0,'#1a237e');sky.addColorStop(1,'#283593');
+  ctx.fillStyle=sky;ctx.fillRect(0,0,600,420);
+  // Ground
+  ctx.fillStyle='#5d4037';ctx.fillRect(0,370,600,50);ctx.fillStyle='#388e3c';ctx.fillRect(0,366,600,8);
+
+  frame++;
+  targets.forEach(t=>{t.x+=t.vx;if(t.x<200||t.x>580)t.vx*=-1;
+    ctx.fillStyle=t.color;ctx.beginPath();ctx.arc(t.x,t.y,t.r,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,.25)';ctx.beginPath();ctx.arc(t.x-t.r*.3,t.y-t.r*.3,t.r*.35,0,Math.PI*2);ctx.fill();
+  });
+
+  if(projectile){
+    projectile.vx*=.995;projectile.vy+=0.25;
+    projectile.x+=projectile.vx;projectile.y+=projectile.vy;
+    projectile.trail.push({x:projectile.x,y:projectile.y});if(projectile.trail.length>12)projectile.trail.shift();
+    projectile.trail.forEach((pt,i)=>{ctx.fillStyle=`rgba(255,180,50,${i/projectile.trail.length*.5})`;ctx.beginPath();ctx.arc(pt.x,pt.y,4*(i/projectile.trail.length),0,Math.PI*2);ctx.fill();});
+    ctx.fillStyle='#8d6e63';ctx.beginPath();ctx.arc(projectile.x,projectile.y,projectile.r,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#bcaaa4';ctx.beginPath();ctx.arc(projectile.x-3,projectile.y-3,4,0,Math.PI*2);ctx.fill();
+
+    targets=targets.filter(t=>{if(Math.hypot(projectile.x-t.x,projectile.y-t.y)<projectile.r+t.r){score+=20;projectile=null;return false;}return true;});
+    if(projectile&&(projectile.y>390||projectile.x>620))projectile=null;
+    if(projectile===null&&shots===0&&targets.length>0)setTimeout(()=>state='over',600);
+    if(targets.length===0){score+=shots*15;state='win';}
+  }
+
+  // Slingshot
+  ctx.fillStyle='#8d6e63';ctx.fillRect(SLING.x-4,SLING.y-40,8,44);
+  ctx.strokeStyle='#6d4c41';ctx.lineWidth=4;
+  ctx.beginPath();ctx.moveTo(SLING.x-4,SLING.y-40);ctx.lineTo(SLING.x-18,SLING.y-60);ctx.moveTo(SLING.x+4,SLING.y-40);ctx.lineTo(SLING.x+18,SLING.y-60);ctx.stroke();
+
+  if(dragging){
+    const dx=Math.min(50,Math.max(-50,dragX-SLING.x));const dy=Math.min(50,Math.max(-50,dragY-SLING.y));
+    ctx.strokeStyle='#8d6e63';ctx.lineWidth=2;
+    ctx.beginPath();ctx.moveTo(SLING.x-18,SLING.y-60);ctx.lineTo(SLING.x+dx,SLING.y+dy);ctx.lineTo(SLING.x+18,SLING.y-60);ctx.stroke();
+    ctx.fillStyle='#8d6e63';ctx.beginPath();ctx.arc(SLING.x+dx,SLING.y+dy,10,0,Math.PI*2);ctx.fill();
+    // Trajectory preview
+    let px=SLING.x,py=SLING.y,pvx=(SLING.x-dragX)/8,pvy=(SLING.y-dragY)/8;
+    ctx.strokeStyle='rgba(255,255,255,.2)';ctx.setLineDash([4,8]);ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(px,py);
+    for(let i=0;i<25;i++){pvx*=.995;pvy+=.25;px+=pvx;py+=pvy;ctx.lineTo(px,py);}ctx.stroke();ctx.setLineDash([]);
+  }
+
+  if(shots>0&&!projectile&&!dragging&&state==='play'){ctx.fillStyle='rgba(255,255,255,.4)';ctx.font='13px Arial';ctx.textAlign='center';ctx.fillText('Drag from slingshot to shoot',240,400);}
+
+  if(state!=='play'){
+    ctx.fillStyle='rgba(0,0,0,.6)';ctx.fillRect(0,0,600,420);
+    ctx.fillStyle='#8d6e63';ctx.font='bold 32px Arial';ctx.textAlign='center';ctx.fillText(state==='win'?'All Hit! 🎯':'Out of shots!',300,180);
+    ctx.fillStyle='#fff';ctx.font='20px Arial';ctx.fillText(`Score: ${score}`,300,220);ctx.fillText('Click to retry',300,258);
+  }
+
+  document.getElementById('ui').textContent=`Score: ${score} | Shots: ${shots}`;
+  requestAnimationFrame(loop);
+}
+start();loop();
+</script></body></html>

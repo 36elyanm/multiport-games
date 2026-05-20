@@ -1,0 +1,87 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Jetpack Rider</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>body{background:#0a0a2e}#c{display:block;border-radius:8px}#ui{color:#ff6e40;text-align:center;padding:8px;font-size:1.1rem;font-weight:700}</style>
+</head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Jetpack Rider</div>
+  <div class="game-frame">
+    <div id="ui">Distance: 0m</div>
+    <canvas id="c" width="560" height="320"></canvas>
+  </div>
+  <div class="game-instructions">Hold <b>Space</b>, click, or tap to fire the jetpack. Avoid zap barriers!</div>
+</div>
+<script>
+const c=document.getElementById('c'),ctx=c.getContext('2d');
+let player,barriers,coins,dist,alive,held,frame,spd,hi=0;
+
+function start(){player={x:80,y:160,vy:0,w:32,h:36};barriers=[];coins=[];dist=0;alive=true;held=false;frame=0;spd=4;}
+
+let pressing=false;
+document.addEventListener('keydown',e=>{if(e.code==='Space'){e.preventDefault();pressing=true;}if(!alive&&e.code==='Space')start();});
+document.addEventListener('keyup',e=>{if(e.code==='Space')pressing=false;});
+c.addEventListener('mousedown',()=>pressing=true);
+document.addEventListener('mouseup',()=>pressing=false);
+c.addEventListener('touchstart',e=>{e.preventDefault();pressing=true;if(!alive)start();},{passive:false});
+document.addEventListener('touchend',()=>pressing=false);
+
+function spawnBarrier(){
+  const gapH=90+Math.random()*50;
+  const gapY=30+Math.random()*(c.height-gapH-60);
+  barriers.push({x:c.width,gapY,gapH,w:28});
+}
+
+const stars=Array.from({length:60},()=>({x:Math.random()*c.width,y:Math.random()*c.height,r:Math.random()*1.5+.3,sp:Math.random()*.5+.3}));
+
+function loop(){
+  ctx.fillStyle='#050518';ctx.fillRect(0,0,c.width,c.height);
+  // Stars
+  ctx.fillStyle='rgba(255,255,255,.6)';stars.forEach(s=>{s.x-=s.sp;if(s.x<0)s.x=c.width;ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);ctx.fill();});
+  // Ground/ceiling
+  ctx.fillStyle='#1a1a4a';ctx.fillRect(0,0,c.width,10);ctx.fillRect(0,c.height-10,c.width,10);
+
+  if(!alive){
+    ctx.fillStyle='rgba(0,0,0,.6)';ctx.fillRect(0,0,c.width,c.height);
+    ctx.fillStyle='#ff6e40';ctx.font='bold 32px Arial';ctx.textAlign='center';ctx.fillText('ZAPPED!',c.width/2,140);
+    ctx.fillStyle='#fff';ctx.font='18px Arial';ctx.fillText(`${dist}m  Best: ${hi}m`,c.width/2,175);ctx.fillText('Click/Space',c.width/2,205);
+    requestAnimationFrame(loop);return;
+  }
+
+  frame++;dist++;spd=4+dist/500;
+  if(dist>hi)hi=dist;
+
+  player.vy+=pressing?-0.6:0.45;
+  player.vy=Math.max(-8,Math.min(8,player.vy));
+  player.y+=player.vy;
+
+  if(player.y<10){player.y=10;player.vy=0;}
+  if(player.y+player.h>c.height-10){player.y=c.height-10-player.h;player.vy=0;}
+
+  if(frame%120===0)spawnBarrier();
+  barriers=barriers.filter(b=>b.x>-40);
+  barriers.forEach(b=>{b.x-=spd;
+    // Draw zap barriers
+    ctx.fillStyle='#ff1744';ctx.shadowBlur=15;ctx.shadowColor='#ff1744';
+    ctx.fillRect(b.x,0,b.w,b.gapY);ctx.fillRect(b.x,b.gapY+b.gapH,b.w,c.height-(b.gapY+b.gapH));ctx.shadowBlur=0;
+    // Zap sparks
+    if(frame%4<2){ctx.fillStyle='#fff';ctx.fillRect(b.x+b.w/2-2,b.gapY-6,4,10);ctx.fillRect(b.x+b.w/2-2,b.gapY+b.gapH-4,4,10);}
+    if(player.x+player.w>b.x&&player.x<b.x+b.w&&(player.y<b.gapY||player.y+player.h>b.gapY+b.gapH))alive=false;
+  });
+
+  // Jetpack flame
+  if(pressing){
+    ctx.fillStyle='#ff9800';ctx.beginPath();ctx.moveTo(player.x-2,player.y+10);ctx.lineTo(player.x-12,player.y+player.h/2+(Math.random()-0.5)*12);ctx.lineTo(player.x-2,player.y+player.h-10);ctx.fill();
+    ctx.fillStyle='#ffeb3b';ctx.beginPath();ctx.moveTo(player.x-2,player.y+14);ctx.lineTo(player.x-8,player.y+player.h/2);ctx.lineTo(player.x-2,player.y+player.h-14);ctx.fill();
+  }
+
+  // Player (astronaut)
+  ctx.fillStyle='#7c4dff';ctx.beginPath();ctx.roundRect(player.x,player.y,player.w,player.h,6);ctx.fill();
+  // Visor
+  ctx.fillStyle='#80d8ff';ctx.beginPath();ctx.ellipse(player.x+player.w-10,player.y+player.h/2,8,10,0,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='rgba(255,255,255,.3)';ctx.beginPath();ctx.ellipse(player.x+player.w-14,player.y+player.h/2-3,3,4,-.3,0,Math.PI*2);ctx.fill();
+
+  document.getElementById('ui').textContent=`Distance: ${dist}m | Best: ${hi}m`;
+  requestAnimationFrame(loop);
+}
+start();loop();
+</script></body></html>

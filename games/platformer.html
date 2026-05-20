@@ -1,0 +1,144 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Pixel Platformer</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>body{background:#1a1a2e}#c{display:block;border-radius:8px}#ui{color:#aed581;font-size:1.1rem;font-weight:700;text-align:center;padding:8px}</style>
+</head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Pixel Platformer</div>
+  <div class="game-frame">
+    <div id="ui">Score: 0 | Lives: 3</div>
+    <canvas id="c" width="640" height="400"></canvas>
+  </div>
+  <div class="game-instructions"><b>←→</b> move, <b>↑ / Space</b> jump (double-jump ok). Collect coins, avoid enemies!</div>
+</div>
+<script>
+const c=document.getElementById('c'),ctx=c.getContext('2d');
+const TILE=32,GRAV=0.6;
+let player,platforms,coins,enemies,score,lives,cameraX,state,keys={};
+
+function makeLevel(){
+  platforms=[
+    {x:0,y:368,w:1280,h:32},{x:200,y:280,w:120,h:16},{x:400,y:220,w:120,h:16},
+    {x:600,y:160,w:120,h:16},{x:800,y:220,w:120,h:16},{x:1000,y:280,w:120,h:16},
+    {x:1100,y:180,w:120,h:16},{x:50,y:200,w:100,h:16},{x:320,y:320,w:80,h:16},
+    {x:720,y:310,w:100,h:16},
+  ];
+  coins=[[240,250],[310,250],[450,190],[510,190],[650,130],[710,130],[850,190],[920,190],
+         [1050,250],[1150,150],[80,170],[100,170],[120,170]].map(([x,y])=>({x,y,r:8,taken:false}));
+  enemies=[
+    {x:250,y:248,w:28,h:28,vx:1.5,dir:1,floor:248},
+    {x:620,y:128,w:28,h:28,vx:2,dir:1,floor:128},
+    {x:1010,y:248,w:28,h:28,vx:1.5,dir:-1,floor:248},
+  ];
+}
+
+function start(){
+  player={x:60,y:300,w:24,h:32,vx:0,vy:0,jumps:0,frame:0,dir:1,onGround:false};
+  score=0;lives=3;cameraX=0;state='play';
+  makeLevel();
+}
+
+document.addEventListener('keydown',e=>{
+  keys[e.code]=true;
+  if((e.code==='ArrowUp'||e.code==='Space')&&player.jumps<2){e.preventDefault();player.vy=-13+player.jumps;player.jumps++;player.onGround=false;}
+  if(state!=='play'&&e.code==='Enter')start();
+});
+document.addEventListener('keyup',e=>keys[e.code]=false);
+c.addEventListener('click',()=>{if(state!=='play')start();});
+
+// Touch
+let touchStartX=0;
+c.addEventListener('touchstart',e=>{
+  touchStartX=e.touches[0].clientX;
+  if(state!=='play'){start();return;}
+  // Jump on tap right side
+  const rect=c.getBoundingClientRect();
+  if(e.touches[0].clientX-rect.left>c.clientWidth/2&&player.jumps<2){player.vy=-13+player.jumps;player.jumps++;player.onGround=false;}
+},{passive:true});
+
+function aabb(a,b){return a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y;}
+
+function loop(){
+  if(state!=='play'){
+    ctx.fillStyle='#1b5e20';ctx.fillRect(0,0,c.width,c.height);
+    ctx.fillStyle=state==='win'?'#aed581':'#ff5252';ctx.font='bold 36px Arial';ctx.textAlign='center';
+    ctx.fillText(state==='win'?'YOU WIN! 🎉':'GAME OVER',320,180);
+    ctx.fillStyle='#fff';ctx.font='20px Arial';ctx.fillText(`Score: ${score}`,320,225);ctx.fillText('Click/Enter to restart',320,260);
+    requestAnimationFrame(loop);return;
+  }
+
+  // Input
+  if(keys['ArrowLeft']||keys['KeyA']){player.vx=-4;player.dir=-1;}
+  else if(keys['ArrowRight']||keys['KeyD']){player.vx=4;player.dir=1;}
+  else player.vx*=.7;
+
+  player.vy+=GRAV;
+  player.x+=player.vx;player.y+=player.vy;
+  player.onGround=false;
+
+  for(const p of platforms){
+    if(aabb(player,p)){
+      if(player.vy>0&&player.y+player.h-player.vy<=p.y+4){player.y=p.y-player.h;player.vy=0;player.onGround=true;player.jumps=0;}
+      else if(player.vy<0&&player.y-player.vy>=p.y+p.h-4){player.y=p.y+p.h;player.vy=0;}
+      else if(player.vx>0){player.x=p.x-player.w;}
+      else if(player.vx<0){player.x=p.x+p.w;}
+    }
+  }
+
+  if(player.y>430){lives--;if(lives<=0)state='over';else{player.x=60;player.y=300;player.vx=player.vy=0;}}
+
+  // Enemies
+  enemies.forEach(e=>{
+    e.x+=e.vx;if(e.x<50||e.x>c.width*2-100){e.vx*=-1;}
+    if(aabb(player,{x:e.x,y:e.y,...e})){
+      if(player.vy>0&&player.y+player.h<e.y+20){score+=50;e.x=-999;}
+      else{lives--;if(lives<=0)state='over';else{player.x=60;player.y=300;player.vx=player.vy=0;}}
+    }
+  });
+
+  // Coins
+  coins.forEach(co=>{
+    if(!co.taken&&Math.hypot(player.x+player.w/2-co.x,player.y+player.h/2-co.y)<co.r+14){co.taken=true;score+=10;}
+  });
+  if(coins.every(co=>co.taken))state='win';
+
+  cameraX=Math.max(0,player.x-200);
+  player.frame++;
+
+  // Draw
+  const sky=ctx.createLinearGradient(0,0,0,c.height);
+  sky.addColorStop(0,'#1b5e20');sky.addColorStop(1,'#2e7d32');
+  ctx.fillStyle=sky;ctx.fillRect(0,0,c.width,c.height);
+  ctx.save();ctx.translate(-cameraX,0);
+
+  platforms.forEach(p=>{
+    ctx.fillStyle='#5d4037';ctx.fillRect(p.x,p.y,p.w,p.h);
+    ctx.fillStyle='#8bc34a';ctx.fillRect(p.x,p.y,p.w,8);
+  });
+
+  coins.forEach(co=>{
+    if(co.taken)return;
+    ctx.fillStyle='#ffeb3b';ctx.shadowBlur=8;ctx.shadowColor='#ffeb3b';
+    ctx.beginPath();ctx.arc(co.x,co.y,co.r,0,Math.PI*2);ctx.fill();
+    ctx.shadowBlur=0;
+  });
+
+  enemies.forEach(e=>{
+    if(e.x<-100)return;
+    ctx.fillStyle='#f44336';ctx.fillRect(e.x,e.y,e.w,e.h);
+    ctx.fillStyle='#fff';ctx.fillRect(e.x+(e.vx>0?16:4),e.y+6,6,6);
+  });
+
+  // Player
+  ctx.fillStyle='#4caf50';ctx.fillRect(player.x,player.y,player.w,player.h);
+  ctx.fillStyle='#fff';ctx.fillRect(player.x+(player.dir>0?14:4),player.y+6,6,7);
+  ctx.fillStyle='#1b5e20';ctx.fillRect(player.x+(player.dir>0?16:6),player.y+9,3,4);
+  const legOff=player.onGround?Math.floor(player.frame/6)%2===0?0:4:0;
+  ctx.fillStyle='#388e3c';ctx.fillRect(player.x+2,player.y+player.h,8,8+legOff);ctx.fillRect(player.x+player.w-10,player.y+player.h,8,8+(4-legOff));
+
+  ctx.restore();
+  document.getElementById('ui').textContent=`Score: ${score} | Lives: ${'❤️'.repeat(lives)}`;
+  requestAnimationFrame(loop);
+}
+start();loop();
+</script></body></html>

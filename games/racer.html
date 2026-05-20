@@ -1,0 +1,98 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Top-Down Racer</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>body{background:#1a1a2e}#c{display:block;border-radius:8px}#ui{color:#f48fb1;font-size:1.1rem;font-weight:700;text-align:center;padding:8px}</style>
+</head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Top-Down Racer</div>
+  <div class="game-frame">
+    <div id="ui">Score: 0 | Speed: 0</div>
+    <canvas id="c" width="480" height="560"></canvas>
+  </div>
+  <div class="game-instructions"><b>←→ or A/D</b> steer. <b>↑ or W</b> accelerate. Dodge traffic and survive!</div>
+</div>
+<script>
+const c=document.getElementById('c'),ctx=c.getContext('2d');
+const ROAD_LEFT=60,ROAD_RIGHT=420,ROAD_W=360,LANE_W=90;
+let player,cars,score,speed,alive,frame,keys={},lineY=0;
+
+const CAR_COLORS=['#f44336','#2196f3','#4caf50','#ff9800','#9c27b0','#00bcd4'];
+
+function start(){
+  player={x:220,y:480,w:36,h:56,vx:0};cars=[];score=0;speed=3;alive=true;frame=0;
+}
+
+document.addEventListener('keydown',e=>keys[e.code]=true);
+document.addEventListener('keyup',e=>keys[e.code]=false);
+c.addEventListener('click',()=>{if(!alive)start();});
+
+let touchX=null;
+c.addEventListener('touchmove',e=>{e.preventDefault();const rect=c.getBoundingClientRect();touchX=(e.touches[0].clientX-rect.left)*c.width/rect.width;},{passive:false});
+c.addEventListener('touchstart',e=>{if(!alive){start();return;}const rect=c.getBoundingClientRect();touchX=(e.touches[0].clientX-rect.left)*c.width/rect.width;},{passive:true});
+
+function spawnCar(){
+  const lane=Math.floor(Math.random()*4);
+  const x=ROAD_LEFT+lane*LANE_W+LANE_W/2-18;
+  if(cars.some(car=>car.x===x&&car.y<-80))return;
+  cars.push({x,y:-60,w:36,h:56,color:CAR_COLORS[Math.floor(Math.random()*CAR_COLORS.length)],speed:speed*.5+Math.random()*speed*.4});
+}
+
+function drawCar(car,isPlayer){
+  const {x,y,w,h,color}=car;
+  ctx.fillStyle=color||'#e94560';ctx.beginPath();ctx.roundRect(x,y,w,h,6);ctx.fill();
+  // Windshield
+  ctx.fillStyle='rgba(173,216,230,.7)';ctx.fillRect(x+5,y+(isPlayer?h*.6:h*.1),w-10,h*.2);
+  // Wheels
+  ctx.fillStyle='#222';
+  [[x-3,y+8],[x+w-3,y+8],[x-3,y+h-18],[x+w-3,y+h-18]].forEach(([wx,wy])=>ctx.fillRect(wx,wy,6,12));
+  // Headlights
+  ctx.fillStyle=isPlayer?'#fffde7':'#ff5722';
+  ctx.fillRect(x+4,isPlayer?y+h-8:y+1,6,5);ctx.fillRect(x+w-10,isPlayer?y+h-8:y+1,6,5);
+}
+
+function loop(){
+  if(!alive){
+    ctx.fillStyle='#1a1a2e';ctx.fillRect(0,0,c.width,c.height);
+    ctx.fillStyle='#f48fb1';ctx.font='bold 36px Arial';ctx.textAlign='center';ctx.fillText('CRASH!',240,230);
+    ctx.fillStyle='#fff';ctx.font='20px Arial';ctx.fillText(`Score: ${score}`,240,275);ctx.fillText('Click to restart',240,310);
+    requestAnimationFrame(loop);return;
+  }
+
+  frame++;score++;speed=3+score/400;
+
+  // Input
+  if(touchX!==null)player.vx+=(touchX-player.x-player.w/2)*.08;
+  if(keys['ArrowLeft']||keys['KeyA'])player.vx=-4;
+  else if(keys['ArrowRight']||keys['KeyD'])player.vx=4;
+  else player.vx*=.8;
+  if(keys['ArrowUp']||keys['KeyW'])speed=Math.min(12,speed+.05);
+
+  player.x+=player.vx;
+  player.x=Math.max(ROAD_LEFT,Math.min(ROAD_RIGHT-player.w,player.x));
+
+  // Road
+  ctx.fillStyle='#2e2e2e';ctx.fillRect(ROAD_LEFT,0,ROAD_W,c.height);
+  // Curbs
+  ctx.fillStyle='#e53935';for(let y=-(lineY%40);y<c.height;y+=40){ctx.fillRect(ROAD_LEFT-20,y,20,20);ctx.fillRect(ROAD_RIGHT,y,20,20);}
+  ctx.fillStyle='#fff';for(let y=-(lineY%40);y<c.height;y+=40){ctx.fillRect(ROAD_LEFT-20+20,y+20,20,20);ctx.fillRect(ROAD_RIGHT,y+20,20,20);}
+  // Lane lines
+  ctx.strokeStyle='rgba(255,255,255,.3)';ctx.lineWidth=2;ctx.setLineDash([30,20]);
+  for(let i=1;i<4;i++){const lx=ROAD_LEFT+i*LANE_W;ctx.beginPath();ctx.moveTo(lx,0);ctx.lineTo(lx,c.height);ctx.stroke();}
+  ctx.setLineDash([]);
+  // Grass
+  ctx.fillStyle='#2d5a27';ctx.fillRect(0,0,ROAD_LEFT-20,c.height);ctx.fillRect(ROAD_RIGHT+20,0,c.width-ROAD_RIGHT-20,c.height);
+
+  lineY+=speed;
+
+  if(frame%Math.max(30,80-score/100)===0)spawnCar();
+  cars=cars.filter(car=>car.y<c.height+80);
+  cars.forEach(car=>{car.y+=speed*.7;drawCar(car,false);
+    if(player.x<car.x+car.w&&player.x+player.w>car.x&&player.y<car.y+car.h&&player.y+player.h>car.y)alive=false;
+  });
+
+  drawCar({...player,color:'#e94560'},true);
+  document.getElementById('ui').textContent=`Score: ${score} | Speed: ${speed.toFixed(1)}`;
+  requestAnimationFrame(loop);
+}
+start();loop();
+</script></body></html>

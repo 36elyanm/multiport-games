@@ -1,0 +1,68 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Cookie Clicker</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+body{background:#1a1a2e}
+#cookie{font-size:6rem;cursor:pointer;user-select:none;text-align:center;transition:transform .05s;display:block;margin:0 auto}
+#cookie:active{transform:scale(.9)}
+#ui{color:#a1887f;text-align:center;padding:8px;font-size:1.1rem;font-weight:700}
+.shop{max-width:400px;margin:0 auto}
+.item{display:flex;align-items:center;justify-content:space-between;background:#16213e;border-radius:10px;padding:10px 14px;margin:6px 0;border:1px solid #333}
+.item button{padding:6px 14px;background:#5d4037;border:none;border-radius:8px;color:#fff;cursor:pointer;font-size:.9rem}
+.item button:disabled{opacity:.5}
+.item .desc{font-size:.85rem;color:#888;margin-top:2px}
+</style></head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Cookie Clicker</div>
+  <div class="game-frame" style="padding:16px">
+    <div id="ui">0 cookies (0/sec)</div>
+    <div id="cookie">🍪</div>
+    <div class="shop" id="shop"></div>
+  </div>
+  <div class="game-instructions">Click the cookie to earn cookies. Buy upgrades to earn more per second!</div>
+</div>
+<script>
+let cookies=0,cps=0;
+const upgrades=[
+  {name:'Cursor',desc:'Clicks for you',cost:15,cps:.1,count:0},
+  {name:'Grandma',desc:'Bakes cookies',cost:100,cps:.5,count:0},
+  {name:'Farm',desc:'Grows cookie trees',cost:500,cps:4,count:0},
+  {name:'Mine',desc:'Mines cookie ore',cost:2000,cps:10,count:0},
+  {name:'Factory',desc:'Mass production',cost:8000,cps:40,count:0},
+  {name:'Bank',desc:'Cookie interest',cost:40000,cps:100,count:0},
+  {name:'Portal',desc:'Cookie dimension',cost:200000,cps:666,count:0},
+];
+
+function fmt(n){if(n>=1e9)return(n/1e9).toFixed(1)+'B';if(n>=1e6)return(n/1e6).toFixed(1)+'M';if(n>=1e3)return(n/1e3).toFixed(1)+'K';return Math.floor(n);}
+
+function render(){
+  document.getElementById('ui').textContent=`${fmt(cookies)} cookies (${fmt(cps)}/sec)`;
+  document.getElementById('shop').innerHTML=upgrades.map((u,i)=>`
+    <div class="item">
+      <div><b>${u.name}</b> ×${u.count}<div class="desc">${u.desc} (+${u.cps}/s)</div></div>
+      <button ${cookies<u.cost?'disabled':''} onclick="buy(${i})">Buy<br><small>${fmt(u.cost)}🍪</small></button>
+    </div>`).join('');
+}
+
+function buy(i){
+  const u=upgrades[i];if(cookies<u.cost)return;
+  cookies-=u.cost;u.count++;cps+=u.cps;u.cost=Math.floor(u.cost*1.15);render();
+}
+
+document.getElementById('cookie').addEventListener('click',()=>{
+  cookies+=1+upgrades[0].count*.1;
+  const spark=document.createElement('div');
+  spark.textContent='+1';spark.style.cssText='position:fixed;font-size:1.2rem;color:#ffcc02;pointer-events:none;z-index:999;animation:floatUp .8s ease forwards';
+  spark.style.left=event.clientX+'px';spark.style.top=event.clientY+'px';
+  document.body.appendChild(spark);setTimeout(()=>spark.remove(),800);
+  render();
+});
+document.getElementById('cookie').addEventListener('touchstart',e=>{e.preventDefault();cookies+=1+upgrades[0].count*.1;render();},{passive:false});
+
+const style=document.createElement('style');
+style.textContent='@keyframes floatUp{to{transform:translateY(-60px);opacity:0}}';
+document.head.appendChild(style);
+
+setInterval(()=>{cookies+=cps/20;render();},50);
+render();
+</script></body></html>

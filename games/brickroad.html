@@ -1,0 +1,90 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Brick Road</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>body{background:#1a1a2e}#c{display:block;border-radius:8px;margin:0 auto}#ui{color:#ff8a65;text-align:center;padding:8px;font-size:1.1rem;font-weight:700}</style>
+</head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Brick Road</div>
+  <div class="game-frame" style="padding:10px">
+    <div id="ui">Score: 0 | Lives: 3</div>
+    <canvas id="c" width="400" height="480"></canvas>
+  </div>
+  <div class="game-instructions">Steer with <b>←→</b> or swipe. Avoid the walls and cracks! Pick up fuel to keep going.</div>
+</div>
+<script>
+const c=document.getElementById('c'),ctx=c.getContext('2d');
+const RW=200,RX=(400-RW)/2;
+let car,obstacles,fuel,score,lives,spd,frame,state,lineY,keys={};
+
+function start(){
+  car={x:200,y:400,w:28,h=44};
+  // fix
+  car={x:200,y:400,w:28,h:44};
+  obstacles=[];fuel=[];score=0;lives=3;spd=4;frame=0;state='play';lineY=0;
+}
+
+document.addEventListener('keydown',e=>keys[e.code]=true);
+document.addEventListener('keyup',e=>keys[e.code]=false);
+c.addEventListener('click',()=>{if(state!=='play')start();});
+
+let swX=null;
+c.addEventListener('touchstart',e=>{swX=e.touches[0].clientX;if(state!=='play')start();},{passive:true});
+c.addEventListener('touchmove',e=>{const dx=e.touches[0].clientX-swX;car.x+=dx*.8;swX=e.touches[0].clientX;},{passive:true});
+
+function spawnObs(){
+  const lane=Math.floor(Math.random()*3);const x=RX+lane*(RW/3)+8+Math.random()*(RW/3-40);
+  obstacles.push({x,y:-30,w:30+Math.random()*20,h:18,type:Math.random()<.2?'crack':'stone'});
+}
+function spawnFuel(){fuel.push({x:RX+20+Math.random()*(RW-40),y:-20});}
+
+function loop(){
+  ctx.fillStyle='#2e2e2e';ctx.fillRect(RX,0,RW,c.height);
+  // Road markings
+  ctx.fillStyle='#333';ctx.fillRect(0,0,RX,c.height);ctx.fillRect(RX+RW,0,400-RX-RW,c.height);
+  ctx.strokeStyle='rgba(255,255,255,.2)';ctx.lineWidth=2;ctx.setLineDash([24,18]);
+  const lx1=RX+RW/3,lx2=RX+RW*2/3;
+  ctx.beginPath();ctx.moveTo(lx1,0);ctx.lineTo(lx1,c.height);ctx.moveTo(lx2,0);ctx.lineTo(lx2,c.height);ctx.stroke();ctx.setLineDash([]);
+  // Side lines
+  ctx.strokeStyle='#fff';ctx.lineWidth=3;ctx.setLineDash([20,16]);
+  for(const lx of[RX,RX+RW]){ctx.beginPath();ctx.moveTo(lx,0);ctx.lineTo(lx,c.height);ctx.stroke();}
+  ctx.setLineDash([]);lineY=(lineY+spd)%42;
+
+  if(state!=='play'){
+    ctx.fillStyle='rgba(0,0,0,.6)';ctx.fillRect(0,0,400,480);
+    ctx.fillStyle='#ff8a65';ctx.font='bold 32px Arial';ctx.textAlign='center';ctx.fillText('GAME OVER',200,210);
+    ctx.fillStyle='#fff';ctx.font='18px Arial';ctx.fillText(`Score: ${score}`,200,250);ctx.fillText('Click to retry',200,285);
+    requestAnimationFrame(loop);return;
+  }
+
+  frame++;score++;spd=4+score/300;
+
+  if(keys['ArrowLeft']||keys['KeyA'])car.x-=5;
+  if(keys['ArrowRight']||keys['KeyD'])car.x+=5;
+  car.x=Math.max(RX+4,Math.min(RX+RW-car.w-4,car.x));
+
+  if(frame%60===0)spawnObs();if(frame%150===0)spawnFuel();
+
+  obstacles=obstacles.filter(o=>o.y<c.height+30);
+  obstacles.forEach(o=>{o.y+=spd;
+    ctx.fillStyle=o.type==='crack'?'#111':'#616161';ctx.fillRect(o.x,o.y,o.w,o.h);
+    if(o.type==='stone'){ctx.fillStyle='#757575';ctx.fillRect(o.x+3,o.y+2,o.w-6,o.h-4);}
+    if(car.x<o.x+o.w&&car.x+car.w>o.x&&car.y<o.y+o.h&&car.y+car.h>o.y){lives--;if(lives<=0)state='over';obstacles=obstacles.filter(ob=>ob!==o);}
+  });
+
+  fuel=fuel.filter(f=>f.y<c.height+20);
+  fuel.forEach(f=>{f.y+=spd;
+    ctx.fillStyle='#69f0ae';ctx.font='20px serif';ctx.textAlign='center';ctx.fillText('⛽',f.x+12,f.y+18);
+    if(car.x<f.x+24&&car.x+car.w>f.x&&car.y<f.y+24&&car.y+car.h>f.y){score+=100;fuel=fuel.filter(fl=>fl!==f);}
+  });
+
+  // Car
+  ctx.fillStyle='#bf360c';ctx.beginPath();ctx.roundRect(car.x,car.y,car.w,car.h,5);ctx.fill();
+  ctx.fillStyle='#80cbc4';ctx.fillRect(car.x+3,car.y+5,car.w-6,12);ctx.fillRect(car.x+3,car.y+car.h-18,car.w-6,10);
+  ctx.fillStyle='#ffeb3b';ctx.fillRect(car.x+2,car.y-4,6,6);ctx.fillRect(car.x+car.w-8,car.y-4,6,6);
+  ctx.fillStyle='#222';[[car.x-4,car.y+8],[car.x+car.w-2,car.y+8],[car.x-4,car.y+car.h-20],[car.x+car.w-2,car.y+car.h-20]].forEach(([wx,wy])=>ctx.fillRect(wx,wy,6,12));
+
+  document.getElementById('ui').textContent=`Score: ${score} | Lives: ${'❤️'.repeat(lives)}`;
+  requestAnimationFrame(loop);
+}
+start();loop();
+</script></body></html>

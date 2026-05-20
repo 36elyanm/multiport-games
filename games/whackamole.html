@@ -1,0 +1,91 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Whack-a-Mole</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+body{background:#1a1a2e}
+#grid{display:grid;grid-template-columns:repeat(3,120px);gap:20px;justify-content:center;margin:10px auto}
+.hole{width:120px;height:100px;background:#3d2b1a;border-radius:50%;display:flex;align-items:flex-end;justify-content:center;overflow:hidden;cursor:pointer;border:4px solid #5d3a20;position:relative}
+.hole .mole{font-size:3.5rem;transition:transform .15s;transform:translateY(100%);user-select:none}
+.hole.active .mole{transform:translateY(10%)}
+.hole.bomb .mole{filter:hue-rotate(180deg)}
+#ui{color:#cddc39;text-align:center;padding:12px;font-size:1.1rem;font-weight:700}
+#timer-bar{height:8px;background:#e94560;margin:0 20px 8px;border-radius:4px;transition:width .5s linear}
+</style></head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Whack-a-Mole</div>
+  <div class="game-frame" style="padding:16px">
+    <div id="ui">Click a mole to start!</div>
+    <div id="timer-bar" style="width:100%"></div>
+    <div id="grid"></div>
+  </div>
+  <div class="game-instructions">Click the moles before they hide! Avoid bombs (💣)!</div>
+</div>
+<script>
+const HOLES=9,TIME=30;
+let holes,score,hi=0,timeLeft,timer,spawnTimer,active;
+
+function init(){
+  holes=Array.from({length:HOLES},()=>({active:false,bomb:false}));
+  score=0;timeLeft=TIME;active=false;
+  clearInterval(timer);clearInterval(spawnTimer);
+  renderGrid();
+  document.getElementById('ui').textContent='Click a mole to start!';
+  document.getElementById('timer-bar').style.width='100%';
+  document.getElementById('timer-bar').style.background='#e94560';
+}
+
+function startGame(){
+  active=true;
+  timer=setInterval(()=>{
+    timeLeft--;
+    const pct=timeLeft/TIME*100;
+    document.getElementById('timer-bar').style.width=pct+'%';
+    document.getElementById('timer-bar').style.background=pct>50?'#4caf50':pct>25?'#ff9800':'#f44336';
+    document.getElementById('ui').textContent=`Score: ${score} | Best: ${hi} | ⏱ ${timeLeft}s`;
+    if(timeLeft<=0){clearInterval(timer);clearInterval(spawnTimer);active=false;holes.forEach(h=>h.active=false);renderGrid();
+      document.getElementById('ui').textContent=`Time's up! Score: ${score} (Best: ${Math.max(score,hi)})`;
+      hi=Math.max(score,hi);}
+  },1000);
+  spawnTimer=setInterval(spawn,800);
+  spawn();
+}
+
+function spawn(){
+  // Hide old
+  holes.forEach(h=>{if(h.active&&Math.random()<.4){h.active=false;}});
+  const free=holes.map((h,i)=>!h.active?i:-1).filter(i=>i>=0);
+  if(free.length){
+    const idx=free[Math.floor(Math.random()*free.length)];
+    holes[idx].active=true;holes[idx].bomb=Math.random()<.15;
+    setTimeout(()=>{if(holes[idx])holes[idx].active=false;renderGrid();},1000+Math.random()*600);
+  }
+  renderGrid();
+}
+
+function whack(idx){
+  if(!active&&!holes[idx].active){startGame();return;}
+  if(!holes[idx].active)return;
+  holes[idx].active=false;
+  if(holes[idx].bomb){score=Math.max(0,score-10);flash('#f44336');}
+  else{score+=10;flash('#cddc39');}
+  renderGrid();
+}
+
+function flash(color){
+  const ui=document.getElementById('ui');
+  ui.style.color=color;
+  setTimeout(()=>ui.style.color='#cddc39',300);
+}
+
+function renderGrid(){
+  const g=document.getElementById('grid');g.innerHTML='';
+  holes.forEach((h,i)=>{
+    const d=document.createElement('div');
+    d.className='hole'+(h.active?' active':'')+(h.bomb?' bomb':'');
+    d.innerHTML=`<span class="mole">${h.bomb?'💣':'🐹'}</span>`;
+    d.onclick=()=>whack(i);
+    g.appendChild(d);
+  });
+}
+init();
+</script></body></html>

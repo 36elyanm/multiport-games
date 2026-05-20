@@ -1,0 +1,55 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Block Slide</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+body{background:#1a1a2e}
+#grid{display:inline-grid;gap:4px;background:#1b2838;padding:8px;border-radius:10px}
+.tile{width:72px;height:72px;display:flex;align-items:center;justify-content:center;font-size:1.5rem;font-weight:900;border-radius:8px;cursor:pointer;user-select:none;transition:background .15s}
+#ui{color:#66c0f4;text-align:center;padding:10px;font-size:1rem;font-weight:700}
+</style></head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Block Slide (15-Puzzle)</div>
+  <div class="game-frame" style="padding:16px;text-align:center">
+    <div id="ui">Moves: 0 | Shuffle to start</div>
+    <div id="grid"></div>
+    <button onclick="shuffle()" style="margin-top:12px;padding:8px 20px;background:#e94560;border:none;border-radius:20px;color:#fff;cursor:pointer">Shuffle</button>
+  </div>
+  <div class="game-instructions">Slide tiles into the correct order (1-15). Click a tile adjacent to the blank space to move it.</div>
+</div>
+<script>
+let tiles,moves;
+
+function init(){tiles=[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,0];moves=0;render();}
+
+function shuffle(){
+  for(let i=0;i<200;i++){const blank=tiles.indexOf(0);const moves2=[];
+    if(blank%4>0)moves2.push(blank-1);if(blank%4<3)moves2.push(blank+1);
+    if(blank>3)moves2.push(blank-4);if(blank<12)moves2.push(blank+4);
+    const swap=moves2[Math.floor(Math.random()*moves2.length)];
+    [tiles[blank],tiles[swap]]=[tiles[swap],tiles[blank]];}
+  moves=0;render();
+}
+
+function click(i){
+  const blank=tiles.indexOf(0);
+  const adj=[blank-1,blank+1,blank-4,blank+4];
+  if(blank%4===0&&adj[0]===i-1)return;// prevent wrap
+  if(adj.includes(i)&&!((blank%4===0&&i===blank-1)||(blank%4===3&&i===blank+1))){
+    [tiles[blank],tiles[i]]=[tiles[i],tiles[blank]];moves++;
+    if(tiles.every((v,i2)=>i2===15?v===0:v===i2+1)){setTimeout(()=>alert(`🎉 Solved in ${moves} moves!`),50);}
+    render();
+  }
+}
+
+function render(){
+  const g=document.getElementById('grid');g.style.gridTemplateColumns='repeat(4,72px)';g.innerHTML='';
+  tiles.forEach((v,i)=>{
+    const d=document.createElement('div');d.className='tile';
+    if(v===0){d.style.background='#0d1a2e';}
+    else{const hue=(v-1)*24;d.style.background=`hsl(${hue},70%,40%)`;d.style.color='#fff';d.textContent=v;d.onclick=()=>click(i);}
+    g.appendChild(d);
+  });
+  document.getElementById('ui').textContent=`Moves: ${moves}`;
+}
+init();
+</script></body></html>

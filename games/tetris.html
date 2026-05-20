@@ -1,0 +1,134 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Tetris</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>body{background:#1a1a2e}
+#wrap{display:flex;gap:20px;justify-content:center;align-items:flex-start;padding:10px}
+#c{display:block;border-radius:4px;background:#000}
+#side{color:#eee;min-width:120px;font-size:.9rem}
+#side h3{color:#42a5f5;margin-bottom:8px}
+#next{background:#0d1a2e;border-radius:8px;padding:8px}
+.btn-row{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.btn-row button{padding:8px 12px;background:#0d47a1;border:none;border-radius:8px;color:#fff;cursor:pointer;font-size:1.2rem}
+</style></head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Tetris</div>
+  <div class="game-frame">
+    <div id="wrap">
+      <canvas id="c" width="200" height="400"></canvas>
+      <div id="side">
+        <h3>Score</h3><div id="sc">0</div>
+        <h3 style="margin-top:12px">Level</h3><div id="lv">1</div>
+        <h3 style="margin-top:12px">Lines</h3><div id="ln">0</div>
+        <h3 style="margin-top:12px">Next</h3>
+        <canvas id="next" width="80" height="80"></canvas>
+        <div class="btn-row">
+          <button onclick="move(-1)">◀</button>
+          <button onclick="move(1)">▶</button>
+          <button onclick="rotate()">↻</button>
+          <button onclick="drop()">▼</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="game-instructions"><b>←→</b> move, <b>↑</b> rotate, <b>↓</b> soft drop, <b>Space</b> hard drop.</div>
+</div>
+<script>
+const c=document.getElementById('c'),ctx=c.getContext('2d');
+const nc=document.getElementById('next'),nctx=nc.getContext('2d');
+const SZ=20,COLS=10,ROWS=20;
+const PIECES=[
+  {s:[[1,1,1,1]],c:'#00e5ff'},
+  {s:[[1,0],[1,0],[1,1]],c:'#ff9800'},
+  {s:[[0,1],[0,1],[1,1]],c:'#2196f3'},
+  {s:[[1,1],[1,1]],c:'#ffeb3b'},
+  {s:[[0,1,1],[1,1,0]],c:'#4caf50'},
+  {s:[[1,1,1],[0,1,0]],c:'#9c27b0'},
+  {s:[[1,1,0],[0,1,1]],c:'#f44336'},
+];
+
+let board,piece,next,score,lines,level,alive,timer;
+
+function emptyBoard(){return Array.from({length:ROWS},()=>Array(COLS).fill(0));}
+
+function randPiece(){const p=PIECES[Math.floor(Math.random()*PIECES.length)];return {s:p.s.map(r=>[...r]),c:p.c,x:3,y:0};}
+
+function valid(p,dx=0,dy=0,s=p.s){
+  return s.every((row,r)=>row.every((v,col)=>!v||
+    (p.x+col+dx>=0&&p.x+col+dx<COLS&&p.y+r+dy<ROWS&&
+     (p.y+r+dy<0||!board[p.y+r+dy][p.x+col+dx]))));
+}
+
+function place(){
+  piece.s.forEach((row,r)=>row.forEach((v,col)=>{if(v)board[piece.y+r][piece.x+col]=piece.c;}));
+  let cleared=0;
+  board=board.filter(row=>{if(row.every(c=>c)){cleared++;return false;}return true;});
+  while(board.length<ROWS)board.unshift(Array(COLS).fill(0));
+  lines+=cleared;score+=[0,100,300,500,800][cleared]*level;
+  level=1+Math.floor(lines/10);
+  piece=next;next=randPiece();
+  if(!valid(piece))alive=false;
+  updateSide();
+}
+
+function move(dx){if(valid(piece,dx,0))piece.x+=dx;}
+function rotate(){
+  const rs=piece.s[0].map((_,i)=>piece.s.map(r=>r[i]).reverse());
+  if(valid(piece,0,0,rs))piece.s=rs;
+}
+function drop(){while(valid(piece,0,1))piece.y++;place();}
+
+function step(){
+  if(!alive)return;
+  if(valid(piece,0,1))piece.y++;else place();
+  draw();
+  clearTimeout(timer);timer=setTimeout(step,Math.max(100,700-level*60));
+}
+
+function start(){
+  board=emptyBoard();piece=randPiece();next=randPiece();score=0;lines=0;level=1;alive=true;
+  updateSide();clearTimeout(timer);step();
+}
+
+function updateSide(){
+  document.getElementById('sc').textContent=score;
+  document.getElementById('lv').textContent=level;
+  document.getElementById('ln').textContent=lines;
+}
+
+document.addEventListener('keydown',e=>{
+  if(!alive){if(e.code==='Space')start();return;}
+  if(e.code==='ArrowLeft'){e.preventDefault();move(-1);}
+  if(e.code==='ArrowRight'){e.preventDefault();move(1);}
+  if(e.code==='ArrowUp'){e.preventDefault();rotate();}
+  if(e.code==='ArrowDown'){e.preventDefault();if(valid(piece,0,1))piece.y++;}
+  if(e.code==='Space'){e.preventDefault();drop();}
+  draw();
+});
+
+function drawCell(ctx,x,y,color,sz=SZ){
+  ctx.fillStyle=color;ctx.fillRect(x*sz+1,y*sz+1,sz-2,sz-2);
+  ctx.fillStyle='rgba(255,255,255,.25)';ctx.fillRect(x*sz+2,y*sz+2,sz/3,sz/4);
+}
+
+function draw(){
+  ctx.fillStyle='#000';ctx.fillRect(0,0,c.width,c.height);
+  board.forEach((row,r)=>row.forEach((v,col)=>{if(v)drawCell(ctx,col,r,v);}));
+  // Ghost
+  let gy=piece.y;while(valid(piece,0,gy-piece.y+1))gy++;
+  piece.s.forEach((row,r)=>row.forEach((v,col)=>{if(v){ctx.fillStyle='rgba(255,255,255,.1)';ctx.fillRect((piece.x+col)*SZ+1,(gy+r)*SZ+1,SZ-2,SZ-2);}}));
+  piece.s.forEach((row,r)=>row.forEach((v,col)=>{if(v)drawCell(ctx,piece.x+col,piece.y+r,piece.c);}));
+  // Grid
+  ctx.strokeStyle='#111';ctx.lineWidth=.5;
+  for(let i=0;i<=COLS;i++){ctx.beginPath();ctx.moveTo(i*SZ,0);ctx.lineTo(i*SZ,c.height);ctx.stroke();}
+  for(let j=0;j<=ROWS;j++){ctx.beginPath();ctx.moveTo(0,j*SZ);ctx.lineTo(c.width,j*SZ);ctx.stroke();}
+  if(!alive){ctx.fillStyle='rgba(0,0,0,.7)';ctx.fillRect(0,0,c.width,c.height);
+    ctx.fillStyle='#42a5f5';ctx.font='bold 22px Arial';ctx.textAlign='center';ctx.fillText('GAME OVER',100,190);
+    ctx.fillStyle='#fff';ctx.font='14px Arial';ctx.fillText('Space to restart',100,215);}
+  // Next piece
+  nctx.fillStyle='#0d1a2e';nctx.fillRect(0,0,80,80);
+  const ox=Math.floor((4-next.s[0].length)/2),oy=Math.floor((4-next.s.length)/2);
+  next.s.forEach((row,r)=>row.forEach((v,col)=>{if(v)drawCell(nctx,ox+col,oy+r,next.c,18);}));
+}
+
+start();
+</script></body></html>

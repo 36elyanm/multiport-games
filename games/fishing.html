@@ -1,0 +1,96 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Pixel Fishing</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>body{background:#1a1a2e}#c{display:block;border-radius:8px;margin:0 auto}#ui{color:#64b5f6;text-align:center;padding:8px;font-size:1.1rem;font-weight:700}</style>
+</head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Pixel Fishing</div>
+  <div class="game-frame" style="padding:10px">
+    <div id="ui">Score: 0 | Click to cast!</div>
+    <canvas id="c" width="480" height="480"></canvas>
+  </div>
+  <div class="game-instructions">Click to cast the line. When the float bobs, click again quickly to catch the fish!</div>
+</div>
+<script>
+const c=document.getElementById('c'),ctx=c.getContext('2d');
+const WATER_Y=200;
+const FISH_EMOJIS=['🐟','🐠','🐡','🦈','🐙','🦑','🐬','🦐'];
+let state,line,fish,score,bobTimer,bobbing,frame;
+
+function start(){state='idle';line=null;fish=[];score=0;bobbing=false;
+  for(let i=0;i<8;i++)fish.push({x:30+Math.random()*400,y:WATER_Y+40+Math.random()*200,vx:(Math.random()-.5)*2,vy:0,emoji:FISH_EMOJIS[Math.floor(Math.random()*FISH_EMOJIS.length)],biting:false});}
+
+c.addEventListener('click',e=>{
+  const rect=c.getBoundingClientRect();
+  const cx=(e.clientX-rect.left)*480/rect.width;
+  if(state==='idle'){cast(cx);}
+  else if(state==='cast'){if(bobbing){reel();}else{pullBack();}}
+  else if(state==='reel'){start();}
+});
+c.addEventListener('touchstart',e=>{e.preventDefault();c.click();},{passive:false});
+
+function cast(x){
+  state='cast';bobbing=false;
+  line={hookX:x,hookY:WATER_Y+20};
+  clearTimeout(bobTimer);
+  // Wait for bite
+  const delay=1500+Math.random()*4000;
+  bobTimer=setTimeout(()=>{bobbing=true;},delay);
+  // Auto miss after 3s
+  setTimeout(()=>{if(state==='cast')pullBack();},delay+3000);
+}
+
+function reel(){
+  clearTimeout(bobTimer);
+  // Check if fish nearby
+  let caught=null,minD=40;
+  fish.forEach(f=>{const d=Math.hypot(f.x-line.hookX,f.y-(line.hookY+10));if(d<minD){minD=d;caught=f;}});
+  if(caught&&bobbing){score+=10+Math.floor(Math.random()*20);fish=fish.filter(f=>f!==caught);caught=null;
+    showMsg('🎣 Got one! +'+score);state='reel';setTimeout(()=>{start();},1200);}
+  else{showMsg('💨 Too slow!');state='reel';setTimeout(start,1000);}
+}
+
+function pullBack(){clearTimeout(bobTimer);state='reel';showMsg('No bite…');setTimeout(start,800);}
+
+let msgText='',msgTimer;
+function showMsg(t){msgText=t;clearTimeout(msgTimer);msgTimer=setTimeout(()=>msgText='',1500);}
+
+function loop(){
+  frame=(frame||0)+1;
+  // Sky
+  ctx.fillStyle='#0d47a1';ctx.fillRect(0,0,480,WATER_Y);
+  // Sun
+  ctx.fillStyle='#fff9c4';ctx.beginPath();ctx.arc(400,50,30,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#ffeb3b';ctx.beginPath();ctx.arc(400,50,24,0,Math.PI*2);ctx.fill();
+  // Ground
+  ctx.fillStyle='#5d4037';ctx.fillRect(0,WATER_Y-8,60,12);ctx.fillRect(0,WATER_Y-30,30,30);
+  // Stick figure fisherman
+  ctx.strokeStyle='#333';ctx.lineWidth=2;
+  ctx.beginPath();ctx.arc(20,WATER_Y-50,8,0,Math.PI*2);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(20,WATER_Y-42);ctx.lineTo(20,WATER_Y-20);ctx.moveTo(20,WATER_Y-38);ctx.lineTo(10,WATER_Y-28);ctx.lineTo(30,WATER_Y-30);ctx.moveTo(20,WATER_Y-20);ctx.lineTo(12,WATER_Y-6);ctx.moveTo(20,WATER_Y-20);ctx.lineTo(28,WATER_Y-6);ctx.stroke();
+  // Rod
+  if(line){ctx.strokeStyle='#8d6e63';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(28,WATER_Y-35);ctx.lineTo(line.hookX,line.hookY+(bobbing?Math.sin(frame*.3)*8:0));ctx.stroke();
+  // Float
+  ctx.fillStyle=bobbing?'#ff5252':'#ffeb3b';ctx.beginPath();ctx.arc(line.hookX,line.hookY+(bobbing?Math.sin(frame*.3)*8:0),6,0,Math.PI*2);ctx.fill();}
+
+  // Water
+  const wg=ctx.createLinearGradient(0,WATER_Y,0,480);wg.addColorStop(0,'#1565c0');wg.addColorStop(1,'#0d47a1');
+  ctx.fillStyle=wg;ctx.fillRect(0,WATER_Y,480,480-WATER_Y);
+  // Waves
+  ctx.strokeStyle='rgba(255,255,255,.2)';ctx.lineWidth=1.5;
+  for(let i=0;i<5;i++){ctx.beginPath();for(let x=0;x<480;x+=4)ctx.lineTo(x,WATER_Y+(i*40)+Math.sin((x+frame*(i+1)*2)*.04)*5);ctx.stroke();}
+
+  // Fish
+  fish.forEach(f=>{
+    f.x+=f.vx;f.vy+=Math.sin(frame*.05+f.x*.01)*.1;f.y+=f.vy;
+    if(f.x<0||f.x>480)f.vx*=-1;f.y=Math.max(WATER_Y+10,Math.min(460,f.y));
+    ctx.font='22px serif';ctx.textAlign='center';ctx.fillText(f.emoji,f.x,f.y);
+  });
+
+  if(state==='idle'){ctx.fillStyle='rgba(255,255,255,.7)';ctx.font='16px Arial';ctx.textAlign='center';ctx.fillText('Click to cast',240,WATER_Y-15);}
+  if(msgText){ctx.fillStyle='#ffeb3b';ctx.font='bold 20px Arial';ctx.textAlign='center';ctx.fillText(msgText,240,WATER_Y-20);}
+  document.getElementById('ui').textContent=`Score: ${score} | Fish caught: ${8-fish.length}`;
+  requestAnimationFrame(loop);
+}
+start();loop();
+</script></body></html>

@@ -1,0 +1,112 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Breakout</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>body{background:#1a1a2e}#c{display:block;border-radius:8px}#ui{color:#e040fb;font-size:1.1rem;font-weight:700;text-align:center;padding:8px}</style>
+</head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Breakout</div>
+  <div class="game-frame">
+    <div id="ui">Score: 0 | Lives: 3</div>
+    <canvas id="c" width="480" height="520"></canvas>
+  </div>
+  <div class="game-instructions">Move mouse or touch to control the paddle. Click to launch the ball. Break all bricks!</div>
+</div>
+<script>
+const c=document.getElementById('c'),ctx=c.getContext('2d');
+const COLS=8,ROWS=6,BW=50,BH=18,GAP=4,OFFX=20,OFFY=40;
+let paddle,ball,bricks,score,lives,state;
+
+const COLORS=['#e040fb','#7c4dff','#2979ff','#00e5ff','#69f0ae','#ffff00','#ff6d00'];
+
+function initBricks(){
+  bricks=[];
+  for(let r=0;r<ROWS;r++)for(let col=0;col<COLS;col++)
+    bricks.push({x:OFFX+col*(BW+GAP),y:OFFY+r*(BH+GAP),alive:true,c:COLORS[r]});
+}
+
+function start(){
+  paddle={x:190,w:100,h:12,y:490};
+  ball={x:240,y:470,vx:3,vy:-4,r:8,launched:false};
+  score=0;lives=3;state='play';
+  initBricks();
+}
+
+c.addEventListener('mousemove',e=>{
+  const rect=c.getBoundingClientRect();
+  paddle.x=Math.max(0,Math.min(c.width-paddle.w,(e.clientX-rect.left)*c.width/rect.width-paddle.w/2));
+  if(!ball.launched)ball.x=paddle.x+paddle.w/2;
+});
+c.addEventListener('touchmove',e=>{
+  e.preventDefault();
+  const rect=c.getBoundingClientRect();
+  const tx=(e.touches[0].clientX-rect.left)*c.width/rect.width;
+  paddle.x=Math.max(0,Math.min(c.width-paddle.w,tx-paddle.w/2));
+  if(!ball.launched)ball.x=paddle.x+paddle.w/2;
+},{passive:false});
+
+c.addEventListener('click',()=>{
+  if(state==='over'){start();return;}
+  if(!ball.launched){ball.launched=true;ball.vx=(Math.random()-.5)*4;ball.vy=-5;}
+});
+c.addEventListener('touchstart',()=>{
+  if(state==='over'){start();return;}
+  if(!ball.launched){ball.launched=true;ball.vx=(Math.random()-.5)*4;ball.vy=-5;}
+},{passive:true});
+
+function loop(){
+  ctx.fillStyle='#0a0a1a';ctx.fillRect(0,0,c.width,c.height);
+
+  if(ball.launched){
+    ball.x+=ball.vx;ball.y+=ball.vy;
+    if(ball.x-ball.r<0){ball.x=ball.r;ball.vx*=-1;}
+    if(ball.x+ball.r>c.width){ball.x=c.width-ball.r;ball.vx*=-1;}
+    if(ball.y-ball.r<0){ball.y=ball.r;ball.vy*=-1;}
+    if(ball.y+ball.r>c.height){
+      lives--;if(lives<=0){state='over';}
+      else{ball.launched=false;ball.x=paddle.x+paddle.w/2;ball.y=paddle.y-ball.r-2;ball.vy=-4;}
+    }
+    // Paddle
+    if(ball.y+ball.r>=paddle.y&&ball.y-ball.r<=paddle.y+paddle.h&&ball.x>paddle.x&&ball.x<paddle.x+paddle.w){
+      ball.vy=-Math.abs(ball.vy);
+      ball.vx=((ball.x-(paddle.x+paddle.w/2))/(paddle.w/2))*5;
+    }
+    // Bricks
+    for(const b of bricks){
+      if(!b.alive)continue;
+      if(ball.x+ball.r>b.x&&ball.x-ball.r<b.x+BW&&ball.y+ball.r>b.y&&ball.y-ball.r<b.y+BH){
+        b.alive=false;score+=10;ball.vy*=-1;break;
+      }
+    }
+    if(bricks.every(b=>!b.alive)){score+=500;initBricks();}
+  } else {ball.x=paddle.x+paddle.w/2;ball.y=paddle.y-ball.r-2;}
+
+  // Draw bricks
+  bricks.forEach(b=>{
+    if(!b.alive)return;
+    ctx.fillStyle=b.c;ctx.fillRect(b.x,b.y,BW,BH);
+    ctx.fillStyle='rgba(255,255,255,.2)';ctx.fillRect(b.x+2,b.y+2,BW-4,4);
+  });
+
+  // Paddle
+  const pg=ctx.createLinearGradient(paddle.x,paddle.y,paddle.x,paddle.y+paddle.h);
+  pg.addColorStop(0,'#e040fb');pg.addColorStop(1,'#7c4dff');
+  ctx.fillStyle=pg;ctx.beginPath();ctx.roundRect(paddle.x,paddle.y,paddle.w,paddle.h,6);ctx.fill();
+
+  // Ball
+  const bg=ctx.createRadialGradient(ball.x-2,ball.y-2,1,ball.x,ball.y,ball.r);
+  bg.addColorStop(0,'#fff');bg.addColorStop(1,'#e040fb');
+  ctx.fillStyle=bg;ctx.beginPath();ctx.arc(ball.x,ball.y,ball.r,0,Math.PI*2);ctx.fill();
+
+  document.getElementById('ui').textContent=`Score: ${score} | Lives: ${lives}`;
+
+  if(state==='over'){
+    ctx.fillStyle='rgba(0,0,0,.65)';ctx.fillRect(0,0,c.width,c.height);
+    ctx.fillStyle='#e040fb';ctx.font='bold 36px Arial';ctx.textAlign='center';
+    ctx.fillText(lives<=0?'GAME OVER':'YOU WIN!',c.width/2,240);
+    ctx.fillStyle='#fff';ctx.font='20px Arial';
+    ctx.fillText(`Score: ${score}`,c.width/2,280);ctx.fillText('Click to restart',c.width/2,315);
+  }
+  requestAnimationFrame(loop);
+}
+start();loop();
+</script></body></html>

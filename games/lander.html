@@ -1,0 +1,101 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Moon Lander</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>body{background:#090916}#c{display:block;border-radius:8px;margin:0 auto}#ui{color:#ffe082;text-align:center;padding:8px;font-size:1rem;font-weight:700}</style>
+</head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Moon Lander</div>
+  <div class="game-frame" style="padding:10px">
+    <div id="ui">Fuel: 100 | Velocity: 0</div>
+    <canvas id="c" width="500" height="480"></canvas>
+  </div>
+  <div class="game-instructions"><b>↑ or Space</b> = thrust, <b>← →</b> = rotate. Land softly on the pad!</div>
+</div>
+<script>
+const c=document.getElementById('c'),ctx=c.getContext('2d');
+const stars=Array.from({length:80},()=>({x:Math.random()*500,y:Math.random()*300,b:Math.random()}));
+let ship,fuel,state,frame,keys={};
+
+function start(){
+  ship={x:250,y:60,vx:0,vy:0,angle:0,w:20,h:28,thrusting:false};
+  fuel=100;state='fly';frame=0;
+}
+
+document.addEventListener('keydown',e=>keys[e.code]=true);
+document.addEventListener('keyup',e=>keys[e.code]=false);
+c.addEventListener('click',()=>{if(state!=='fly')start();});
+c.addEventListener('touchstart',e=>{keys['Space']=true;if(state!=='fly')start();},{passive:true});
+c.addEventListener('touchend',()=>keys['Space']=false,{passive:true});
+
+const PAD={x:180,y:420,w:80,h:8};
+const TERRAIN=[[0,430],[50,430],[80,400],[120,380],[160,420],[PAD.x,PAD.y],[PAD.x+PAD.w,PAD.y],[280,420],[340,390],[400,410],[460,440],[500,440],[500,480],[0,480]];
+
+function loop(){
+  ctx.fillStyle='#050510';ctx.fillRect(0,0,500,480);
+  // Stars
+  stars.forEach(s=>{ctx.fillStyle=`rgba(255,255,255,${s.b})`;ctx.fillRect(s.x,s.y,1.5,1.5);});
+  // Earth
+  ctx.fillStyle='#1565c0';ctx.beginPath();ctx.arc(420,80,40,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#2e7d32';ctx.fillRect(400,70,20,20);
+
+  if(state!=='fly'){
+    ctx.fillStyle='rgba(0,0,0,.6)';ctx.fillRect(0,0,500,480);
+    ctx.fillStyle=state==='land'?'#ffe082':'#ff5252';ctx.font='bold 30px Arial';ctx.textAlign='center';
+    ctx.fillText(state==='land'?'🌕 Safe Landing!':'💥 Crashed!',250,200);
+    ctx.fillStyle='#fff';ctx.font='16px Arial';ctx.fillText('Click to retry',250,240);
+    requestAnimationFrame(loop);return;
+  }
+
+  frame++;
+  ship.thrusting=false;
+  if(keys['ArrowLeft']||keys['KeyA'])ship.angle-=0.04;
+  if(keys['ArrowRight']||keys['KeyD'])ship.angle+=0.04;
+  if((keys['ArrowUp']||keys['Space']||keys['KeyW'])&&fuel>0){
+    ship.vx+=Math.sin(ship.angle)*.2;ship.vy-=Math.cos(ship.angle)*.25;
+    fuel=Math.max(0,fuel-0.4);ship.thrusting=true;
+  }
+
+  ship.vy+=0.05;// Moon gravity
+  ship.x+=ship.vx;ship.y+=ship.vy;
+
+  // Boundary
+  if(ship.x<0)ship.x=500;if(ship.x>500)ship.x=0;
+  if(ship.y<0){ship.vy=Math.abs(ship.vy)*.3;}
+
+  // Terrain collision
+  const spd=Math.hypot(ship.vx,ship.vy);
+  for(let i=0;i<TERRAIN.length-2;i++){
+    const ax=TERRAIN[i][0],ay=TERRAIN[i][1],bx=TERRAIN[i+1][0],by=TERRAIN[i+1][1];
+    if(ship.x>ax&&ship.x<bx&&ship.y+ship.h>Math.min(ay,by)){
+      const onPad=ship.x>PAD.x+5&&ship.x<PAD.x+PAD.w-5;
+      if(onPad&&spd<2&&Math.abs(ship.angle)<0.3)state='land';else state='crash';
+    }
+  }
+
+  // Draw terrain
+  ctx.fillStyle='#b0bec5';ctx.beginPath();
+  TERRAIN.forEach(([x,y],i)=>i===0?ctx.moveTo(x,y):ctx.lineTo(x,y));ctx.fill();
+  // Pad
+  ctx.fillStyle='#ffe082';ctx.fillRect(PAD.x,PAD.y-2,PAD.w,6);
+  ctx.fillStyle='#fff';ctx.font='12px Arial';ctx.textAlign='center';ctx.fillText('LAND HERE',PAD.x+PAD.w/2,PAD.y-8);
+
+  // Ship
+  ctx.save();ctx.translate(ship.x,ship.y);ctx.rotate(ship.angle);
+  // Body
+  ctx.fillStyle='#cfd8dc';ctx.beginPath();ctx.moveTo(0,-ship.h/2);ctx.lineTo(-ship.w/2,ship.h/2);ctx.lineTo(ship.w/2,ship.h/2);ctx.closePath();ctx.fill();
+  // Legs
+  ctx.strokeStyle='#90a4ae';ctx.lineWidth=2;
+  ctx.beginPath();ctx.moveTo(-ship.w/2,ship.h/2);ctx.lineTo(-ship.w/2-8,ship.h/2+10);ctx.moveTo(ship.w/2,ship.h/2);ctx.lineTo(ship.w/2+8,ship.h/2+10);ctx.stroke();
+  // Window
+  ctx.fillStyle='#80d8ff';ctx.beginPath();ctx.arc(0,-4,7,0,Math.PI*2);ctx.fill();
+  // Flame
+  if(ship.thrusting&&frame%3<2){ctx.fillStyle='#ff6e40';ctx.beginPath();ctx.moveTo(-8,ship.h/2);ctx.lineTo(0,ship.h/2+20+Math.random()*10);ctx.lineTo(8,ship.h/2);ctx.fill();}
+  ctx.restore();
+
+  const spd2=Math.hypot(ship.vx,ship.vy);
+  const vColor=spd2>1.5?'#ff5252':spd2>0.8?'#ff9800':'#69f0ae';
+  document.getElementById('ui').innerHTML=`Fuel: ${Math.floor(fuel)} | Velocity: <span style="color:${vColor}">${spd2.toFixed(2)}</span>`;
+  requestAnimationFrame(loop);
+}
+start();loop();
+</script></body></html>

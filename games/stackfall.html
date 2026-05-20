@@ -1,0 +1,99 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Stack Fall</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>body{background:#1a1a2e}#c{display:block;border-radius:8px;margin:0 auto}#ui{color:#ff8a65;text-align:center;padding:8px;font-size:1.1rem;font-weight:700}</style>
+</head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Stack Fall</div>
+  <div class="game-frame" style="padding:10px">
+    <div id="ui">Score: 0</div>
+    <canvas id="c" width="360" height="560"></canvas>
+  </div>
+  <div class="game-instructions">Click or tap to break through platforms. Reach the bottom!</div>
+</div>
+<script>
+const c=document.getElementById('c'),ctx=c.getContext('2d');
+const CX=180,BALL_R=16,PH=18;
+let ball,platforms,score,state,cameraY,frame,spd;
+
+function makePlatform(y,full=false){
+  const color=`hsl(${Math.random()*360},70%,55%)`;
+  if(full)return{y,segs:[{x:0,w:360}],color};
+  const gap=80+Math.random()*60;const gx=Math.random()*(360-gap);
+  return{y,segs:[{x:0,w:gx},{x:gx+gap,w:360-gx-gap}].filter(s=>s.w>0),color};
+}
+
+function start(){
+  ball={x:CX,y:80,vy:0,breaking:false};
+  platforms=[];score=0;state='play';cameraY=0;frame=0;spd=3;
+  for(let i=0;i<10;i++)platforms.push(makePlatform(150+i*90));
+}
+
+c.addEventListener('click',()=>{if(state!=='play'){start();return;}ball.breaking=true;setTimeout(()=>ball.breaking=false,300);});
+c.addEventListener('touchstart',e=>{e.preventDefault();if(state!=='play'){start();return;}ball.breaking=true;setTimeout(()=>ball.breaking=false,300);},{passive:false});
+
+function loop(){
+  ctx.fillStyle='#1a0a2e';ctx.fillRect(0,0,360,c.height);
+  // Tunnel walls
+  ctx.strokeStyle='#2a0a4e';ctx.lineWidth=20;ctx.beginPath();ctx.moveTo(10,0);ctx.lineTo(10,c.height);ctx.moveTo(350,0);ctx.lineTo(350,c.height);ctx.stroke();
+
+  if(state!=='play'){
+    ctx.fillStyle='rgba(0,0,0,.6)';ctx.fillRect(0,0,360,c.height);
+    ctx.fillStyle='#ff8a65';ctx.font='bold 32px Arial';ctx.textAlign='center';ctx.fillText('Score: '+score,180,240);
+    ctx.fillStyle='#fff';ctx.font='18px Arial';ctx.fillText('Click to retry',180,280);
+    requestAnimationFrame(loop);return;
+  }
+
+  frame++;
+  ball.vy+=0.4;if(ball.breaking)ball.vy+=0.6;
+  ball.y+=ball.vy;
+
+  // Walls
+  if(ball.x-BALL_R<20){ball.x=20+BALL_R;ball.vx=Math.abs(ball.vx||0);}
+  if(ball.x+BALL_R>340){ball.x=340-BALL_R;ball.vx=-Math.abs(ball.vx||0);}
+
+  // Platform collision
+  for(let i=platforms.length-1;i>=0;i--){
+    const p=platforms[i];const py=p.y-cameraY;
+    for(const seg of p.segs){
+      if(ball.x+BALL_R>seg.x+20&&ball.x-BALL_R<seg.x+seg.w-20&&ball.y+BALL_R>py&&ball.y+BALL_R<py+PH+ball.vy){
+        if(ball.breaking){platforms.splice(i,1);score+=10;}
+        else{ball.vy=-Math.abs(ball.vy)*.4;ball.y=py-BALL_R-1;}
+      }
+    }
+  }
+
+  // Camera
+  const screenY=ball.y-cameraY;
+  if(screenY>c.height*0.6)cameraY+=4;
+
+  // Add platforms
+  const bottomPlat=Math.max(...platforms.map(p=>p.y));
+  if(bottomPlat-cameraY<c.height+100)platforms.push(makePlatform(bottomPlat+90));
+
+  // Remove old
+  platforms=platforms.filter(p=>p.y-cameraY>-100);
+
+  // Draw platforms
+  platforms.forEach(p=>{
+    const py=p.y-cameraY;
+    p.segs.forEach(seg=>{
+      ctx.fillStyle=p.color;ctx.beginPath();ctx.roundRect(seg.x+20,py,seg.w-20,PH,4);ctx.fill();
+      ctx.fillStyle='rgba(255,255,255,.2)';ctx.fillRect(seg.x+22,py+2,seg.w-24,4);
+    });
+  });
+
+  // Ball glow
+  ctx.shadowBlur=15;ctx.shadowColor=ball.breaking?'#ff8a65':'#fff';
+  ctx.fillStyle=ball.breaking?'#ff5722':'#fff';
+  ctx.beginPath();ctx.arc(ball.x,ball.y-cameraY,BALL_R,0,Math.PI*2);ctx.fill();
+  ctx.shadowBlur=0;
+
+  // Death if went up too far
+  if(ball.y-cameraY<-100)state='dead';
+
+  document.getElementById('ui').textContent=`Score: ${score}`;
+  requestAnimationFrame(loop);
+}
+start();loop();
+</script></body></html>

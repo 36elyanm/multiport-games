@@ -1,0 +1,102 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Hovercraft</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>body{background:#1a1a2e}#c{display:block;border-radius:8px;margin:0 auto}#ui{color:#80deea;text-align:center;padding:8px;font-size:1.1rem;font-weight:700}</style>
+</head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Hovercraft</div>
+  <div class="game-frame" style="padding:10px">
+    <div id="ui">Score: 0</div>
+    <canvas id="c" width="560" height="400"></canvas>
+  </div>
+  <div class="game-instructions"><b>WASD</b> or <b>Arrow Keys</b> to fly the hovercraft. Collect stars, avoid walls!</div>
+</div>
+<script>
+const c=document.getElementById('c'),ctx=c.getContext('2d');
+let player,walls,stars,score,state,frame,spd,keys={};
+
+function start(){
+  player={x:80,y:200,vx:0,vy:0,w:44,h:22,angle:0};
+  walls=[];stars=[];score=0;state='play';frame=0;spd=2.5;
+}
+
+document.addEventListener('keydown',e=>keys[e.code]=true);
+document.addEventListener('keyup',e=>keys[e.code]=false);
+c.addEventListener('click',()=>{if(state!=='play')start();});
+
+let tStartX,tStartY;
+c.addEventListener('touchstart',e=>{tStartX=e.touches[0].clientX;tStartY=e.touches[0].clientY;if(state!=='play')start();},{passive:true});
+c.addEventListener('touchmove',e=>{
+  const dx=e.touches[0].clientX-tStartX,dy=e.touches[0].clientY-tStartY;
+  if(Math.abs(dx)>Math.abs(dy)){keys['ArrowRight']=dx>0;keys['ArrowLeft']=dx<0;keys['ArrowUp']=false;keys['ArrowDown']=false;}
+  else{keys['ArrowDown']=dy>0;keys['ArrowUp']=dy<0;keys['ArrowLeft']=false;keys['ArrowRight']=false;}
+},{passive:true});
+c.addEventListener('touchend',()=>{'ArrowLeft ArrowRight ArrowUp ArrowDown'.split(' ').forEach(k=>keys[k]=false);},{passive:true});
+
+function spawnWall(){
+  const gapH=100+Math.random()*80;const gapY=20+Math.random()*(c.height-gapH-40);
+  walls.push({x:c.width,gapY,gapH,w:22});
+}
+
+function spawnStar(){
+  stars.push({x:c.width,y:40+Math.random()*(c.height-80),r:10});
+}
+
+function loop(){
+  const bg=ctx.createLinearGradient(0,0,0,c.height);
+  bg.addColorStop(0,'#006064');bg.addColorStop(1,'#004d51');
+  ctx.fillStyle=bg;ctx.fillRect(0,0,c.width,c.height);
+  // Ripple waves
+  ctx.strokeStyle='rgba(255,255,255,.04)';ctx.lineWidth=1;
+  for(let i=0;i<5;i++){ctx.beginPath();for(let x=0;x<c.width;x+=3)ctx.lineTo(x,(i*70+frame*1.5)%c.height+Math.sin((x+frame*2)*.04)*12);ctx.stroke();}
+
+  if(state!=='play'){
+    ctx.fillStyle='rgba(0,0,0,.6)';ctx.fillRect(0,0,c.width,c.height);
+    ctx.fillStyle='#80deea';ctx.font='bold 32px Arial';ctx.textAlign='center';ctx.fillText('CRASHED!',c.width/2,170);
+    ctx.fillStyle='#fff';ctx.font='18px Arial';ctx.fillText(`Score: ${score}`,c.width/2,210);ctx.fillText('Click to retry',c.width/2,245);
+    requestAnimationFrame(loop);return;
+  }
+
+  frame++;score++;spd=2.5+score/400;
+
+  if(keys['ArrowLeft']||keys['KeyA'])player.vx-=.3;
+  if(keys['ArrowRight']||keys['KeyD'])player.vx+=.3;
+  if(keys['ArrowUp']||keys['KeyW'])player.vy-=.3;
+  if(keys['ArrowDown']||keys['KeyS'])player.vy+=.3;
+  player.vx*=.88;player.vy*=.88;
+  player.x+=player.vx;player.y+=player.vy;
+  player.x=Math.max(player.w/2,Math.min(c.width-player.w/2,player.x));
+  player.y=Math.max(player.h/2,Math.min(c.height-player.h/2,player.y));
+  player.angle=player.vx*.1;
+
+  if(frame%100===0)spawnWall();
+  if(frame%70===0)spawnStar();
+
+  walls=walls.filter(w=>w.x>-30);
+  walls.forEach(w=>{w.x-=spd;
+    ctx.fillStyle='#00838f';ctx.fillRect(w.x,0,w.w,w.gapY);ctx.fillRect(w.x,w.gapY+w.gapH,w.w,c.height-w.gapY-w.gapH);
+    ctx.fillStyle='#80deea';ctx.fillRect(w.x-3,w.gapY-6,w.w+6,8);ctx.fillRect(w.x-3,w.gapY+w.gapH-2,w.w+6,8);
+    if(player.x+player.w/2>w.x&&player.x-player.w/2<w.x+w.w&&(player.y-player.h/2<w.gapY||player.y+player.h/2>w.gapY+w.gapH))state='crash';
+  });
+
+  stars=stars.filter(s=>s.x>-20);
+  stars.forEach(s=>{s.x-=spd;
+    ctx.fillStyle='#ffeb3b';ctx.shadowBlur=10;ctx.shadowColor='#ffeb3b';
+    ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
+    if(Math.hypot(player.x-s.x,player.y-s.y)<player.w/2+s.r){score+=50;s.x=-99;}
+  });
+
+  // Hovercraft
+  ctx.save();ctx.translate(player.x,player.y);ctx.rotate(player.angle);
+  ctx.fillStyle='#006064';ctx.beginPath();ctx.ellipse(0,0,player.w/2,player.h/2,0,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#00acc1';ctx.beginPath();ctx.ellipse(0,0,player.w/2-5,player.h/2-4,0,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='rgba(128,222,234,.4)';ctx.fillRect(-player.w/2+2,player.h/2,player.w-4,6);
+  // Fan blur
+  ctx.strokeStyle='rgba(255,255,255,.3)';ctx.lineWidth=3;ctx.beginPath();ctx.arc(0,0,player.h/2-2,0,Math.PI*2);ctx.stroke();
+  ctx.restore();
+
+  document.getElementById('ui').textContent=`Score: ${score}`;
+  requestAnimationFrame(loop);
+}
+start();loop();
+</script></body></html>

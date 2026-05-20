@@ -1,0 +1,87 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Type Rush</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+body{background:#1a1a2e}
+#game-area{padding:20px;text-align:center;max-width:600px;margin:0 auto}
+#word-display{font-size:2.5rem;font-weight:900;color:#81d4fa;letter-spacing:4px;margin:16px 0;min-height:60px}
+#typed{font-size:1.8rem;letter-spacing:4px;min-height:50px;color:#fff}
+#input-box{padding:12px 20px;font-size:1.2rem;border-radius:8px;border:2px solid #01579b;background:#0d1a2e;color:#fff;outline:none;width:100%;margin-top:10px}
+#input-box:focus{border-color:#81d4fa}
+#progress{height:8px;background:#e94560;border-radius:4px;margin:12px 0;transition:width .3s}
+#ui{color:#81d4fa;font-size:1rem;font-weight:700;padding:6px 0}
+.letter.correct{color:#69f0ae}.letter.wrong{color:#ff5252;text-decoration:underline}
+</style></head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Type Rush</div>
+  <div class="game-frame">
+    <div id="game-area">
+      <div id="ui">WPM: 0 | Accuracy: 100% | Time: 60s</div>
+      <div id="progress" style="width:100%"></div>
+      <div id="word-display"></div>
+      <div id="typed"></div>
+      <input id="input-box" type="text" placeholder="Start typing here…" autocomplete="off" spellcheck="false">
+    </div>
+  </div>
+  <div class="game-instructions">Type the highlighted word exactly. Press Space to confirm and move to the next word. Race against time!</div>
+</div>
+<script>
+const WORDS='the quick brown fox jumps over lazy dog apple banana cherry dragon elephant forest garden house island jungle kitchen lemon mountain night ocean purple queen river sunset tiger umbrella village window yellow zebra rainbow planet space flight dream code pixel fire water earth wind shadow light stone crystal arrow sword shield crown castle tower bridge river valley cloud storm blaze speed force power jump run fly swim dive roll spin dash blast'.split(' ');
+
+let words,wordIdx,typed,score,errors,timeLeft,timer,started,wpm;
+
+function shuffle(a){return a.sort(()=>Math.random()-.5);}
+
+function start(){
+  words=shuffle([...WORDS]).slice(0,40);wordIdx=0;typed='';score=0;errors=0;timeLeft=60;started=false;wpm=0;
+  renderWord();document.getElementById('input-box').value='';document.getElementById('input-box').focus();
+  document.getElementById('typed').innerHTML='';
+  document.getElementById('ui').textContent='WPM: 0 | Accuracy: 100% | Time: 60s';
+  document.getElementById('progress').style.width='100%';
+  clearInterval(timer);
+}
+
+function renderWord(){
+  const w=words[wordIdx]||'';
+  const inp=document.getElementById('input-box').value;
+  let html='';
+  for(let i=0;i<w.length;i++){
+    if(i<inp.length)html+=`<span class="letter ${inp[i]===w[i]?'correct':'wrong'}">${w[i]}</span>`;
+    else html+=`<span class="letter">${w[i]}</span>`;
+  }
+  document.getElementById('word-display').innerHTML=html;
+}
+
+document.getElementById('input-box').addEventListener('input',e=>{
+  if(!started){started=true;timer=setInterval(tick,1000);}
+  const v=e.target.value;
+  if(v.endsWith(' ')){
+    const attempt=v.trim();const target=words[wordIdx];
+    if(attempt===target)score++;
+    else errors++;
+    wordIdx++;
+    e.target.value='';
+    if(wordIdx>=words.length)endGame();
+    else renderWord();
+  } else renderWord();
+});
+
+function tick(){
+  timeLeft--;wpm=Math.round((score/(60-timeLeft||1))*60);
+  const acc=score+errors>0?Math.round(score/(score+errors)*100):100;
+  document.getElementById('ui').textContent=`WPM: ${wpm} | Accuracy: ${acc}% | Time: ${timeLeft}s`;
+  document.getElementById('progress').style.width=(timeLeft/60*100)+'%';
+  if(timeLeft<=0)endGame();
+}
+
+function endGame(){
+  clearInterval(timer);started=false;
+  const acc=score+errors>0?Math.round(score/(score+errors)*100):100;
+  document.getElementById('word-display').innerHTML=`<span style="color:#69f0ae">Done! ${wpm} WPM</span>`;
+  document.getElementById('typed').textContent=`${score} words correct | ${acc}% accuracy`;
+  document.getElementById('input-box').disabled=true;
+  setTimeout(()=>{document.getElementById('input-box').disabled=false;start();},3000);
+}
+
+start();
+</script></body></html>
