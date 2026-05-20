@@ -112,7 +112,7 @@ function loop(){
   spd=5+score/400;
 
   // Spawn
-  if(frame%Math.max(60,120-score/50)===0)spawnObs();
+  if(frame%Math.round(Math.max(60,120-score/50))===0)spawnObs();
   if(score>300&&frame%180===0)spawnBird();
 
   // Physics
