@@ -120,14 +120,17 @@ function loop(){
   dino.y+=dino.vy;
   if(dino.y>=ground){dino.y=ground;dino.vy=0;dino.jumps=0;}
 
+  // Hitbox covers body + head (head drawn at dino.y-16)
+  const dinoHit={x:dino.x+4,y:dino.y-13,w:dino.w+4,h:dino.h+13};
+
   obs=obs.filter(o=>o.x>-30);
   obs.forEach(o=>{o.x-=spd;drawObs(o);
-    if(rect({x:dino.x+4,y:dino.y+4,w:dino.w-8,h:dino.h-4},{x:o.x,y:o.y,w:o.w,h:o.h}))gameOver=true;
+    if(rect(dinoHit,{x:o.x,y:o.y,w:o.w,h:o.h}))gameOver=true;
   });
 
   birds=birds.filter(b=>b.x>-50);
   birds.forEach(b=>{b.x-=spd+1;b.frame++;drawBird(b);
-    if(rect({x:dino.x+4,y:dino.y+4,w:dino.w-8,h:dino.h-4},{x:b.x,y:b.y,w:b.w,h:b.h}))gameOver=true;
+    if(rect(dinoHit,{x:b.x,y:b.y,w:b.w,h:b.h}))gameOver=true;
   });
 
   drawDino();
