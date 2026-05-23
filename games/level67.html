@@ -70,7 +70,7 @@ function hitTest(){
     if(sx>W+SPK||sx<-SPK)continue;
     const sy=s.floor?FLOOR:CEIL;
     // Reduced hitbox: middle 55% of spike width, 75% of height
-    const hx=s.x+SPK*.22,hw=SPK*.55;
+    const hx=(s.x-camX)+SPK*.22,hw=SPK*.55;
     const hy=s.floor?(FLOOR-SPK*.75):CEIL,hh=SPK*.75;
     if(px+SZ>hx&&px<hx+hw&&py+SZ>hy&&py<hy+hh)return true;
   }

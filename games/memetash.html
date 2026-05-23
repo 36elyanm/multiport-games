@@ -67,7 +67,7 @@ function hitTest(){
     const sx=s.x-camX;
     if(sx>W+SPK||sx<-SPK)continue;
     // 45% hitbox width, 65% height = very forgiving
-    const hx=s.x+SPK*.27,hw=SPK*.45;
+    const hx=(s.x-camX)+SPK*.27,hw=SPK*.45;
     const hy=s.floor?(FLOOR-SPK*.65):CEIL,hh=SPK*.65;
     if(px+SZ>hx&&px<hx+hw&&py+SZ>hy&&py<hy+hh)return true;
   }
