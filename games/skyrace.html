@@ -1,0 +1,214 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Sky Race</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+body{background:#0277bd}
+#c{display:block;border-radius:8px}
+#ui{color:#e1f5fe;font-size:1.1rem;font-weight:700;text-align:center;padding:8px}
+</style>
+</head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Sky Race</div>
+  <div class="game-frame">
+    <div id="ui">Distance: 0m</div>
+    <canvas id="c" width="480" height="560"></canvas>
+  </div>
+  <div class="game-instructions"><b>← → ↑ ↓</b> or <b>WASD</b> to fly. Dodge clouds and enemy planes — go for distance!</div>
+</div>
+<script>
+const c=document.getElementById('c'),ctx=c.getContext('2d');
+const W=480,H=560;
+let player,obs,clouds,score,speed,alive,frame,keys={},hi=0;
+let scrollY=0;
+
+function start(){
+  player={x:W/2-18,y:H-120,w:36,h:52,vx:0,vy:0,exhaust:[]};
+  obs=[];clouds=[];score=0;speed=3;alive=true;frame=0;scrollY=0;
+  // Seed some clouds
+  for(let i=0;i<6;i++)spawnCloud(Math.random()*H);
+}
+
+const keys2={};
+document.addEventListener('keydown',e=>{keys[e.code]=true;if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key))e.preventDefault();});
+document.addEventListener('keyup',e=>keys[e.code]=false);
+c.addEventListener('click',()=>{if(!alive)start();});
+
+// Touch: left half = left, right half = right; tap upper/lower zones for up/down
+let touchZone={left:false,right:false,up:false,down:false};
+c.addEventListener('touchstart',e=>{
+  e.preventDefault();if(!alive){start();return;}
+  Array.from(e.touches).forEach(t=>{
+    const r=c.getBoundingClientRect();
+    const tx=(t.clientX-r.left)*W/r.width,ty=(t.clientY-r.top)*H/r.height;
+    if(tx<W/2)touchZone.left=true;else touchZone.right=true;
+    if(ty<H/2)touchZone.up=true;else touchZone.down=true;
+  });
+},{passive:false});
+c.addEventListener('touchmove',e=>{
+  e.preventDefault();
+  touchZone={left:false,right:false,up:false,down:false};
+  Array.from(e.touches).forEach(t=>{
+    const r=c.getBoundingClientRect();
+    const tx=(t.clientX-r.left)*W/r.width,ty=(t.clientY-r.top)*H/r.height;
+    if(tx<W/2)touchZone.left=true;else touchZone.right=true;
+    if(ty<H/2)touchZone.up=true;else touchZone.down=true;
+  });
+},{passive:false});
+c.addEventListener('touchend',e=>{
+  if(e.touches.length===0)touchZone={left:false,right:false,up:false,down:false};
+},{passive:true});
+
+function spawnCloud(y){
+  const w=60+Math.random()*100,h=30+Math.random()*40;
+  clouds.push({x:Math.random()*(W-w),y:y??-h,w,h,speed:.4+Math.random()*.4,op:.4+Math.random()*.5});
+}
+
+function spawnObs(){
+  const type=Math.random();
+  if(type<0.5){
+    // Storm cloud obstacle
+    const w=70+Math.random()*80;
+    obs.push({x:Math.random()*(W-w),y:-60,w,h:40,type:'cloud'});
+  } else if(type<0.8){
+    // Enemy plane
+    obs.push({x:Math.random()*(W-32),y:-70,w:32,h:48,type:'plane',color:['#f44336','#ff9800','#9c27b0'][Math.floor(Math.random()*3)]});
+  } else {
+    // Wide cloud wall with gap
+    const gapX=60+Math.random()*(W-180);
+    obs.push({x:0,y:-50,w:gapX-10,h:38,type:'wall'});
+    obs.push({x:gapX+80,y:-50,w:W-(gapX+80),h:38,type:'wall'});
+  }
+}
+
+function drawPlane(x,y,w,h,col,flip){
+  ctx.save();ctx.translate(x+w/2,y+h/2);
+  if(flip)ctx.scale(1,-1);
+  // Body
+  ctx.fillStyle=col;
+  ctx.beginPath();ctx.ellipse(0,0,w/2-4,h/2,0,0,Math.PI*2);ctx.fill();
+  // Cockpit
+  ctx.fillStyle='rgba(173,229,255,.85)';
+  ctx.beginPath();ctx.ellipse(0,-h*.2,w/4,h*.18,0,0,Math.PI*2);ctx.fill();
+  // Wings
+  ctx.fillStyle=col;
+  ctx.beginPath();ctx.moveTo(-2,-2);ctx.lineTo(-w/2+2,h*.2);ctx.lineTo(-w/2+2,h*.28);ctx.lineTo(-2,h*.1);ctx.fill();
+  ctx.beginPath();ctx.moveTo(2,-2);ctx.lineTo(w/2-2,h*.2);ctx.lineTo(w/2-2,h*.28);ctx.lineTo(2,h*.1);ctx.fill();
+  // Tail fins
+  ctx.beginPath();ctx.moveTo(-3,h*.3);ctx.lineTo(-w/4,h*.5);ctx.lineTo(-3,h*.45);ctx.fill();
+  ctx.beginPath();ctx.moveTo(3,h*.3);ctx.lineTo(w/4,h*.5);ctx.lineTo(3,h*.45);ctx.fill();
+  ctx.restore();
+}
+
+function drawExhaust(p){
+  p.exhaust.push({x:p.x+p.w/2,y:p.y+p.h,life:1});
+  p.exhaust=p.exhaust.filter(e=>e.life>0);
+  p.exhaust.forEach(e=>{
+    e.life-=0.07;
+    ctx.globalAlpha=e.life*.7;
+    ctx.fillStyle='#fff';
+    ctx.beginPath();ctx.arc(e.x+(Math.random()-0.5)*6,e.y+(1-e.life)*20,4*(1-e.life)*3,0,Math.PI*2);ctx.fill();
+    ctx.globalAlpha=1;
+  });
+}
+
+function drawCloud(x,y,w,h,op){
+  ctx.globalAlpha=op;ctx.fillStyle='#fff';
+  ctx.beginPath();ctx.ellipse(x+w*.5,y+h*.5,w*.5,h*.4,0,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.ellipse(x+w*.3,y+h*.35,w*.3,h*.5,0,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.ellipse(x+w*.7,y+h*.35,w*.28,h*.46,0,0,Math.PI*2);ctx.fill();
+  ctx.globalAlpha=1;
+}
+
+function drawStormCloud(x,y,w,h){
+  ctx.fillStyle='#546e7a';
+  ctx.beginPath();ctx.ellipse(x+w*.5,y+h*.5,w*.5,h*.45,0,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.ellipse(x+w*.25,y+h*.4,w*.28,h*.5,0,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.ellipse(x+w*.75,y+h*.4,w*.26,h*.46,0,0,Math.PI*2);ctx.fill();
+  // Lightning
+  ctx.strokeStyle='#ffee58';ctx.lineWidth=2;
+  ctx.beginPath();ctx.moveTo(x+w*.45,y+h);ctx.lineTo(x+w*.55,y+h+14);ctx.lineTo(x+w*.42,y+h+14);ctx.lineTo(x+w*.52,y+h+28);ctx.stroke();
+}
+
+function aabb(a,b){return a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y;}
+
+function loop(){
+  // Sky gradient
+  const sky=ctx.createLinearGradient(0,0,0,H);
+  sky.addColorStop(0,'#0277bd');sky.addColorStop(1,'#56cfe1');
+  ctx.fillStyle=sky;ctx.fillRect(0,0,W,H);
+
+  if(!alive){
+    ctx.fillStyle='rgba(0,0,0,.6)';ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='#fff';ctx.font='bold 40px Arial';ctx.textAlign='center';
+    ctx.fillText('CRASHED!',W/2,H/2-60);
+    ctx.fillStyle='#e1f5fe';ctx.font='24px Arial';
+    ctx.fillText(`${score}m flown`,W/2,H/2-10);
+    ctx.fillStyle='#80deea';ctx.font='18px Arial';
+    ctx.fillText(`Best: ${hi}m`,W/2,H/2+25);
+    ctx.fillStyle='#fff';ctx.fillText('Click to fly again',W/2,H/2+65);
+    requestAnimationFrame(loop);return;
+  }
+
+  frame++;score=Math.floor(frame*speed/5);
+  if(score>hi)hi=score;
+  speed=3+frame/600;
+
+  // Input
+  const goLeft=keys['ArrowLeft']||keys['KeyA']||touchZone.left;
+  const goRight=keys['ArrowRight']||keys['KeyD']||touchZone.right;
+  const goUp=keys['ArrowUp']||keys['KeyW']||touchZone.up;
+  const goDown=keys['ArrowDown']||keys['KeyS']||touchZone.down;
+
+  if(goLeft)player.vx=Math.max(player.vx-.4,-5);
+  else if(goRight)player.vx=Math.min(player.vx+.4,5);
+  else player.vx*=.82;
+
+  if(goUp)player.vy=Math.max(player.vy-.3,-4);
+  else if(goDown)player.vy=Math.min(player.vy+.3,4);
+  else player.vy*=.82;
+
+  player.x+=player.vx;player.y+=player.vy;
+  player.x=Math.max(0,Math.min(W-player.w,player.x));
+  player.y=Math.max(0,Math.min(H-player.h,player.y));
+
+  scrollY+=speed;
+
+  // Background clouds (decorative)
+  if(frame%90===0)spawnCloud();
+  clouds=clouds.filter(cl=>cl.y<H+80);
+  clouds.forEach(cl=>{cl.y+=cl.speed;drawCloud(cl.x,cl.y,cl.w,cl.h,cl.op);});
+
+  // Obstacles
+  const spawnEvery=Math.max(40,100-frame/60);
+  if(frame%Math.round(spawnEvery)===0)spawnObs();
+  obs=obs.filter(o=>o.y<H+80);
+
+  const hit={x:player.x+5,y:player.y+5,w:player.w-10,h:player.h-10};
+
+  obs.forEach(o=>{
+    o.y+=speed;
+    if(o.type==='cloud')drawStormCloud(o.x,o.y,o.w,o.h);
+    else if(o.type==='plane'){
+      drawPlane(o.x,o.y,o.w,o.h,o.color,true);
+    } else {
+      // Wall cloud
+      drawStormCloud(o.x,o.y,o.w,o.h);
+    }
+    if(aabb(hit,{x:o.x,y:o.y,w:o.w,h:o.h}))alive=false;
+  });
+
+  // Exhaust trail
+  drawExhaust(player);
+
+  // Player plane
+  const tilt=player.vx*.03;
+  ctx.save();ctx.translate(player.x+player.w/2,player.y+player.h/2);ctx.rotate(tilt);ctx.translate(-player.w/2,-player.h/2);
+  drawPlane(0,0,player.w,player.h,'#e94560',false);
+  ctx.restore();
+
+  document.getElementById('ui').textContent=`Distance: ${score}m | Best: ${hi}m`;
+  requestAnimationFrame(loop);
+}
+start();loop();
+</script>
+</body></html>
