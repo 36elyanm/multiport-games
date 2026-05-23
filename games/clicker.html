@@ -40,7 +40,7 @@ function render(){
   document.getElementById('shop').innerHTML=upgrades.map((u,i)=>`
     <div class="item">
       <div><b>${u.name}</b> ×${u.count}<div class="desc">${u.desc} (+${u.cps}/s)</div></div>
-      <button ${cookies<u.cost?'disabled':''} onclick="buy(${i})">Buy<br><small>${fmt(u.cost)}🍪</small></button>
+      <button ${cookies<u.cost?'disabled':''} data-buy="${i}">Buy<br><small>${fmt(u.cost)}🍪</small></button>
     </div>`).join('');
 }
 
@@ -48,6 +48,11 @@ function buy(i){
   const u=upgrades[i];if(cookies<u.cost)return;
   cookies-=u.cost;u.count++;cps+=u.cps;u.cost=Math.floor(u.cost*1.15);render();
 }
+
+document.getElementById('shop').addEventListener('click',e=>{
+  const btn=e.target.closest('[data-buy]');
+  if(btn)buy(+btn.dataset.buy);
+});
 
 document.getElementById('cookie').addEventListener('click',()=>{
   cookies+=1+upgrades[0].count*.1;
