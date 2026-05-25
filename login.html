@@ -1,0 +1,57 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Login – MiniArcade</title>
+<link rel="stylesheet" href="css/style.css">
+<style>
+body{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px}
+.auth-card{width:100%;max-width:400px;background:rgba(255,255,255,0.07);backdrop-filter:blur(32px) saturate(180%);-webkit-backdrop-filter:blur(32px) saturate(180%);border:1px solid rgba(255,255,255,0.12);border-radius:24px;padding:36px 32px;box-shadow:0 24px 64px rgba(0,0,0,0.5),inset 0 1px 0 rgba(255,255,255,0.1);}
+.auth-card h2{font-size:1.8rem;font-weight:800;color:#fff;letter-spacing:-.6px;margin-bottom:6px;text-align:center}
+.auth-card .sub{color:rgba(255,255,255,.45);text-align:center;font-size:.9rem;margin-bottom:28px}
+.field{margin-bottom:16px}
+.field label{display:block;font-size:.82rem;font-weight:600;color:rgba(255,255,255,.55);margin-bottom:6px;text-transform:uppercase;letter-spacing:.8px}
+.field input{width:100%;padding:11px 16px;border-radius:12px;border:1px solid rgba(255,255,255,.13);background:rgba(255,255,255,.08);color:#fff;font-family:inherit;font-size:.95rem;outline:none;transition:all .18s}
+.field input::placeholder{color:rgba(255,255,255,.3)}
+.field input:focus{border-color:rgba(233,69,96,.55);background:rgba(255,255,255,.11);box-shadow:0 0 0 3px rgba(233,69,96,.14)}
+.auth-btn{width:100%;padding:13px;border:none;border-radius:12px;background:linear-gradient(135deg,#e94560,#ff6b8a);color:#fff;font-family:inherit;font-size:1rem;font-weight:700;cursor:pointer;margin-top:8px;transition:opacity .18s;letter-spacing:.2px}
+.auth-btn:hover{opacity:.88}
+.auth-links{text-align:center;margin-top:20px;font-size:.88rem;color:rgba(255,255,255,.4)}
+.auth-links a{color:#e94560;text-decoration:none;font-weight:600}
+.auth-links a:hover{text-decoration:underline}
+.back-home{display:block;text-align:center;margin-bottom:20px;color:rgba(255,255,255,.4);font-size:.85rem;text-decoration:none}
+.back-home:hover{color:#fff}
+.error{background:rgba(233,69,96,.15);border:1px solid rgba(233,69,96,.35);color:#ff8a9a;border-radius:10px;padding:10px 14px;font-size:.88rem;margin-bottom:14px;display:none}
+.success{background:rgba(126,200,80,.15);border:1px solid rgba(126,200,80,.35);color:#a8e67a;border-radius:10px;padding:10px 14px;font-size:.88rem;margin-bottom:14px;display:none}
+.logo{text-align:center;font-size:1.1rem;font-weight:800;color:#fff;margin-bottom:24px}
+.logo span{background:linear-gradient(135deg,#e94560,#ff8fa3);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+</style></head><body>
+<div style="width:100%;max-width:400px">
+  <a href="index.html" class="back-home">← Back to games</a>
+  <div class="auth-card">
+    <div class="logo">Mini<span>Arcade</span></div>
+    <h2>Welcome back</h2>
+    <p class="sub">Sign in to your account</p>
+    <div class="error" id="err"></div>
+    <div class="success" id="ok"></div>
+    <div class="field"><label>Username</label><input id="username" type="text" placeholder="Your username" autocomplete="username"></div>
+    <div class="field"><label>Password</label><input id="password" type="password" placeholder="Your password" autocomplete="current-password"></div>
+    <button class="auth-btn" onclick="doLogin()">Sign In</button>
+    <div class="auth-links">Don't have an account? <a href="signup.html">Sign up</a></div>
+  </div>
+</div>
+<script>
+function doLogin(){
+  const u=document.getElementById('username').value.trim();
+  const p=document.getElementById('password').value;
+  const err=document.getElementById('err');const ok=document.getElementById('ok');
+  err.style.display='none';ok.style.display='none';
+  if(!u||!p){err.textContent='Please fill in all fields.';err.style.display='block';return;}
+  const users=JSON.parse(localStorage.getItem('miniarcade_users')||'[]');
+  const user=users.find(x=>x.username.toLowerCase()===u.toLowerCase()&&x.password===btoa(p));
+  if(!user){err.textContent='Incorrect username or password.';err.style.display='block';return;}
+  localStorage.setItem('miniarcade_session',JSON.stringify({username:user.username}));
+  ok.textContent='Logged in! Redirecting…';ok.style.display='block';
+  setTimeout(()=>location.href='index.html',800);
+}
+document.addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
+// Already logged in?
+if(localStorage.getItem('miniarcade_session'))location.href='index.html';
+</script>
+</body></html>

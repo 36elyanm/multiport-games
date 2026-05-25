@@ -11,6 +11,12 @@
   background:rgba(8,8,15,0.97);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);}
 #captcha-gate h2{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display',system-ui,sans-serif;font-size:1.6rem;font-weight:800;color:#fff;letter-spacing:-.5px;}
 #captcha-gate p{color:rgba(255,255,255,.5);font-family:-apple-system,BlinkMacSystemFont,system-ui,sans-serif;font-size:.95rem;}
+.auth-pill{padding:7px 16px;border-radius:50px;font-family:inherit;font-size:.85rem;font-weight:600;cursor:pointer;transition:all .18s;text-decoration:none;display:inline-block;letter-spacing:.1px}
+.auth-pill.outline{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);color:rgba(255,255,255,.8)}
+.auth-pill.outline:hover{background:rgba(255,255,255,.14);color:#fff}
+.auth-pill.solid{background:linear-gradient(135deg,#e94560,#ff6b8a);border:none;color:#fff;box-shadow:0 0 16px rgba(233,69,96,.3)}
+.auth-pill.solid:hover{opacity:.88}
+.auth-user{color:rgba(255,255,255,.7);font-size:.85rem;font-weight:600}
 </style>
 </head>
 <body>
@@ -24,6 +30,7 @@
 <header>
   <h1>Mini<span>Arcade</span></h1>
   <input id="search-bar" type="text" placeholder="Search games…" oninput="filterGames()">
+  <div id="auth-btns" style="display:flex;gap:8px;align-items:center;flex-shrink:0"></div>
 </header>
 
 <div class="categories">
@@ -131,6 +138,21 @@ function filterCat(cat, btn) {
 }
 
 renderGames(GAMES);
+
+// Auth header
+(function(){
+  const session=localStorage.getItem('miniarcade_session');
+  const el=document.getElementById('auth-btns');
+  if(session){
+    const {username}=JSON.parse(session);
+    el.innerHTML=`<span class="auth-user">👋 ${username}</span>
+      <button class="auth-pill outline" onclick="logout()">Log out</button>`;
+  } else {
+    el.innerHTML=`<a href="login.html" class="auth-pill outline">Log in</a>
+      <a href="signup.html" class="auth-pill solid">Sign up</a>`;
+  }
+})();
+function logout(){localStorage.removeItem('miniarcade_session');location.reload();}
 
 function onTurnstileSuccess(token){
   const gate=document.getElementById('captcha-gate');
