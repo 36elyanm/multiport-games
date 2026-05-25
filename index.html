@@ -5,8 +5,21 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MiniArcade – 50 Free Games</title>
 <link rel="stylesheet" href="css/style.css">
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+<style>
+#captcha-gate{position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;
+  background:rgba(8,8,15,0.97);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);}
+#captcha-gate h2{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display',system-ui,sans-serif;font-size:1.6rem;font-weight:800;color:#fff;letter-spacing:-.5px;}
+#captcha-gate p{color:rgba(255,255,255,.5);font-family:-apple-system,BlinkMacSystemFont,system-ui,sans-serif;font-size:.95rem;}
+</style>
 </head>
 <body>
+
+<div id="captcha-gate">
+  <h2>MiniArcade 🎮</h2>
+  <p>Please verify you're human to continue.</p>
+  <div class="cf-turnstile" data-sitekey="0x4AAAAAADWNTS62UeiB1Gk3" data-callback="onTurnstileSuccess"></div>
+</div>
 
 <header>
   <h1>Mini<span>Arcade</span></h1>
@@ -118,6 +131,13 @@ function filterCat(cat, btn) {
 }
 
 renderGames(GAMES);
+
+function onTurnstileSuccess(token){
+  const gate=document.getElementById('captcha-gate');
+  gate.style.transition='opacity .4s ease';
+  gate.style.opacity='0';
+  setTimeout(()=>gate.remove(),400);
+}
 </script>
 </body>
 </html>
