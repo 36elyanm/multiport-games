@@ -1,202 +1,191 @@
 <!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Flappy Dunk</title>
 <link rel="stylesheet" href="../css/style.css">
 <style>
-body{background:#1a0a00}
-#c{display:block;border-radius:8px}
+body{background:#2a1a0a}
+#c{display:block;border-radius:8px;cursor:pointer}
+#ui{color:#ffb347;text-align:center;padding:8px;font-size:1.1rem;font-weight:700}
 </style>
 </head><body>
 <div class="game-page">
   <a href="../index.html" class="back-btn">← Back</a>
   <div class="game-title">Flappy Dunk</div>
-  <div class="game-frame"><canvas id="c" width="480" height="600"></canvas></div>
-  <div class="game-instructions">Press <b>Space</b>, click, or tap to flap the ball. Score through every hoop!</div>
+  <div class="game-frame">
+    <div id="ui">Score: 0 | Best: 0</div>
+    <canvas id="c" width="480" height="520"></canvas>
+  </div>
+  <div class="game-instructions">Tap / Space to flap. Guide the ball through every hoop ring!</div>
 </div>
 <script>
 const c=document.getElementById('c'),ctx=c.getContext('2d');
-const W=480,H=600,GRAV=0.5,FLAP=-9.5,SPEED=3,HOOP_W=16,BASE_GAP=145;
-let ball,hoops,score,hi=0,state,frame,swish,swishTimer=0;
+const W=480,H=520,GRAV=0.5,FLAP=-9.5;
+let ball,hoops,score,hi=0,state,frame;
 
-function flap(){
-  if(state==='idle'||state==='dead'){
-    ball={x:100,y:H/2,vy:0,r:18,angle:0};
-    hoops=[];score=0;frame=0;swish='';swishTimer=0;
-    state='play';
-  }
-  if(state==='play')ball.vy=FLAP;
+function reset(){
+  ball={x:110,y:H/2,vy:0,r:16,angle:0};
+  hoops=[];score=0;frame=0;state='play';
 }
 
+function flap(){
+  if(state!=='play'){reset();return;}
+  ball.vy=FLAP;
+}
 document.addEventListener('keydown',e=>{if(e.code==='Space'){e.preventDefault();flap();}});
 c.addEventListener('click',flap);
 c.addEventListener('touchstart',e=>{e.preventDefault();flap();},{passive:false});
 
 function addHoop(){
-  const gap=Math.max(110,BASE_GAP-score*1.5);
-  const cy=120+Math.random()*(H-240);
-  hoops.push({x:W+HOOP_W,cy,gap,scored:false});
+  const cy=100+Math.random()*(H-220);
+  const rx=52,ry=Math.max(13,20-score*.4);
+  hoops.push({x:W+rx,cy,rx,ry,scored:false,passed:false});
 }
 
-function drawCourt(){
-  // Hardwood gradient
-  const g=ctx.createLinearGradient(0,0,0,H);
-  g.addColorStop(0,'#1a0800');g.addColorStop(0.5,'#2e1200');g.addColorStop(1,'#1a0800');
-  ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
-  // Faint court lines
-  ctx.strokeStyle='rgba(255,200,100,0.06)';ctx.lineWidth=2;
-  for(let y=0;y<H;y+=60){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
-  ctx.beginPath();ctx.arc(W/2,H/2,80,0,Math.PI*2);ctx.stroke();
-  ctx.beginPath();ctx.moveTo(W/2,0);ctx.lineTo(W/2,H);ctx.stroke();
-}
-
-function drawBall(){
-  ctx.save();
-  ctx.translate(ball.x,ball.y);
-  ctx.rotate(ball.angle);
-  // Shadow
-  ctx.fillStyle='rgba(0,0,0,0.25)';
-  ctx.beginPath();ctx.ellipse(4,6,ball.r,ball.r*.6,0,0,Math.PI*2);ctx.fill();
-  // Ball body
-  const bg=ctx.createRadialGradient(-5,-5,2,0,0,ball.r);
-  bg.addColorStop(0,'#ff9a4a');bg.addColorStop(0.6,'#f4753a');bg.addColorStop(1,'#c04a10');
-  ctx.fillStyle=bg;ctx.beginPath();ctx.arc(0,0,ball.r,0,Math.PI*2);ctx.fill();
-  // Seam lines
-  ctx.strokeStyle='rgba(0,0,0,0.55)';ctx.lineWidth=1.8;
-  ctx.beginPath();ctx.arc(0,0,ball.r,0,Math.PI*2);ctx.stroke();
-  ctx.beginPath();ctx.moveTo(-ball.r,0);ctx.lineTo(ball.r,0);ctx.stroke();
-  ctx.beginPath();ctx.arc(0,0,ball.r*.55,-.9,Math.PI+.9,false);ctx.stroke();
-  ctx.beginPath();ctx.arc(0,0,ball.r*.55,Math.PI-.9,-.9+Math.PI*2,false);ctx.stroke();
-  ctx.restore();
+function drawBg(){
+  // Gym background
+  const bg=ctx.createLinearGradient(0,0,0,H);
+  bg.addColorStop(0,'#e8dcc8');bg.addColorStop(1,'#d4c4a0');
+  ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
+  // Subtle wall lines
+  ctx.strokeStyle='rgba(180,160,120,0.3)';ctx.lineWidth=1;
+  for(let y=40;y<H-60;y+=40){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+  // Hardwood floor
+  const fl=ctx.createLinearGradient(0,H-70,0,H);
+  fl.addColorStop(0,'#c8701a');fl.addColorStop(1,'#a05010');
+  ctx.fillStyle=fl;ctx.fillRect(0,H-70,W,70);
+  ctx.strokeStyle='rgba(255,255,255,0.25)';ctx.lineWidth=2;
+  for(let x=0;x<W;x+=48){ctx.beginPath();ctx.moveTo(x,H-70);ctx.lineTo(x,H);ctx.stroke();}
+  ctx.strokeStyle='rgba(255,255,255,0.4)';ctx.lineWidth=2;
+  ctx.beginPath();ctx.moveTo(0,H-70);ctx.lineTo(W,H-70);ctx.stroke();
 }
 
 function drawHoop(h){
-  const {x,cy,gap}=h;
-  const topH=cy-gap/2;
-  const botY=cy+gap/2;
+  const {x,cy,rx,ry}=h;
+  // Shadow on floor
+  ctx.fillStyle='rgba(0,0,0,0.08)';
+  ctx.beginPath();ctx.ellipse(x,H-65,rx*.7,ry*.35,0,0,Math.PI*2);ctx.fill();
 
-  // Top barrier
-  const tg=ctx.createLinearGradient(x-40,0,x,0);
-  tg.addColorStop(0,'#3d1a00');tg.addColorStop(1,'#5c2a00');
-  ctx.fillStyle=tg;ctx.fillRect(x-40,0,40,topH);
-  // Bottom barrier
-  ctx.fillStyle=tg;ctx.fillRect(x-40,botY,40,H-botY);
+  // Net (below hoop)
+  ctx.save();ctx.beginPath();ctx.ellipse(x,cy,rx,ry,0,0,Math.PI*2);ctx.clip();
+  ctx.strokeStyle='rgba(255,255,255,0.6)';ctx.lineWidth=1;
+  const netBot=cy+ry*2.8;
+  const segs=7;
+  for(let i=0;i<=segs;i++){
+    const nx=x-rx+i*(rx*2/segs);
+    ctx.beginPath();ctx.moveTo(nx,cy);ctx.lineTo(nx+(i-segs/2)*2,netBot);ctx.stroke();
+  }
+  for(let j=1;j<=4;j++){
+    const ny=cy+j*(netBot-cy)/4;
+    ctx.beginPath();ctx.ellipse(x,ny,rx*(1-j*.15),ry*.5,0,0,Math.PI*2);ctx.stroke();
+  }
+  ctx.restore();
 
-  // Cap edges
-  ctx.fillStyle='#7b3f00';
-  ctx.fillRect(x-44,topH-12,48,12);
-  ctx.fillRect(x-44,botY,48,12);
-
-  // Backboard
-  ctx.fillStyle='rgba(255,255,255,0.92)';
-  ctx.fillRect(x,cy-50,10,100);
-  ctx.strokeStyle='#e94560';ctx.lineWidth=2;
-  ctx.strokeRect(x+1,cy-30,8,60);
-
-  // Rim (orange arc)
-  const rimW=38;
-  ctx.strokeStyle='#f4753a';ctx.lineWidth=5;
-  ctx.shadowColor='#f4753a';ctx.shadowBlur=8;
-  ctx.beginPath();ctx.moveTo(x-40,cy);ctx.lineTo(x-40+rimW,cy);ctx.stroke();
+  // Hoop rim outer glow
+  ctx.shadowColor='#ff8c00';ctx.shadowBlur=10;
+  // Hoop ring
+  ctx.strokeStyle='#e05a00';ctx.lineWidth=6;
+  ctx.beginPath();ctx.ellipse(x,cy,rx,ry,0,0,Math.PI*2);ctx.stroke();
+  // Inner highlight
+  ctx.strokeStyle='#ff9a30';ctx.lineWidth=2;
+  ctx.beginPath();ctx.ellipse(x,cy,rx-2,ry-1,0,0,Math.PI*2);ctx.stroke();
   ctx.shadowBlur=0;
-  // Rim left circle
-  ctx.fillStyle='#f4753a';
-  ctx.beginPath();ctx.arc(x-40,cy,5,0,Math.PI*2);ctx.fill();
-  ctx.beginPath();ctx.arc(x-40+rimW,cy,5,0,Math.PI*2);ctx.fill();
 
-  // Net
-  ctx.strokeStyle='rgba(255,255,255,0.55)';ctx.lineWidth=1;
-  const netTop=cy,netBot=cy+28,netL=x-40,netR=x-40+rimW;
-  const segments=5;
-  for(let i=0;i<=segments;i++){
-    const lx=netL+i*(netR-netL)/segments;
-    const wobble=Math.sin(i*Math.PI/segments)*4;
-    ctx.beginPath();ctx.moveTo(lx,netTop);ctx.lineTo(lx+wobble,netBot);ctx.stroke();
-  }
-  for(let j=1;j<=3;j++){
-    const ny=netTop+j*(netBot-netTop)/3;
-    ctx.beginPath();ctx.moveTo(netL,ny);ctx.lineTo(netR,ny);ctx.stroke();
-  }
+  // Backboard (right side)
+  ctx.fillStyle='rgba(255,255,255,0.85)';
+  ctx.fillRect(x+rx+2,cy-32,10,64);
+  ctx.strokeStyle='#e94560';ctx.lineWidth=1.5;
+  ctx.strokeRect(x+rx+3,cy-18,8,36);
+  // Support pole
+  ctx.strokeStyle='#888';ctx.lineWidth=3;
+  ctx.beginPath();ctx.moveTo(x+rx+7,cy+32);ctx.lineTo(x+rx+7,H-70);ctx.stroke();
 }
 
-function circleRect(cx,cy,r,rx,ry,rw,rh){
-  const nearX=Math.max(rx,Math.min(cx,rx+rw));
-  const nearY=Math.max(ry,Math.min(cy,ry+rh));
-  return Math.hypot(cx-nearX,cy-nearY)<r;
+function drawBall(){
+  ctx.save();ctx.translate(ball.x,ball.y);ctx.rotate(ball.angle);
+  // Shadow
+  ctx.fillStyle='rgba(0,0,0,0.15)';
+  ctx.beginPath();ctx.ellipse(3,8,ball.r*.9,ball.r*.45,0,0,Math.PI*2);ctx.fill();
+  // Ball gradient
+  const g=ctx.createRadialGradient(-4,-5,1,0,0,ball.r);
+  g.addColorStop(0,'#ffa040');g.addColorStop(0.5,'#f06010');g.addColorStop(1,'#b03a00');
+  ctx.fillStyle=g;
+  ctx.beginPath();ctx.arc(0,0,ball.r,0,Math.PI*2);ctx.fill();
+  // Seams
+  ctx.strokeStyle='rgba(0,0,0,0.5)';ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.arc(0,0,ball.r,0,Math.PI*2);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(-ball.r,0);ctx.lineTo(ball.r,0);ctx.stroke();
+  ctx.beginPath();ctx.arc(0,0,ball.r*.6,-0.8,Math.PI+0.8);ctx.stroke();
+  ctx.beginPath();ctx.arc(0,0,ball.r*.6,Math.PI-0.8,-0.8+Math.PI*2);ctx.stroke();
+  ctx.restore();
+}
+
+function inHoop(h){
+  const dy=ball.y-h.cy;
+  return Math.abs(dy)<h.ry*1.15;
+}
+
+function hitRim(h){
+  // Ball overlaps the ellipse outline area (rim thickness)
+  const dx=ball.x-h.x,dy=ball.y-h.cy;
+  const dist=Math.sqrt((dx/h.rx)**2+(dy/h.ry)**2);
+  return dist<1.05&&dist>0.6&&Math.abs(dx)<h.rx+ball.r;
 }
 
 function loop(){
-  drawCourt();
+  drawBg();
 
-  if(state==='idle'){
-    ctx.fillStyle='rgba(0,0,0,0.55)';ctx.fillRect(0,0,W,H);
-    ctx.fillStyle='#f4753a';ctx.font='bold 48px Arial';ctx.textAlign='center';
-    ctx.shadowColor='#f4753a';ctx.shadowBlur=20;
-    ctx.fillText('FLAPPY DUNK',W/2,H/2-30);ctx.shadowBlur=0;
-    ctx.fillStyle='#fff';ctx.font='20px Arial';
-    ctx.fillText('🏀 Tap / Space to start',W/2,H/2+20);
-    requestAnimationFrame(loop);return;
-  }
-
-  if(state==='dead'){
-    ctx.fillStyle='rgba(0,0,0,0.65)';ctx.fillRect(0,0,W,H);
-    ctx.fillStyle='#f4753a';ctx.font='bold 40px Arial';ctx.textAlign='center';
-    ctx.fillText('GAME OVER',W/2,H/2-55);
-    ctx.fillStyle='#fff';ctx.font='26px Arial';
-    ctx.fillText(`Score: ${score}`,W/2,H/2);
-    ctx.fillStyle='#ffcc00';ctx.font='20px Arial';
-    ctx.fillText(`Best: ${hi}`,W/2,H/2+36);
-    ctx.fillStyle='#aaa';ctx.font='17px Arial';
-    ctx.fillText('Tap / Space to retry',W/2,H/2+74);
+  if(state==='idle'||state==='dead'){
+    ctx.fillStyle='rgba(0,0,0,0.55)';ctx.fillRect(0,0,W,H-70);
+    ctx.textAlign='center';
+    if(state==='dead'){
+      ctx.fillStyle='#e94560';ctx.font='bold 44px Arial';ctx.fillText('MISSED!',W/2,H/2-50);
+      ctx.fillStyle='#fff';ctx.font='26px Arial';ctx.fillText(`Score: ${score}`,W/2,H/2);
+      ctx.fillStyle='#ffb347';ctx.font='20px Arial';ctx.fillText(`Best: ${hi}`,W/2,H/2+36);
+      ctx.fillStyle='#ccc';ctx.font='16px Arial';ctx.fillText('Tap / Space to retry',W/2,H/2+70);
+    } else {
+      ctx.fillStyle='#ffb347';ctx.font='bold 50px Arial';
+      ctx.shadowColor='#ff8c00';ctx.shadowBlur=20;
+      ctx.fillText('FLAPPY DUNK',W/2,H/2-30);ctx.shadowBlur=0;
+      ctx.fillStyle='#fff';ctx.font='20px Arial';
+      ctx.fillText('🏀 Tap / Space to start',W/2,H/2+20);
+    }
     requestAnimationFrame(loop);return;
   }
 
   frame++;
-  const speed=SPEED+score*.08;
+  const spd=2.5+score*.07;
 
   // Spawn hoops
-  if(frame===1||hoops.length===0||(hoops.length>0&&hoops[hoops.length-1].x<W-200))addHoop();
+  if(!hoops.length||(hoops.length&&hoops[hoops.length-1].x<W-180))addHoop();
 
   // Physics
   ball.vy+=GRAV;ball.y+=ball.vy;
-  ball.angle+=ball.vy*.04;
+  ball.angle+=ball.vy*.035;
 
-  // Bounds
-  if(ball.y-ball.r<0||ball.y+ball.r>H)state='dead';
+  // Bounds (floor & ceiling)
+  if(ball.y-ball.r<0){ball.y=ball.r;ball.vy=Math.abs(ball.vy)*.4;}
+  if(ball.y+ball.r>H-70){state='dead';}
 
-  // Hoops
-  hoops=hoops.filter(h=>h.x>-60);
+  // Update & draw hoops
+  hoops=hoops.filter(h=>h.x>-80);
   hoops.forEach(h=>{
-    h.x-=speed;
+    h.x-=spd;
     drawHoop(h);
-    const topH=h.cy-h.gap/2;
-    const botY=h.cy+h.gap/2;
-    // Collision with barriers
-    if(circleRect(ball.x,ball.y,ball.r-3,h.x-44,0,48,topH))state='dead';
-    if(circleRect(ball.x,ball.y,ball.r-3,h.x-44,botY,48,H-botY))state='dead';
-    // Backboard
-    if(circleRect(ball.x,ball.y,ball.r-3,h.x,h.cy-50,10,100))state='dead';
-    // Score
-    if(!h.scored&&h.x-40+38<ball.x){
-      h.scored=true;score++;if(score>hi)hi=score;
-      // Swish if centered
-      const centered=Math.abs(ball.y-h.cy)<h.gap*.28;
-      swish=centered?'SWISH! 🔥':'NICE! 🏀';swishTimer=60;
+
+    // Score: when hoop center passes ball x
+    if(!h.scored&&h.x<ball.x){
+      h.scored=true;
+      if(inHoop(h)){
+        score++;if(score>hi)hi=score;
+      } else {
+        state='dead';
+      }
     }
+
+    // Rim hit while approaching
+    if(!h.scored&&hitRim(h))state='dead';
   });
 
   drawBall();
-
-  // Score
-  ctx.fillStyle='#fff';ctx.font='bold 36px Arial';ctx.textAlign='center';
-  ctx.shadowColor='rgba(0,0,0,0.8)';ctx.shadowBlur=6;
-  ctx.fillText(score,W/2,50);ctx.shadowBlur=0;
-
-  // Swish flash
-  if(swishTimer>0){
-    ctx.globalAlpha=Math.min(1,swishTimer/20);
-    ctx.fillStyle='#ffcc00';ctx.font='bold 28px Arial';
-    ctx.fillText(swish,W/2,H/2);
-    ctx.globalAlpha=1;swishTimer--;
-  }
-
+  document.getElementById('ui').textContent=`Score: ${score} | Best: ${hi}`;
   requestAnimationFrame(loop);
 }
 
