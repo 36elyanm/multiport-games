@@ -57,7 +57,7 @@ function loop(){
   player.y=Math.max(0,Math.min(c.height-player.h,player.y));
 
   // Spawn bolts
-  if(frame%Math.max(20,60-score/200)===0)
+  if(frame%Math.round(Math.max(20,60-score/200))===0)
     bolts.push({x:Math.random()*(c.width-20)+10,y:-20,w:16,h:30,speed:spd+Math.random()*3});
 
   bolts=bolts.filter(b=>b.y<c.height+30);

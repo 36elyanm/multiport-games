@@ -47,7 +47,7 @@ function loop(){
   if(keys['ArrowRight']||keys['KeyD'])basket.x+=6;
   basket.x=Math.max(0,Math.min(c.width-basket.w,basket.x));
 
-  if(frame%Math.max(20,50-score/40)===0)spawnItem();
+  if(frame%Math.round(Math.max(20,50-score/40))===0)spawnItem();
 
   items=items.filter(it=>it.y<c.height+30);
   items.forEach(it=>{

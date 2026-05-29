@@ -84,7 +84,7 @@ function loop(){
 
   lineY+=speed;
 
-  if(frame%Math.max(30,80-score/100)===0)spawnCar();
+  if(frame%Math.round(Math.max(30,80-score/100))===0)spawnCar();
   cars=cars.filter(car=>car.y<c.height+80);
   cars.forEach(car=>{car.y+=speed*.7;drawCar(car,false);
     if(player.x<car.x+car.w&&player.x+player.w>car.x&&player.y<car.y+car.h&&player.y+player.h>car.y)alive=false;
