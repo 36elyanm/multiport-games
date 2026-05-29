@@ -26,6 +26,7 @@
   <p>Please verify you're human to continue.</p>
   <div class="cf-turnstile" data-sitekey="0x4AAAAAADWNTS62UeiB1Gk3" data-callback="onTurnstileSuccess"></div>
 </div>
+<script>if(sessionStorage.getItem('captcha_ok')){document.getElementById('captcha-gate').style.display='none';}</script>
 
 <header>
   <h1>Mini<span>Arcade</span></h1>
@@ -155,6 +156,7 @@ renderGames(GAMES);
 function logout(){localStorage.removeItem('miniarcade_session');location.reload();}
 
 function onTurnstileSuccess(token){
+  sessionStorage.setItem('captcha_ok','1');
   const gate=document.getElementById('captcha-gate');
   gate.style.transition='opacity .4s ease';
   gate.style.opacity='0';
