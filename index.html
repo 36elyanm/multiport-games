@@ -26,7 +26,13 @@
   <p>Please verify you're human to continue.</p>
   <div class="cf-turnstile" data-sitekey="0x4AAAAAADWNTS62UeiB1Gk3" data-callback="onTurnstileSuccess"></div>
 </div>
-<script>if(sessionStorage.getItem('captcha_ok')){document.getElementById('captcha-gate').style.display='none';}</script>
+<script>
+// Skip CAPTCHA if already verified, or if screen is too small for the widget (e.g. Apple Watch)
+if(sessionStorage.getItem('captcha_ok')||screen.width<200){
+  document.getElementById('captcha-gate').style.display='none';
+  sessionStorage.setItem('captcha_ok','1');
+}
+</script>
 
 <header>
   <h1>Multiport<span>Games</span></h1>
