@@ -1,0 +1,389 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Sneaky Sasquatch</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+body{background:#0a1a0a}
+#c{display:block;border-radius:8px;touch-action:none}
+#ui{color:#a8e67a;font-size:1rem;font-weight:700;text-align:center;padding:8px;font-family:inherit}
+</style>
+</head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Sneaky Sasquatch</div>
+  <div class="game-frame">
+    <div id="ui">Food: 0/8 | ❤️❤️❤️ | Score: 0</div>
+    <canvas id="c" width="480" height="520"></canvas>
+  </div>
+  <div class="game-instructions"><b>WASD / Arrows</b> to sneak · <b>Touch drag</b> on mobile · <b>Collect all food 🍔</b> · <b>Hide in bushes 🌿</b> to dodge rangers · Don't get caught!</div>
+</div>
+<script>
+const c=document.getElementById('c'),ctx=c.getContext('2d');
+const CW=480,CH=520,WW=960,WH=960;
+const VDIST=140,VHALF=Math.PI/2.8;
+
+// ── Static world layout ──────────────────────────────────────────────────────
+const TENT_D=[
+  {x:70,y:70,w:88,h:66,color:'#e74c3c'},
+  {x:270,y:55,w:88,h:66,color:'#3498db'},
+  {x:490,y:70,w:88,h:66,color:'#f39c12'},
+  {x:710,y:70,w:88,h:66,color:'#9b59b6'},
+  {x:70,y:750,w:88,h:66,color:'#1abc9c'},
+  {x:710,y:750,w:88,h:66,color:'#e67e22'},
+  {x:845,y:410,w:88,h:66,color:'#e74c3c'},
+];
+const BUSH_D=[
+  {x:210,y:185},{x:430,y:155},{x:665,y:210},{x:155,y:420},
+  {x:480,y:490},{x:770,y:380},{x:310,y:710},{x:610,y:690},
+  {x:95,y:570},{x:840,y:630},
+];
+const TREE_D=[
+  {x:360,y:360},{x:610,y:295},{x:205,y:615},{x:715,y:615},
+  {x:460,y:820},{x:145,y:260},{x:815,y:195},{x:390,y:130},
+];
+const FOOD_D=[
+  {x:114,y:106,e:'🌭'},{x:314,y:88,e:'🍔'},{x:534,y:103,e:'🍕'},
+  {x:754,y:103,e:'🌮'},{x:114,y:783,e:'🍎'},{x:754,y:783,e:'🍩'},
+  {x:889,y:443,e:'🧁'},{x:480,y:38,e:'🍗'},
+];
+const PATROL=[
+  [{x:390,y:190},{x:600,y:190},{x:600,y:510},{x:390,y:510}],
+  [{x:190,y:390},{x:190,y:710},{x:490,y:710},{x:490,y:390}],
+  [{x:640,y:340},{x:860,y:340},{x:860,y:660},{x:640,y:660}],
+];
+
+// ── State ────────────────────────────────────────────────────────────────────
+let state,player,rangers,foods,tents,bushes,trees,cam,score,lives,level,flashT,winPending;
+
+function spawn(){
+  player={x:480,y:490,r:13,speed:2.9,hiding:false};
+  cam={x:0,y:0};
+  tents=TENT_D.map(t=>({...t}));
+  bushes=BUSH_D.map(b=>({...b,r:30}));
+  trees=TREE_D.map(t=>({...t,r:22}));
+  foods=FOOD_D.map(f=>({...f,out:false}));
+  const sp=0.85+level*0.18;
+  rangers=PATROL.map(pts=>({x:pts[0].x,y:pts[0].y,r:13,dir:0,patrol:pts,pi:0,speed:sp,alert:0}));
+}
+
+function newGame(){lives=3;score=0;level=1;spawn();state='idle';}
+function nextLevel(){level++;spawn();state='play';}
+
+// ── Geometry helpers ─────────────────────────────────────────────────────────
+function rectHit(px,py,r,t){return px+r>t.x&&px-r<t.x+t.w&&py+r>t.y&&py-r<t.y+t.h;}
+function circHit(ax,ay,ar,bx,by,br){return Math.hypot(ax-bx,ay-by)<ar+br;}
+
+function blocked(nx,ny,r){
+  for(const t of tents)if(rectHit(nx,ny,r,t))return true;
+  for(const t of trees)if(circHit(nx,ny,r,t.x,t.y,t.r))return true;
+  return false;
+}
+
+// Camera
+function updateCam(){
+  cam.x=Math.max(0,Math.min(WW-CW,player.x-CW/2));
+  cam.y=Math.max(0,Math.min(WH-CH,player.y-CH/2));
+}
+const sx=x=>x-cam.x, sy=y=>y-cam.y;
+
+// ── Input ────────────────────────────────────────────────────────────────────
+const keys={};
+document.addEventListener('keydown',e=>{keys[e.code]=true;
+  if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code))e.preventDefault();});
+document.addEventListener('keyup',e=>keys[e.code]=false);
+
+let tStart=null,tDir={x:0,y:0};
+c.addEventListener('touchstart',e=>{
+  e.preventDefault();
+  if(state!=='play'){activateState();return;}
+  const r=c.getBoundingClientRect(),t=e.touches[0];
+  tStart={x:(t.clientX-r.left)*CW/r.width,y:(t.clientY-r.top)*CH/r.height};
+},{passive:false});
+c.addEventListener('touchmove',e=>{
+  e.preventDefault();
+  if(!tStart)return;
+  const r=c.getBoundingClientRect(),t=e.touches[0];
+  tDir={x:(t.clientX-r.left)*CW/r.width-tStart.x,y:(t.clientY-r.top)*CH/r.height-tStart.y};
+},{passive:false});
+c.addEventListener('touchend',()=>{tStart=null;tDir={x:0,y:0};},{passive:true});
+c.addEventListener('click',activateState);
+
+function activateState(){
+  if(state==='idle'||state==='gameover')state='play';
+  else if(state==='win'){score+=lives*200;nextLevel();}
+}
+
+// ── Update ───────────────────────────────────────────────────────────────────
+function movePlayer(){
+  let dx=0,dy=0;
+  // Keyboard
+  if(keys['ArrowLeft']||keys['KeyA'])dx-=1;
+  if(keys['ArrowRight']||keys['KeyD'])dx+=1;
+  if(keys['ArrowUp']||keys['KeyW'])dy-=1;
+  if(keys['ArrowDown']||keys['KeyS'])dy+=1;
+  // Touch override
+  const tm=Math.hypot(tDir.x,tDir.y);
+  if(tStart&&tm>10){dx=tDir.x/tm;dy=tDir.y/tm;}
+  // Normalise diagonal
+  const m=Math.hypot(dx,dy);
+  if(m===0)return;
+  dx/=m;dy/=m;
+  const s=player.speed;
+  const nx=player.x+dx*s, ny=player.y+dy*s;
+  if(!blocked(nx,player.y,player.r))player.x=Math.max(player.r,Math.min(WW-player.r,nx));
+  if(!blocked(player.x,ny,player.r))player.y=Math.max(player.r,Math.min(WH-player.r,ny));
+}
+
+function updateHiding(){
+  player.hiding=bushes.some(b=>circHit(player.x,player.y,player.r+4,b.x,b.y,b.r));
+}
+
+function collectFood(){
+  for(const f of foods){
+    if(!f.out&&circHit(player.x,player.y,player.r,f.x,f.y,14)){
+      f.out=true;score+=100;
+    }
+  }
+}
+
+function moveRangers(){
+  for(const r of rangers){
+    const tgt=r.patrol[r.pi];
+    const dx=tgt.x-r.x,dy=tgt.y-r.y,d=Math.hypot(dx,dy);
+    if(d<4){r.pi=(r.pi+1)%r.patrol.length;}
+    else{r.dir=Math.atan2(dy,dx);r.x+=dx/d*r.speed;r.y+=dy/d*r.speed;}
+    if(r.alert>0)r.alert--;
+  }
+}
+
+function checkSpotted(){
+  if(player.hiding)return false;
+  for(const r of rangers){
+    const dx=player.x-r.x,dy=player.y-r.y,d=Math.hypot(dx,dy);
+    if(d>VDIST)continue;
+    const ang=Math.atan2(dy,dx);
+    const diff=((ang-r.dir)%(Math.PI*2)+Math.PI*3)%(Math.PI*2)-Math.PI;
+    if(Math.abs(diff)<VHALF){r.alert=70;return true;}
+  }
+  return false;
+}
+
+// ── Drawing ──────────────────────────────────────────────────────────────────
+function drawWorld(){
+  // Grass
+  ctx.fillStyle='#3a7d44';ctx.fillRect(0,0,CW,CH);
+  // Dirt paths
+  ctx.fillStyle='#b89450';
+  ctx.fillRect(sx(0),sy(WH/2-22),WW,44);
+  ctx.fillRect(sx(WW/2-22),sy(0),44,WH);
+}
+
+function drawBush(b){
+  const x=sx(b.x),y=sy(b.y);
+  const active=player.hiding&&circHit(player.x,player.y,player.r+4,b.x,b.y,b.r);
+  ctx.fillStyle=active?'rgba(60,170,70,0.75)':'#246b30';
+  ctx.beginPath();ctx.arc(x,y,b.r,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='rgba(80,200,90,.28)';
+  ctx.beginPath();ctx.arc(x-5,y-5,b.r*.58,0,Math.PI*2);ctx.fill();
+}
+
+function drawTree(t){
+  const x=sx(t.x),y=sy(t.y);
+  ctx.fillStyle='#5a3010';ctx.fillRect(x-5,y+2,10,18);
+  ctx.fillStyle='#1c5c28';ctx.beginPath();ctx.arc(x,y,t.r,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='rgba(90,190,70,.22)';ctx.beginPath();ctx.arc(x-4,y-4,t.r*.55,0,Math.PI*2);ctx.fill();
+}
+
+function drawTent(t){
+  const x=sx(t.x),y=sy(t.y);
+  if(x+t.w<-10||x>CW+10||y+t.h<-10||y>CH+10)return;
+  ctx.fillStyle=t.color;
+  ctx.beginPath();ctx.moveTo(x,y+t.h);ctx.lineTo(x+t.w/2,y);ctx.lineTo(x+t.w,y+t.h);ctx.closePath();ctx.fill();
+  ctx.fillStyle='rgba(0,0,0,.25)';
+  ctx.beginPath();ctx.arc(x+t.w/2,y+t.h,11,Math.PI,0);ctx.fill();
+  // shadow edge
+  ctx.strokeStyle='rgba(0,0,0,.3)';ctx.lineWidth=2;
+  ctx.beginPath();ctx.moveTo(x,y+t.h);ctx.lineTo(x+t.w/2,y);ctx.lineTo(x+t.w,y+t.h);ctx.stroke();
+}
+
+function drawFood(f){
+  if(f.out)return;
+  const x=sx(f.x),y=sy(f.y);
+  if(x<-24||x>CW+24||y<-24||y>CH+24)return;
+  ctx.save();
+  ctx.shadowBlur=12;ctx.shadowColor='rgba(255,240,100,.9)';
+  ctx.font='22px serif';ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillText(f.e,x,y);
+  ctx.restore();
+}
+
+function drawRanger(r){
+  const x=sx(r.x),y=sy(r.y);
+  if(x<-VDIST-10||x>CW+VDIST+10||y<-VDIST-10||y>CH+VDIST+10)return;
+  // Vision cone
+  ctx.save();
+  ctx.globalAlpha=r.alert>0?.52:.2;
+  ctx.fillStyle=r.alert>0?'#ff2200':'#ffee00';
+  ctx.beginPath();ctx.moveTo(x,y);
+  ctx.arc(x,y,VDIST,r.dir-VHALF,r.dir+VHALF);
+  ctx.closePath();ctx.fill();
+  ctx.restore();
+  // Body
+  ctx.fillStyle=r.alert>0?'#ff4444':'#1e5e1e';
+  ctx.beginPath();ctx.arc(x,y+5,r.r,0,Math.PI*2);ctx.fill();
+  // Hat
+  ctx.fillStyle='#2a2a00';
+  ctx.beginPath();ctx.arc(x,y-5,9,0,Math.PI*2);ctx.fill();
+  ctx.fillRect(x-12,y-9,24,5);
+  // Eyes toward direction
+  const ex=Math.cos(r.dir),ey=Math.sin(r.dir);
+  ctx.fillStyle='#fff';
+  [-1.1,1.1].forEach(a=>{
+    ctx.beginPath();ctx.arc(x+ex*6+Math.cos(r.dir+a)*4,y+ey*6+Math.sin(r.dir+a)*4,2.5,0,Math.PI*2);ctx.fill();
+  });
+  ctx.fillStyle='#111';
+  [-1.1,1.1].forEach(a=>{
+    ctx.beginPath();ctx.arc(x+ex*6+Math.cos(r.dir+a)*4,y+ey*6+Math.sin(r.dir+a)*4,1.2,0,Math.PI*2);ctx.fill();
+  });
+  if(r.alert>0){
+    ctx.font='bold 20px sans-serif';ctx.textAlign='center';ctx.fillStyle='#ff2200';
+    ctx.fillText('!',x,y-22);
+  }
+}
+
+function drawSasquatch(){
+  const x=sx(player.x),y=sy(player.y);
+  ctx.save();
+  if(player.hiding)ctx.globalAlpha=.52;
+  // Shadow
+  ctx.fillStyle='rgba(0,0,0,.28)';ctx.beginPath();ctx.ellipse(x,y+15,13,5,0,0,Math.PI*2);ctx.fill();
+  // Body
+  ctx.fillStyle='#8b5e3c';ctx.beginPath();ctx.ellipse(x,y+2,12,15,0,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#6b3f1f';
+  ctx.beginPath();ctx.ellipse(x-4,y+5,5,7,-.3,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.ellipse(x+4,y+4,5,7,.3,0,Math.PI*2);ctx.fill();
+  // Head
+  ctx.fillStyle='#9b6e4c';ctx.beginPath();ctx.arc(x,y-13,10,0,Math.PI*2);ctx.fill();
+  // Eyes
+  ctx.fillStyle='#fff';[-4,4].forEach(ox=>{ctx.beginPath();ctx.arc(x+ox,y-15,3,0,Math.PI*2);ctx.fill();});
+  ctx.fillStyle='#222';[-4,4].forEach(ox=>{ctx.beginPath();ctx.arc(x+ox,y-15,1.5,0,Math.PI*2);ctx.fill();});
+  // Nose
+  ctx.fillStyle='#3a8a40';ctx.beginPath();ctx.arc(x,y-12,2.2,0,Math.PI*2);ctx.fill();
+  if(player.hiding){
+    ctx.font='13px sans-serif';ctx.textAlign='center';ctx.fillText('💤',x,y-30);
+  }
+  ctx.restore();
+}
+
+function drawMinimap(){
+  const mw=96,mh=96,mx=CW-mw-6,my=6;
+  ctx.fillStyle='rgba(0,0,0,.58)';ctx.fillRect(mx,my,mw,mh);
+  ctx.strokeStyle='rgba(255,255,255,.25)';ctx.lineWidth=1;ctx.strokeRect(mx,my,mw,mh);
+  const sx2=x=>mx+x/WW*mw, sy2=y=>my+y/WH*mh;
+  ctx.fillStyle='rgba(220,180,0,.7)';
+  for(const t of tents)ctx.fillRect(sx2(t.x),sy2(t.y),t.w/WW*mw,t.h/WH*mh);
+  ctx.fillStyle='#ffff44';
+  for(const f of foods)if(!f.out){ctx.beginPath();ctx.arc(sx2(f.x),sy2(f.y),2,0,Math.PI*2);ctx.fill();}
+  ctx.fillStyle='#ff4444';
+  for(const r of rangers){ctx.beginPath();ctx.arc(sx2(r.x),sy2(r.y),3,0,Math.PI*2);ctx.fill();}
+  ctx.fillStyle='#44ff44';
+  ctx.beginPath();ctx.arc(sx2(player.x),sy2(player.y),3.5,0,Math.PI*2);ctx.fill();
+  ctx.strokeStyle='rgba(255,255,255,.35)';ctx.lineWidth=1;
+  ctx.strokeRect(sx2(cam.x),sy2(cam.y),CW/WW*mw,CH/WH*mh);
+}
+
+function drawHUD(){
+  const got=foods.filter(f=>f.out).length;
+  document.getElementById('ui').textContent=
+    `Food: ${got}/${foods.length} | ${'❤️'.repeat(lives)} | Score: ${score}`;
+}
+
+// ── Screen overlays ──────────────────────────────────────────────────────────
+function drawOverlay(title,sub1,sub2,cta,tc){
+  ctx.fillStyle='rgba(0,0,0,.7)';ctx.fillRect(0,0,CW,CH);
+  ctx.textAlign='center';
+  ctx.fillStyle=tc||'#fff';ctx.font='bold 30px sans-serif';ctx.fillText(title,CW/2,CH/2-64);
+  ctx.fillStyle='rgba(255,255,255,.8)';ctx.font='17px sans-serif';
+  if(sub1)ctx.fillText(sub1,CW/2,CH/2-18);
+  if(sub2)ctx.fillText(sub2,CW/2,CH/2+12);
+  ctx.fillStyle='#a8e67a';ctx.font='bold 16px sans-serif';ctx.fillText(cta,CW/2,CH/2+58);
+}
+
+// ── Main loop ────────────────────────────────────────────────────────────────
+let frame=0;
+function loop(){
+  frame++;
+  ctx.clearRect(0,0,CW,CH);
+
+  if(state==='idle'){
+    updateCam();drawWorld();
+    bushes.forEach(drawBush);trees.forEach(drawTree);tents.forEach(drawTent);
+    foods.forEach(drawFood);rangers.forEach(drawRanger);drawSasquatch();
+    drawOverlay('🦶 Sneaky Sasquatch',
+      'Steal all the food from the campsite!',
+      'Hide in bushes 🌿 to dodge rangers!',
+      'Click or tap to start','#a8e67a');
+    return requestAnimationFrame(loop);
+  }
+
+  if(state==='gameover'){
+    drawOverlay('CAUGHT! 🚨',
+      `Score: ${score}`,
+      `Food collected: ${foods.filter(f=>f.out).length}/${foods.length}`,
+      'Click to try again','#ff5555');
+    return requestAnimationFrame(loop);
+  }
+
+  if(state==='win'){
+    drawOverlay('🎉 Great Heist! 🎉',
+      `Score: ${score}  ·  Level ${level-1} complete`,
+      `Rangers were ${(0.85+(level-1)*0.18).toFixed(2)}× speed`,
+      'Click for next level','#ffee44');
+    return requestAnimationFrame(loop);
+  }
+
+  if(state==='flash'){
+    flashT--;
+    updateCam();drawWorld();
+    bushes.forEach(drawBush);trees.forEach(drawTree);tents.forEach(drawTent);
+    foods.forEach(drawFood);rangers.forEach(drawRanger);drawSasquatch();
+    drawMinimap();drawHUD();
+    ctx.fillStyle=`rgba(255,0,0,${.35+Math.sin(frame*.4)*.18})`;ctx.fillRect(0,0,CW,CH);
+    ctx.textAlign='center';ctx.fillStyle='#fff';ctx.font='bold 26px sans-serif';
+    ctx.fillText('SPOTTED! 🚨',CW/2,CH/2);
+    if(flashT<=0){
+      lives--;
+      if(lives<=0){state='gameover';}
+      else{player.x=480;player.y=490;state='play';}
+    }
+    return requestAnimationFrame(loop);
+  }
+
+  // ── PLAY ──
+  movePlayer();
+  updateHiding();
+  collectFood();
+  moveRangers();
+
+  if(foods.every(f=>f.out)){
+    state='win';return requestAnimationFrame(loop);
+  }
+  if(checkSpotted()){
+    state='flash';flashT=90;return requestAnimationFrame(loop);
+  }
+
+  updateCam();
+  drawWorld();
+  bushes.forEach(drawBush);
+  trees.forEach(drawTree);
+  tents.forEach(drawTent);
+  foods.forEach(drawFood);
+  rangers.forEach(drawRanger);
+  drawSasquatch();
+  drawMinimap();
+  drawHUD();
+
+  requestAnimationFrame(loop);
+}
+
+newGame();loop();
+</script>
+</body></html>
