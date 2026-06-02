@@ -1,0 +1,12 @@
+{
+  "name": "Multiport Games",
+  "short_name": "Multiport",
+  "description": "50+ free browser games",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#08080f",
+  "theme_color": "#08080f",
+  "icons": [
+    { "src": "apple-touch-icon.png", "sizes": "180x180", "type": "image/png" }
+  ]
+}
