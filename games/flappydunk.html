@@ -118,15 +118,8 @@ function drawBall(){
 }
 
 function inHoop(h){
-  const dy=ball.y-h.cy;
-  return Math.abs(dy)<h.ry*1.15;
-}
-
-function hitRim(h){
-  // Ball overlaps the ellipse outline area (rim thickness)
-  const dx=ball.x-h.x,dy=ball.y-h.cy;
-  const dist=Math.sqrt((dx/h.rx)**2+(dy/h.ry)**2);
-  return dist<1.05&&dist>0.6&&Math.abs(dx)<h.rx+ball.r;
+  // Ball center within vertical opening of hoop, with generous ball-radius bonus
+  return Math.abs(ball.y-h.cy)<h.ry+ball.r*0.6;
 }
 
 function loop(){
@@ -180,8 +173,8 @@ function loop(){
       }
     }
 
-    // Rim hit while approaching
-    if(!h.scored&&hitRim(h))state='dead';
+    // Clearly outside hoop vertically while overlapping it horizontally = rim hit
+    if(!h.scored&&Math.abs(ball.x-h.x)<h.rx+ball.r&&Math.abs(ball.y-h.cy)>h.ry+ball.r)state='dead';
   });
 
   drawBall();

@@ -40,26 +40,34 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh;pad
   </div>
 </div>
 <script>
-function doSignup(){
+async function doSignup(){
   const u=document.getElementById('username').value.trim();
   const e=document.getElementById('email').value.trim();
   const p=document.getElementById('password').value;
-  const c=document.getElementById('confirm').value;
+  const cf=document.getElementById('confirm').value;
   const err=document.getElementById('err');const ok=document.getElementById('ok');
   err.style.display='none';ok.style.display='none';
-  if(!u||!e||!p||!c){err.textContent='Please fill in all fields.';err.style.display='block';return;}
+  if(!u||!e||!p||!cf){err.textContent='Please fill in all fields.';err.style.display='block';return;}
   if(u.length<3){err.textContent='Username must be at least 3 characters.';err.style.display='block';return;}
   if(p.length<6){err.textContent='Password must be at least 6 characters.';err.style.display='block';return;}
-  if(p!==c){err.textContent='Passwords do not match.';err.style.display='block';return;}
+  if(p!==cf){err.textContent='Passwords do not match.';err.style.display='block';return;}
   if(!/\S+@\S+\.\S+/.test(e)){err.textContent='Please enter a valid email.';err.style.display='block';return;}
-  const users=JSON.parse(localStorage.getItem('miniarcade_users')||'[]');
-  if(users.find(x=>x.username.toLowerCase()===u.toLowerCase())){err.textContent='Username already taken.';err.style.display='block';return;}
-  if(users.find(x=>x.email.toLowerCase()===e.toLowerCase())){err.textContent='Email already registered.';err.style.display='block';return;}
-  users.push({username:u,email:e,password:btoa(p)});
-  localStorage.setItem('miniarcade_users',JSON.stringify(users));
-  localStorage.setItem('miniarcade_session',JSON.stringify({username:u}));
-  ok.textContent='Account created! Redirecting…';ok.style.display='block';
-  setTimeout(()=>location.href='index.html',800);
+
+  const btn=document.querySelector('.auth-btn');
+  btn.disabled=true;btn.textContent='Creating…';
+
+  try{
+    const res=await fetch('/api/signup',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({username:u,email:e,password:p})});
+    const data=await res.json();
+    if(!res.ok){err.textContent=data.error||'Sign up failed.';err.style.display='block';btn.disabled=false;btn.textContent='Create Account';return;}
+    localStorage.setItem('miniarcade_session',JSON.stringify({username:data.username}));
+    ok.textContent='Account created! Redirecting…';ok.style.display='block';
+    setTimeout(()=>location.href='index.html',800);
+  }catch{
+    err.textContent='Could not connect. Please try again.';err.style.display='block';
+    btn.disabled=false;btn.textContent='Create Account';
+  }
 }
 document.addEventListener('keydown',e=>{if(e.key==='Enter')doSignup();});
 </script>
