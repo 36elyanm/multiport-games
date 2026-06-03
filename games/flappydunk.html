@@ -118,8 +118,7 @@ function drawBall(){
 }
 
 function inHoop(h){
-  // Ball center within vertical opening of hoop, with generous ball-radius bonus
-  return Math.abs(ball.y-h.cy)<h.ry+ball.r*0.6;
+  return Math.abs(ball.y-h.cy)<h.ry+ball.r;
 }
 
 function loop(){
@@ -173,8 +172,6 @@ function loop(){
       }
     }
 
-    // Clearly outside hoop vertically while overlapping it horizontally = rim hit
-    if(!h.scored&&Math.abs(ball.x-h.x)<h.rx+ball.r&&Math.abs(ball.y-h.cy)>h.ry+ball.r)state='dead';
   });
 
   drawBall();
