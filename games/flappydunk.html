@@ -34,8 +34,8 @@ c.addEventListener('click',flap);
 c.addEventListener('touchstart',e=>{e.preventDefault();flap();},{passive:false});
 
 function addHoop(){
-  const cy=100+Math.random()*(H-220);
-  const rx=52,ry=Math.max(13,20-score*.4);
+  const cy=120+Math.random()*(H-270);
+  const rx=58,ry=Math.max(20,32-score*.3);
   hoops.push({x:W+rx,cy,rx,ry,scored:false,passed:false});
 }
 
