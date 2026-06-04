@@ -5,3 +5,12 @@ CREATE TABLE IF NOT EXISTS users (
   password_hash TEXT NOT NULL,
   created_at INTEGER NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS bug_reports (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  game TEXT NOT NULL,
+  description TEXT NOT NULL,
+  email TEXT,
+  created_at INTEGER NOT NULL,
+  fixed INTEGER NOT NULL DEFAULT 0
+);
