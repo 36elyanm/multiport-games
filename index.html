@@ -39,7 +39,10 @@ if(sessionStorage.getItem('captcha_ok')||screen.width<200){
 <header>
   <h1>Multiport<span>Games</span></h1>
   <input id="search-bar" type="text" placeholder="Search games…" oninput="filterGames()">
-  <div id="auth-btns" style="display:flex;gap:8px;align-items:center;flex-shrink:0"></div>
+  <div style="display:flex;gap:8px;align-items:center;flex-shrink:0">
+    <a href="bug-report.html" class="auth-pill outline">🐛 Report Bug</a>
+    <div id="auth-btns" style="display:flex;gap:8px;align-items:center"></div>
+  </div>
 </header>
 
 <div class="categories">
