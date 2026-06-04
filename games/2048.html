@@ -65,11 +65,16 @@ document.addEventListener('keydown',e=>{
   if(map[e.code]){e.preventDefault();slide(map[e.code]);}
 });
 
-let tx=0;
-document.getElementById('board').addEventListener('touchstart',e=>{tx=e.touches[0].clientX;},{passive:true});
+let tx=0,ty=0;
+document.getElementById('board').addEventListener('touchstart',e=>{
+  tx=e.touches[0].clientX;ty=e.touches[0].clientY;
+},{passive:true});
 document.getElementById('board').addEventListener('touchend',e=>{
   const dx=e.changedTouches[0].clientX-tx;
-  if(Math.abs(dx)>30)slide(dx>0?'right':'left');
+  const dy=e.changedTouches[0].clientY-ty;
+  if(Math.abs(dx)<20&&Math.abs(dy)<20)return;
+  if(Math.abs(dx)>Math.abs(dy))slide(dx>0?'right':'left');
+  else slide(dy>0?'down':'up');
 },{passive:true});
 
 function render(){

@@ -104,6 +104,19 @@ document.addEventListener('keydown',e=>{
   if(e.code==='Space'){e.preventDefault();drop();}
   draw();
 });
+let ttx=0,tty=0;
+c.addEventListener('touchstart',e=>{
+  ttx=e.touches[0].clientX;tty=e.touches[0].clientY;
+  if(!alive){start();draw();}
+},{passive:true});
+c.addEventListener('touchend',e=>{
+  if(!alive)return;
+  const dx=e.changedTouches[0].clientX-ttx,dy=e.changedTouches[0].clientY-tty;
+  if(Math.abs(dx)<12&&Math.abs(dy)<12){rotate();draw();return;}
+  if(Math.abs(dx)>Math.abs(dy)){move(dx>0?1:-1);draw();}
+  else if(dy>0){drop();}
+  else{rotate();draw();}
+},{passive:true});
 
 function drawCell(ctx,x,y,color,sz=SZ){
   ctx.fillStyle=color;ctx.fillRect(x*sz+1,y*sz+1,sz-2,sz-2);
