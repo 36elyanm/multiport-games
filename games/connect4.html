@@ -21,7 +21,7 @@ body{background:#08080f}
     </div>
     <div id="ui">🔴 Red's turn</div>
     <div id="board"></div>
-    <button onclick="reset()" style="margin-top:12px;padding:8px 24px;background:#e94560;border:none;border-radius:20px;color:#fff;cursor:pointer;font-size:1rem">New Game</button>
+    <button onclick="newGame()" style="margin-top:12px;padding:8px 24px;background:#e94560;border:none;border-radius:20px;color:#fff;cursor:pointer;font-size:1rem">New Game</button>
   </div>
   <div class="game-instructions">Click a column to drop your piece. Connect 4 in a row, column, or diagonal!</div>
 </div>
@@ -29,8 +29,8 @@ body{background:#08080f}
 const ROWS=6,COLS=7;
 let board,turn,over,vsAI=false;
 
-function setMode(ai){vsAI=ai;document.getElementById('btn2p').className=ai?'':'active';document.getElementById('btnAI').className=ai?'active':'';reset();}
-function reset(){board=Array.from({length:ROWS},()=>Array(COLS).fill(0));turn=1;over=false;render();}
+function setMode(ai){vsAI=ai;document.getElementById('btn2p').className=ai?'':'active';document.getElementById('btnAI').className=ai?'active':'';newGame();}
+function newGame(){board=Array.from({length:ROWS},()=>Array(COLS).fill(0));turn=1;over=false;render();}
 
 function drop(col){
   if(over)return;
@@ -70,5 +70,5 @@ function render(){
   }
   if(!over)document.getElementById('ui').textContent=(turn===1?'🔴 Red':'🟡 Yellow')+"'s turn";
 }
-reset();
+newGame();
 </script></body></html>

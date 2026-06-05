@@ -14,7 +14,7 @@ body{background:#08080f}
   <div class="game-frame" style="padding:20px">
     <div id="ui">Your turn (X)</div>
     <div id="board"></div>
-    <button onclick="reset()" style="margin-top:14px;padding:8px 24px;background:#e94560;border:none;border-radius:20px;color:#fff;cursor:pointer;font-size:1rem">New Game</button>
+    <button onclick="newGame()" style="margin-top:14px;padding:8px 24px;background:#e94560;border:none;border-radius:20px;color:#fff;cursor:pointer;font-size:1rem">New Game</button>
   </div>
   <div class="game-instructions">You are X, AI is O. Get 3 in a row to win!</div>
 </div>
@@ -22,7 +22,7 @@ body{background:#08080f}
 let board,over;
 const WINS=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
 
-function reset(){board=Array(9).fill('');over=false;render();}
+function newGame(){board=Array(9).fill('');over=false;render();}
 
 function check(b){
   for(const w of WINS)if(b[w[0]]&&b[w[0]]===b[w[1]]&&b[w[0]]===b[w[2]])return b[w[0]];
@@ -68,5 +68,5 @@ function render(result){
   else if(result==='O')ui.textContent='AI wins! 🤖';
   else ui.textContent='Your turn (X)';
 }
-reset();
+newGame();
 </script></body></html>

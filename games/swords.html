@@ -9,7 +9,12 @@
     <div id="ui">HP: ❤️❤️❤️ | Round 1</div>
     <canvas id="c" width="500" height="380"></canvas>
   </div>
-  <div class="game-instructions"><b>A</b> = attack, <b>D</b> = defend/block, <b>S</b> = special (costs 2 stamina). Match the enemy's attack timing!</div>
+  <div style="display:flex;gap:8px;justify-content:center;padding:8px">
+    <button ontouchstart="playerAttack('normal')" onmousedown="playerAttack('normal')" style="padding:12px 22px;background:rgba(207,216,220,.12);border:1px solid rgba(207,216,220,.3);border-radius:12px;color:#cfd8dc;font-size:1rem;font-weight:700;cursor:pointer">⚔️ Attack</button>
+    <button ontouchstart="touchBlock(true)" ontouchend="touchBlock(false)" onmousedown="touchBlock(true)" onmouseup="touchBlock(false)" style="padding:12px 22px;background:rgba(21,101,192,.18);border:1px solid rgba(21,101,192,.4);border-radius:12px;color:#90caf9;font-size:1rem;font-weight:700;cursor:pointer">🛡️ Block</button>
+    <button ontouchstart="playerAttack('special')" onmousedown="playerAttack('special')" style="padding:12px 22px;background:rgba(233,69,96,.15);border:1px solid rgba(233,69,96,.35);border-radius:12px;color:#ff8fa3;font-size:1rem;font-weight:700;cursor:pointer">✨ Special</button>
+  </div>
+  <div class="game-instructions"><b>A</b> = attack · <b>D</b> = block · <b>S</b> = special (costs 2 stamina) · or use buttons above</div>
 </div>
 <script>
 const c=document.getElementById('c'),ctx=c.getContext('2d');
@@ -30,6 +35,7 @@ document.addEventListener('keydown',e=>{
 });
 document.addEventListener('keyup',e=>{keys[e.code]=false;if(e.code==='KeyD')player.blocking=false;});
 c.addEventListener('click',()=>{if(state!=='play')start();});
+function touchBlock(on){if(state==='play')player.blocking=on;}
 
 function playerAttack(type){
   if(player.atkTimer>0)return;
