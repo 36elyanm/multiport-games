@@ -1,0 +1,417 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Strands</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+#strands-wrap{display:flex;flex-direction:column;align-items:center;gap:10px;padding:10px 8px;width:100%}
+#theme-label{font-size:1.1rem;font-weight:800;color:#fff;letter-spacing:.2px;text-align:center}
+#counter{font-size:.82rem;color:rgba(255,255,255,.55);font-weight:600;letter-spacing:.5px}
+#counter b{color:#fff}
+#spangram-hint{font-size:.78rem;color:#b59f3b;font-weight:700;letter-spacing:.5px}
+#grid-wrap{position:relative;touch-action:none;user-select:none;-webkit-user-select:none}
+#grid{display:grid;gap:4px}
+.cell{
+  width:52px;height:52px;
+  border-radius:10px;
+  background:rgba(255,255,255,.08);
+  border:2px solid rgba(255,255,255,.12);
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.05rem;font-weight:800;color:#fff;
+  cursor:pointer;
+  transition:background .12s,border-color .12s,transform .1s;
+  text-transform:uppercase;
+  user-select:none;
+  -webkit-tap-highlight-color:transparent;
+}
+.cell:hover{background:rgba(255,255,255,.14)}
+.cell.selecting{background:rgba(94,114,235,.45);border-color:#5e72eb;transform:scale(1.08)}
+.cell.found-0{background:#538d4e;border-color:#538d4e;color:#fff}
+.cell.found-1{background:#3a6fa8;border-color:#3a6fa8;color:#fff}
+.cell.found-2{background:#7e4ca8;border-color:#7e4ca8;color:#fff}
+.cell.found-3{background:#a8714c;border-color:#a8714c;color:#fff}
+.cell.found-4{background:#4ca89e;border-color:#4ca89e;color:#fff}
+.cell.found-spangram{background:#b59f3b;border-color:#b59f3b;color:#fff}
+.cell.wrong-flash{animation:wflash .4s ease}
+@keyframes wflash{0%,100%{background:rgba(255,255,255,.08)}25%,75%{background:rgba(233,69,96,.5)}}
+#msg{min-height:24px;font-size:.88rem;font-weight:700;color:#fff;text-align:center}
+#submit-btn{
+  padding:9px 28px;border:none;border-radius:50px;
+  background:rgba(94,114,235,.7);color:#fff;
+  font-family:inherit;font-size:.88rem;font-weight:700;
+  cursor:pointer;transition:background .15s,transform .1s;
+  -webkit-tap-highlight-color:transparent;
+}
+#submit-btn:hover{background:rgba(94,114,235,.9)}
+#submit-btn:active{transform:scale(.96)}
+#found-words{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;max-width:340px}
+.found-badge{
+  padding:5px 14px;border-radius:50px;
+  font-size:.78rem;font-weight:700;color:#fff;
+  letter-spacing:.4px;text-transform:uppercase;
+}
+.badge-0{background:#538d4e}
+.badge-1{background:#3a6fa8}
+.badge-2{background:#7e4ca8}
+.badge-3{background:#a8714c}
+.badge-4{background:#4ca89e}
+.badge-spangram{background:#b59f3b}
+#next-btn{
+  display:none;padding:10px 32px;border:none;border-radius:50px;
+  background:#e94560;color:#fff;
+  font-family:inherit;font-size:.92rem;font-weight:700;
+  cursor:pointer;transition:background .15s,transform .1s;
+  margin-top:6px;
+}
+#next-btn:hover{background:#ff6b84}
+#next-btn:active{transform:scale(.96)}
+#sel-display{min-height:22px;font-size:.95rem;font-weight:700;color:rgba(255,255,255,.8);letter-spacing:2px;text-transform:uppercase;text-align:center}
+@media(max-width:420px){
+  .cell{width:44px;height:44px;font-size:.9rem;border-radius:8px}
+}
+</style>
+</head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Strands</div>
+  <div class="game-frame" style="padding:16px">
+    <div id="strands-wrap">
+      <div id="theme-label">Loading…</div>
+      <div id="counter">Words found: <b id="found-count">0</b> / <b id="total-count">0</b></div>
+      <div id="spangram-hint">✨ One word is a Spangram — it spans the board!</div>
+      <div id="grid-wrap"><div id="grid"></div></div>
+      <div id="sel-display"></div>
+      <div id="msg"></div>
+      <button id="submit-btn">Submit Word</button>
+      <div id="found-words"></div>
+      <button id="next-btn" onclick="nextPuzzle()">Next Puzzle →</button>
+    </div>
+  </div>
+  <div class="game-instructions">
+    Find all themed words by dragging or clicking through connected letters (any of 8 directions). Words must form a connected path without revisiting cells.
+    One special <span style="color:#b59f3b;font-weight:700">Spangram</span> word spans two opposite sides of the board!
+    Desktop: click cells to select, click Submit or press Enter. Mobile: drag to select.
+  </div>
+</div>
+<script>
+const PUZZLES = [
+  { theme:'🏖️ At the Beach',   spangram:'SUNBURN',  words:['WAVE','SAND','SURF','SHELL','CRAB','SUNBURN'] },
+  { theme:'🍎 Fruits',          spangram:'TROPICAL', words:['MANGO','LEMON','GRAPE','PEACH','APPLE','TROPICAL'] },
+  { theme:'🚀 Space',           spangram:'UNIVERSE', words:['MOON','MARS','COMET','ORBIT','VENUS','UNIVERSE'] },
+  { theme:'🎵 Music',           spangram:'SYMPHONY', words:['JAZZ','BLUES','PIANO','DRUMS','CHORD','SYMPHONY'] },
+];
+
+const ROWS = 8, COLS = 6;
+const DIRS = [[0,1],[0,-1],[1,0],[-1,0],[1,1],[1,-1],[-1,1],[-1,-1]];
+const WORD_COLORS = ['found-0','found-1','found-2','found-3','found-4'];
+const BADGE_COLORS = ['badge-0','badge-1','badge-2','badge-3','badge-4'];
+
+let puzzleIdx = 0;
+let gridData = [], solution = {};
+let selected = []; // [[r,c],...]
+let foundWords = {};
+let cellEls = [];
+let isDragging = false;
+let puzzle;
+
+function buildGrid(words) {
+  const grid = Array.from({length:ROWS}, () => Array(COLS).fill(''));
+  const sol = {};
+  const sorted = [...words].sort((a,b) => b.length - a.length);
+  for (const word of sorted) {
+    let placed = false;
+    for (let tries = 0; tries < 300 && !placed; tries++) {
+      const dir = DIRS[Math.floor(Math.random() * 8)];
+      const r = Math.floor(Math.random() * ROWS);
+      const c = Math.floor(Math.random() * COLS);
+      const cells = [];
+      let ok = true;
+      for (let i = 0; i < word.length; i++) {
+        const nr = r + dir[0]*i, nc = c + dir[1]*i;
+        if (nr < 0 || nr >= ROWS || nc < 0 || nc >= COLS) { ok = false; break; }
+        if (grid[nr][nc] && grid[nr][nc] !== word[i]) { ok = false; break; }
+        cells.push([nr, nc]);
+      }
+      if (ok) {
+        cells.forEach(([cr,cc], i) => grid[cr][cc] = word[i]);
+        sol[word] = cells;
+        placed = true;
+      }
+    }
+  }
+  const alpha = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  for (let r = 0; r < ROWS; r++)
+    for (let c = 0; c < COLS; c++)
+      if (!grid[r][c]) grid[r][c] = alpha[Math.floor(Math.random() * 26)];
+  return { grid, sol };
+}
+
+function loadPuzzle(idx) {
+  puzzle = PUZZLES[idx];
+  foundWords = {};
+  selected = [];
+
+  // Try up to 10 times to get all words placed
+  let attempts = 0;
+  do {
+    const result = buildGrid(puzzle.words);
+    gridData = result.grid;
+    solution = result.sol;
+    attempts++;
+  } while (Object.keys(solution).length < puzzle.words.length && attempts < 10);
+
+  renderGrid();
+  document.getElementById('theme-label').textContent = puzzle.theme;
+  document.getElementById('found-count').textContent = 0;
+  document.getElementById('total-count').textContent = puzzle.words.length;
+  document.getElementById('found-words').innerHTML = '';
+  document.getElementById('msg').textContent = '';
+  document.getElementById('sel-display').textContent = '';
+  document.getElementById('next-btn').style.display = 'none';
+}
+
+function renderGrid() {
+  const gridEl = document.getElementById('grid');
+  gridEl.style.gridTemplateColumns = `repeat(${COLS}, 52px)`;
+  gridEl.innerHTML = '';
+  cellEls = [];
+
+  for (let r = 0; r < ROWS; r++) {
+    cellEls[r] = [];
+    for (let c = 0; c < COLS; c++) {
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      cell.textContent = gridData[r][c];
+      cell.dataset.r = r;
+      cell.dataset.c = c;
+
+      // Mouse events
+      cell.addEventListener('mousedown', e => { e.preventDefault(); startDrag(r,c); });
+      cell.addEventListener('mouseenter', () => { if (isDragging) continueDrag(r,c); });
+      cell.addEventListener('mouseup', () => endDrag());
+      cell.addEventListener('click', () => handleCellClick(r,c));
+
+      cellEls[r][c] = cell;
+      gridEl.appendChild(cell);
+    }
+  }
+
+  // Touch events on the grid container
+  const wrap = document.getElementById('grid-wrap');
+  wrap.oncontextmenu = e => e.preventDefault();
+  wrap.ontouchstart = e => {
+    e.preventDefault();
+    const t = e.touches[0];
+    const cell = cellFromTouch(t);
+    if (cell) { isDragging = true; clearSelection(); addToSelection(+cell.dataset.r, +cell.dataset.c); }
+  };
+  wrap.ontouchmove = e => {
+    e.preventDefault();
+    if (!isDragging) return;
+    const t = e.touches[0];
+    const cell = cellFromTouch(t);
+    if (cell) continueDrag(+cell.dataset.r, +cell.dataset.c);
+  };
+  wrap.ontouchend = e => { e.preventDefault(); isDragging = false; };
+}
+
+function cellFromTouch(touch) {
+  const el = document.elementFromPoint(touch.clientX, touch.clientY);
+  if (el && el.classList.contains('cell')) return el;
+  return null;
+}
+
+let clickMode = false; // true = click-to-build mode (desktop non-drag)
+
+function startDrag(r, c) {
+  isDragging = true;
+  clickMode = false;
+  clearSelection();
+  addToSelection(r, c);
+}
+
+function continueDrag(r, c) {
+  if (!isDragging) return;
+  const last = selected[selected.length - 1];
+  if (!last) return;
+  // If this is already the second-to-last, allow backtrack
+  if (selected.length >= 2) {
+    const prev = selected[selected.length - 2];
+    if (prev[0] === r && prev[1] === c) {
+      // backtrack
+      const rem = selected.pop();
+      cellEls[rem[0]][rem[1]].classList.remove('selecting');
+      updateSelDisplay();
+      return;
+    }
+  }
+  addToSelection(r, c);
+}
+
+function endDrag() {
+  isDragging = false;
+}
+
+function handleCellClick(r, c) {
+  if (isDragging) return;
+  // Click mode: build selection by clicks
+  if (selected.length === 0) {
+    addToSelection(r, c);
+    return;
+  }
+  // Click last cell again = submit
+  const last = selected[selected.length - 1];
+  if (last[0] === r && last[1] === c) {
+    submitSelection();
+    return;
+  }
+  // Click any already-selected cell = clear
+  const alreadyIdx = selected.findIndex(([sr,sc]) => sr===r && sc===c);
+  if (alreadyIdx > -1) {
+    // Truncate to that point
+    for (let i = selected.length - 1; i > alreadyIdx; i--) {
+      const rem = selected.pop();
+      cellEls[rem[0]][rem[1]].classList.remove('selecting');
+    }
+    updateSelDisplay();
+    return;
+  }
+  addToSelection(r, c);
+}
+
+function addToSelection(r, c) {
+  // Check not already in selection
+  if (selected.some(([sr,sc]) => sr===r && sc===c)) return;
+  // Check adjacency
+  if (selected.length > 0) {
+    const last = selected[selected.length - 1];
+    const dr = Math.abs(r - last[0]), dc = Math.abs(c - last[1]);
+    if (dr > 1 || dc > 1) return;
+    if (dr === 0 && dc === 0) return;
+  }
+  // Check cell not already found
+  if (isCellFound(r, c)) return;
+
+  selected.push([r, c]);
+  cellEls[r][c].classList.add('selecting');
+  updateSelDisplay();
+}
+
+function clearSelection() {
+  selected.forEach(([r,c]) => {
+    if (cellEls[r] && cellEls[r][c]) cellEls[r][c].classList.remove('selecting');
+  });
+  selected = [];
+  updateSelDisplay();
+}
+
+function updateSelDisplay() {
+  const letters = selected.map(([r,c]) => gridData[r][c]).join('');
+  document.getElementById('sel-display').textContent = letters;
+}
+
+function isCellFound(r, c) {
+  return cellEls[r][c].className.includes('found-');
+}
+
+function submitSelection() {
+  if (selected.length < 2) { clearSelection(); return; }
+  const letters = selected.map(([r,c]) => gridData[r][c]).join('');
+  checkWord(letters);
+}
+
+function checkWord(letters) {
+  if (!letters) return;
+  // Find matching word in solution (case insensitive)
+  let matchedWord = null;
+  for (const w of puzzle.words) {
+    if (foundWords[w]) continue;
+    if (w === letters) { matchedWord = w; break; }
+  }
+
+  if (matchedWord) {
+    const isSpangram = matchedWord === puzzle.spangram;
+    const colorIdx = isSpangram ? 'found-spangram' : WORD_COLORS[Object.keys(foundWords).filter(k => k !== puzzle.spangram).length % WORD_COLORS.length];
+    const badgeIdx = isSpangram ? 'badge-spangram' : BADGE_COLORS[Object.keys(foundWords).filter(k => k !== puzzle.spangram).length % BADGE_COLORS.length];
+
+    // Highlight found cells
+    solution[matchedWord].forEach(([r,c]) => {
+      const cell = cellEls[r][c];
+      cell.classList.remove('selecting');
+      cell.className = 'cell ' + colorIdx;
+    });
+    foundWords[matchedWord] = true;
+
+    // Add badge
+    const badge = document.createElement('div');
+    badge.className = 'found-badge ' + badgeIdx;
+    badge.textContent = (isSpangram ? '✨ ' : '') + matchedWord;
+    document.getElementById('found-words').appendChild(badge);
+
+    const fc = Object.keys(foundWords).length;
+    document.getElementById('found-count').textContent = fc;
+    setMsg(isSpangram ? '✨ Spangram found!' : 'Nice! ' + matchedWord, isSpangram ? '#b59f3b' : '#538d4e');
+    setTimeout(() => setMsg(''), 1500);
+
+    selected = [];
+    document.getElementById('sel-display').textContent = '';
+
+    if (fc >= puzzle.words.length) {
+      setTimeout(() => {
+        setMsg('🎉 Puzzle complete! All words found!', '#fff');
+        document.getElementById('next-btn').style.display = 'inline-block';
+      }, 400);
+    }
+  } else {
+    // Wrong — flash selected cells
+    selected.forEach(([r,c]) => {
+      const cell = cellEls[r][c];
+      cell.classList.remove('selecting');
+      cell.classList.add('wrong-flash');
+      setTimeout(() => { cell.classList.remove('wrong-flash'); }, 450);
+    });
+    setMsg('Not a word in this puzzle', '#e94560');
+    setTimeout(() => setMsg(''), 1400);
+    selected = [];
+    document.getElementById('sel-display').textContent = '';
+  }
+}
+
+function setMsg(txt, color) {
+  const m = document.getElementById('msg');
+  m.textContent = txt;
+  m.style.color = color || '#fff';
+}
+
+function nextPuzzle() {
+  puzzleIdx = (puzzleIdx + 1) % PUZZLES.length;
+  loadPuzzle(puzzleIdx);
+}
+
+// Submit button
+document.getElementById('submit-btn').addEventListener('click', () => submitSelection());
+
+// Enter key
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter') submitSelection();
+  if (e.key === 'Escape') clearSelection();
+});
+
+// Stop drag on mouseup anywhere
+document.addEventListener('mouseup', () => { isDragging = false; });
+
+// Adjust cell size on small screens
+function adjustCellSize() {
+  const available = Math.min(document.getElementById('grid-wrap').parentElement.clientWidth - 32, 480);
+  const cellSize = Math.floor((available - (COLS - 1) * 4) / COLS);
+  const clamped = Math.max(38, Math.min(52, cellSize));
+  document.querySelectorAll('.cell').forEach(c => {
+    c.style.width = clamped + 'px';
+    c.style.height = clamped + 'px';
+    c.style.fontSize = (clamped * 0.35) + 'px';
+  });
+  document.getElementById('grid').style.gridTemplateColumns = `repeat(${COLS}, ${clamped}px)`;
+}
+
+loadPuzzle(0);
+setTimeout(adjustCellSize, 0);
+window.addEventListener('resize', adjustCellSize);
+</script>
+</body></html>
