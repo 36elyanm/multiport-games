@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Multiport Games – 60 Free Games</title>
+<title>Multiport Games – 65 Free Games</title>
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.json">
 <link rel="stylesheet" href="css/style.css">
@@ -54,13 +54,14 @@ if(sessionStorage.getItem('captcha_ok')||screen.width<200){
   <button class="cat-btn" onclick="filterCat('racing',this)">Racing</button>
   <button class="cat-btn" onclick="filterCat('sports',this)">Sports</button>
   <button class="cat-btn" onclick="filterCat('skill',this)">Skill</button>
+  <button class="cat-btn" onclick="filterCat('edu',this)">🎓 Education</button>
 </div>
 
 <div class="section-title">🎮 All Games</div>
 
 <div class="games-grid" id="games-grid"></div>
 
-<footer>Multiport Games &copy; 2026 – 60 Free Browser Games &nbsp;·&nbsp; <a href="bug-report.html" style="color:rgba(255,255,255,.35);text-decoration:none;transition:color .18s" onmouseover="this.style.color='#e94560'" onmouseout="this.style.color='rgba(255,255,255,.35)'">🐛 Report a Bug</a> &nbsp;·&nbsp; <a href="admin.html" style="color:rgba(255,255,255,.35);text-decoration:none;transition:color .18s" onmouseover="this.style.color='#e94560'" onmouseout="this.style.color='rgba(255,255,255,.35)'">Admin</a></footer>
+<footer>Multiport Games &copy; 2026 – 65 Free Browser Games &nbsp;·&nbsp; <a href="bug-report.html" style="color:rgba(255,255,255,.35);text-decoration:none;transition:color .18s" onmouseover="this.style.color='#e94560'" onmouseout="this.style.color='rgba(255,255,255,.35)'">🐛 Report a Bug</a> &nbsp;·&nbsp; <a href="admin.html" style="color:rgba(255,255,255,.35);text-decoration:none;transition:color .18s" onmouseover="this.style.color='#e94560'" onmouseout="this.style.color='rgba(255,255,255,.35)'">Admin</a></footer>
 
 <script>
 const GAMES = [
@@ -124,6 +125,11 @@ const GAMES = [
   { id:'geometry',   name:'Geometry Dash',     tag:'skill',  emoji:'⬛', c1:'#0a0a1a',c2:'#e94560' },
   { id:'crossy',     name:'Crossy Road',       tag:'action', emoji:'🐔', c1:'#2d5a27',c2:'#f7c948' },
   { id:'candy',      name:'Candy Crush',       tag:'puzzle', emoji:'🍭', c1:'#6a0572',c2:'#f7c948' },
+  { id:'mathblast',  name:'Math Blast',        tag:'edu',    emoji:'🔢', c1:'#0d1b4a',c2:'#4fc3f7' },
+  { id:'spelling',   name:'Spelling Bee',      tag:'edu',    emoji:'🐝', c1:'#3d2800',c2:'#ffd600' },
+  { id:'flags',      name:'World Flags',       tag:'edu',    emoji:'🌍', c1:'#1a237e',c2:'#64b5f6' },
+  { id:'timestable', name:'Times Tables',      tag:'edu',    emoji:'✖️', c1:'#1b5e20',c2:'#69f0ae' },
+  { id:'scramble',   name:'Word Scramble',     tag:'edu',    emoji:'🔤', c1:'#4a148c',c2:'#ea80fc' },
 ];
 
 let currentCat = 'all';
