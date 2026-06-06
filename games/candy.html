@@ -279,13 +279,13 @@ function loop(){
     let allDone=true;
     popList.forEach(({r,cc})=>{
       const cell=grid[r][cc];
+      if(cell.kind===-1)return; // already cleared, skip
       cell.scale-=0.07;cell.alpha-=0.07;
       if(cell.scale<0.05){
-        // burst
         const rect=cellRect(r,cc);
         burst(rect.x+rect.w/2,rect.y+rect.h/2,KINDS[cell.kind].col);
         cell.scale=0;cell.alpha=0;
-        cell.kind=-1; // empty
+        cell.kind=-1;
       }
       if(cell.alpha>0.01)allDone=false;
     });
