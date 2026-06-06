@@ -1,0 +1,386 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Candy Crush</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+body{background:#08080f}
+#game-container{display:block;margin:0 auto;max-width:480px;user-select:none;touch-action:none}
+#game-container canvas{display:block;border-radius:8px}
+</style>
+</head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Candy Crush</div>
+  <div class="game-frame">
+    <div id="game-container"><canvas id="c" width="480" height="540"></canvas></div>
+  </div>
+  <div class="game-instructions">Click or tap two <b>adjacent candies</b> to swap them. Match <b>3 or more</b> in a row or column to pop them and score!</div>
+</div>
+<script>
+const c=document.getElementById('c'),ctx=c.getContext('2d');
+const W=480,H=540,COLS=8,ROWS=8,CELL=52,PAD=8;
+const OX=(W-COLS*CELL)/2, OY=80; // grid origin
+
+// ── Candy colours & emoji-inspired shapes ────────────
+const KINDS=[
+  {col:'#e94560',glow:'#ff6b8a',name:'heart'},
+  {col:'#f7c948',glow:'#ffe77a',name:'star'},
+  {col:'#5e72eb',glow:'#8fa0ff',name:'diamond'},
+  {col:'#22c55e',glow:'#5eead4',name:'circle'},
+  {col:'#a855f7',glow:'#d08fff',name:'square'},
+  {col:'#f97316',glow:'#fbbf60',name:'triangle'},
+];
+const NK=KINDS.length;
+
+// ── State ─────────────────────────────────────────────
+let grid=[]; // [row][col] = {kind, anim:{scale,alpha,dy}, pop, falling}
+let score=0,combo=0;
+let selected=null; // {r,c}
+let swapping=null; // {r0,c0,r1,c1,prog,back}
+let phase='idle'; // idle | swap | pop | fall | check
+let popList=[]; // [{r,c}]
+let particles=[];
+let touchStart=null;
+
+// ── Init ──────────────────────────────────────────────
+function randKind(){return Math.floor(Math.random()*NK);}
+
+function makeCell(kind){return{kind,scale:1,alpha:1,dy:0,popping:false,falling:false,fallY:0};}
+
+function initGrid(){
+  grid=[];
+  for(let r=0;r<ROWS;r++){
+    grid[r]=[];
+    for(let cc=0;cc<COLS;cc++){
+      let k;
+      // avoid starting matches
+      do{k=randKind();}while(
+        (cc>=2&&grid[r][cc-1].kind===k&&grid[r][cc-2].kind===k)||
+        (r>=2&&grid[r-1][cc].kind===k&&grid[r-2][cc].kind===k)
+      );
+      grid[r][cc]=makeCell(k);
+    }
+  }
+  selected=null;swapping=null;phase='idle';score=0;combo=0;popList=[];particles=[];
+}
+initGrid();
+
+// ── Coordinate helpers ────────────────────────────────
+function cellRect(r,cc){
+  return{x:OX+cc*CELL+PAD/2,y:OY+r*CELL+PAD/2,w:CELL-PAD,h:CELL-PAD};
+}
+function hitCell(mx,my){
+  for(let r=0;r<ROWS;r++)for(let cc=0;cc<COLS;cc++){
+    const rect=cellRect(r,cc);
+    if(mx>=rect.x&&mx<rect.x+rect.w&&my>=rect.y&&my<rect.y+rect.h)return{r,cc};
+  }
+  return null;
+}
+function adjacent(a,b){return(a.r===b.r&&Math.abs(a.cc-b.cc)===1)||(a.cc===b.cc&&Math.abs(a.r-b.r)===1);}
+
+// ── Match finding ─────────────────────────────────────
+function findMatches(){
+  const matched=Array.from({length:ROWS},()=>Array(COLS).fill(false));
+  // horizontal
+  for(let r=0;r<ROWS;r++){
+    let run=1;
+    for(let cc=1;cc<=COLS;cc++){
+      if(cc<COLS&&grid[r][cc]&&grid[r][cc-1]&&grid[r][cc].kind===grid[r][cc-1].kind){run++;}
+      else{if(run>=3)for(let k=cc-run;k<cc;k++)matched[r][k]=true;run=1;}
+    }
+  }
+  // vertical
+  for(let cc=0;cc<COLS;cc++){
+    let run=1;
+    for(let r=1;r<=ROWS;r++){
+      if(r<ROWS&&grid[r][cc]&&grid[r-1][cc]&&grid[r][cc].kind===grid[r-1][cc].kind){run++;}
+      else{if(run>=3)for(let k=r-run;k<r;k++)matched[k][cc]=true;run=1;}
+    }
+  }
+  return matched;
+}
+
+function hasAnyMatch(m){return m.some(row=>row.some(v=>v));}
+
+// ── Swap logic ────────────────────────────────────────
+function trySwap(a,b){
+  if(!adjacent(a,b))return;
+  // do swap
+  const tmp=grid[a.r][a.cc];grid[a.r][a.cc]=grid[b.r][b.cc];grid[b.r][b.cc]=tmp;
+  const m=findMatches();
+  if(!hasAnyMatch(m)){
+    // swap back
+    const tmp2=grid[a.r][a.cc];grid[a.r][a.cc]=grid[b.r][b.cc];grid[b.r][b.cc]=tmp2;
+    // visual shake
+    swapping={r0:a.r,c0:a.cc,r1:b.r,c1:b.cc,prog:0,back:true};
+  } else {
+    swapping={r0:a.r,c0:a.cc,r1:b.r,c1:b.cc,prog:0,back:false};
+    combo=1;
+  }
+  selected=null;
+  phase='swap';
+}
+
+// ── Input ─────────────────────────────────────────────
+function getPos(e,elem){
+  const rect=elem.getBoundingClientRect();
+  const scaleX=W/rect.width,scaleY=H/rect.height;
+  const src=e.touches?e.touches[0]:e;
+  return{x:(src.clientX-rect.left)*scaleX,y:(src.clientY-rect.top)*scaleY};
+}
+function handleTap(mx,my){
+  if(phase!=='idle')return;
+  const cell=hitCell(mx,my);
+  if(!cell)return;
+  if(!selected){selected=cell;}
+  else if(selected.r===cell.r&&selected.cc===cell.cc){selected=null;}
+  else{trySwap(selected,cell);selected=null;}
+}
+c.addEventListener('click',e=>{const p=getPos(e,c);handleTap(p.x,p.y);});
+c.addEventListener('touchstart',e=>{
+  e.preventDefault();
+  const p=getPos(e,c);
+  touchStart={x:p.x,y:p.y};
+  handleTap(p.x,p.y);
+},{passive:false});
+c.addEventListener('touchend',e=>{
+  e.preventDefault();
+  if(!touchStart||!selected)return;
+  const p=getPos(e,c);
+  const dx=p.x-touchStart.x,dy=p.y-touchStart.y;
+  if(Math.abs(dx)<8&&Math.abs(dy)<8)return;
+  const dc=Math.abs(dx)>Math.abs(dy)?(dx>0?1:-1):0;
+  const dr=Math.abs(dy)>Math.abs(dx)?(dy>0?1:-1):0;
+  const target={r:selected.r+dr,cc:selected.cc+dc};
+  if(target.r>=0&&target.r<ROWS&&target.cc>=0&&target.cc<COLS){
+    trySwap(selected,target);
+  }
+  selected=null;touchStart=null;
+},{passive:false});
+
+// ── Particle burst ────────────────────────────────────
+function burst(x,y,col){
+  for(let i=0;i<14;i++){
+    const a=Math.random()*Math.PI*2,sp=2+Math.random()*4;
+    particles.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:1,col,r:3+Math.random()*4});
+  }
+}
+
+// ── Candy drawing ─────────────────────────────────────
+function drawCandy(x,y,w,h,kind,scale,alpha,dy,selected){
+  const k=KINDS[kind];
+  const cx=x+w/2,cy=y+h/2+dy;
+  ctx.save();
+  ctx.globalAlpha=alpha;
+  ctx.translate(cx,cy);
+  ctx.scale(scale,scale);
+  const r=w*0.42;
+  if(selected){
+    ctx.shadowBlur=22;ctx.shadowColor='#fff';
+  } else {
+    ctx.shadowBlur=10;ctx.shadowColor=k.glow;
+  }
+  // draw shape by name
+  ctx.fillStyle=k.col;
+  if(kind===0){ // heart
+    ctx.beginPath();
+    const s=r*0.55;
+    ctx.moveTo(0,s*0.5);
+    ctx.bezierCurveTo(s*0.5,-s*0.5,s*1.5,-s*0.3,s*1.2,s*0.7);
+    ctx.bezierCurveTo(s*1.0,s*1.2,0,s*1.8,0,s*1.8);
+    ctx.bezierCurveTo(0,s*1.8,-s*1.0,s*1.2,-s*1.2,s*0.7);
+    ctx.bezierCurveTo(-s*1.5,-s*0.3,-s*0.5,-s*0.5,0,s*0.5);
+    ctx.closePath();ctx.fill();
+  } else if(kind===1){ // star
+    ctx.beginPath();
+    for(let i=0;i<10;i++){
+      const a=Math.PI/5*i-Math.PI/2;
+      const rad=i%2===0?r:r*0.45;
+      i===0?ctx.moveTo(Math.cos(a)*rad,Math.sin(a)*rad):ctx.lineTo(Math.cos(a)*rad,Math.sin(a)*rad);
+    }
+    ctx.closePath();ctx.fill();
+  } else if(kind===2){ // diamond
+    ctx.beginPath();
+    ctx.moveTo(0,-r);ctx.lineTo(r*0.7,0);ctx.lineTo(0,r);ctx.lineTo(-r*0.7,0);
+    ctx.closePath();ctx.fill();
+  } else if(kind===3){ // circle
+    ctx.beginPath();ctx.arc(0,0,r,0,Math.PI*2);ctx.fill();
+  } else if(kind===4){ // rounded square
+    ctx.beginPath();ctx.roundRect(-r,-r,r*2,r*2,r*0.35);ctx.fill();
+  } else { // triangle
+    ctx.beginPath();
+    ctx.moveTo(0,-r);ctx.lineTo(r,r*0.7);ctx.lineTo(-r,r*0.7);
+    ctx.closePath();ctx.fill();
+  }
+  // shine
+  ctx.shadowBlur=0;
+  ctx.fillStyle='rgba(255,255,255,0.3)';
+  ctx.beginPath();ctx.ellipse(-r*0.2,-r*0.3,r*0.35,r*0.2,-0.5,0,Math.PI*2);ctx.fill();
+  ctx.restore();
+}
+
+// ── Draw HUD ──────────────────────────────────────────
+function drawHUD(){
+  // top bar
+  const g=ctx.createLinearGradient(0,0,W,0);
+  g.addColorStop(0,'rgba(233,69,96,0.3)');g.addColorStop(1,'rgba(94,114,235,0.3)');
+  ctx.fillStyle=g;ctx.fillRect(0,0,W,70);
+  ctx.fillStyle='#fff';ctx.font='bold 26px Arial';ctx.textAlign='left';
+  ctx.fillText('Score: '+score,18,42);
+  if(combo>1){
+    ctx.font='bold 18px Arial';ctx.fillStyle='#f7c948';
+    ctx.textAlign='right';ctx.fillText('COMBO x'+combo+'!',W-18,42);
+  }
+}
+
+// ── Draw grid bg ──────────────────────────────────────
+function drawGridBg(){
+  ctx.fillStyle='rgba(255,255,255,0.04)';
+  ctx.beginPath();ctx.roundRect(OX-6,OY-6,COLS*CELL+12,ROWS*CELL+12,16);ctx.fill();
+  for(let r=0;r<ROWS;r++)for(let cc=0;cc<COLS;cc++){
+    ctx.fillStyle=(r+cc)%2===0?'rgba(255,255,255,0.03)':'rgba(0,0,0,0.04)';
+    const rect=cellRect(r,cc);
+    ctx.beginPath();ctx.roundRect(rect.x,rect.y,rect.w,rect.h,8);ctx.fill();
+  }
+}
+
+// ── Main loop ─────────────────────────────────────────
+let needsCheck=false;
+let fallFrames=0,checkFrames=0;
+const SWAP_DUR=12,POP_DUR=18,FALL_SPEED=8;
+
+function loop(){
+  // BG gradient
+  const bg=ctx.createLinearGradient(0,0,0,H);
+  bg.addColorStop(0,'#120820');bg.addColorStop(1,'#08080f');
+  ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
+
+  drawGridBg();
+
+  // ── Phase: swap ───────────────────────────────────────
+  if(phase==='swap'&&swapping){
+    swapping.prog+=1/SWAP_DUR;
+    if(swapping.prog>=1){
+      swapping.prog=1;
+      if(!swapping.back){
+        // commit and go to pop
+        const m=findMatches();
+        if(hasAnyMatch(m)){
+          popList=[];
+          for(let r=0;r<ROWS;r++)for(let cc=0;cc<COLS;cc++){
+            if(m[r][cc]){popList.push({r,cc});grid[r][cc].popping=true;}
+          }
+          phase='pop';
+        } else {phase='idle';}
+      } else {phase='idle';swapping=null;}
+    }
+  }
+
+  // ── Phase: pop ────────────────────────────────────────
+  if(phase==='pop'){
+    let allDone=true;
+    popList.forEach(({r,cc})=>{
+      const cell=grid[r][cc];
+      cell.scale-=0.07;cell.alpha-=0.07;
+      if(cell.scale<0.05){
+        // burst
+        const rect=cellRect(r,cc);
+        burst(rect.x+rect.w/2,rect.y+rect.h/2,KINDS[cell.kind].col);
+        cell.scale=0;cell.alpha=0;
+        cell.kind=-1; // empty
+      }
+      if(cell.alpha>0.01)allDone=false;
+    });
+    if(allDone){
+      // score
+      const pts=popList.length*10*combo;
+      score+=pts;combo++;
+      // gravity: drop candies down
+      phase='fall';fallFrames=0;
+      // collapse columns
+      for(let cc=0;cc<COLS;cc++){
+        let write=ROWS-1;
+        for(let r=ROWS-1;r>=0;r--){
+          if(grid[r][cc].kind!==-1){
+            if(write!==r){
+              grid[write][cc]=makeCell(grid[r][cc].kind);
+              grid[write][cc].fallY=-((write-r)*CELL);
+              grid[r][cc]=makeCell(-1);
+              grid[r][cc].kind=-1;grid[r][cc].alpha=0;
+            }
+            write--;
+          }
+        }
+        // fill top empties
+        for(let r=write;r>=0;r--){
+          const drops=(write-r+1);
+          grid[r][cc]=makeCell(randKind());
+          grid[r][cc].fallY=-((drops+ROWS)*CELL*0.5+(ROWS-r)*CELL);
+        }
+      }
+    }
+  }
+
+  // ── Phase: fall ───────────────────────────────────────
+  if(phase==='fall'){
+    let allLanded=true;
+    for(let r=0;r<ROWS;r++)for(let cc=0;cc<COLS;cc++){
+      const cell=grid[r][cc];
+      if(cell.fallY<0){
+        cell.fallY=Math.min(0,cell.fallY+FALL_SPEED+(fallFrames*0.3));
+        if(cell.fallY<0)allLanded=false;
+      }
+    }
+    fallFrames++;
+    if(allLanded){
+      // reset fallY, check for new matches
+      for(let r=0;r<ROWS;r++)for(let cc=0;cc<COLS;cc++)grid[r][cc].fallY=0;
+      const m=findMatches();
+      if(hasAnyMatch(m)){
+        popList=[];
+        for(let r=0;r<ROWS;r++)for(let cc=0;cc<COLS;cc++){
+          if(m[r][cc]){popList.push({r,cc});grid[r][cc].popping=true;}
+        }
+        phase='pop';
+      } else {combo=1;phase='idle';swapping=null;}
+    }
+  }
+
+  // ── Draw candies ──────────────────────────────────────
+  for(let r=0;r<ROWS;r++){
+    for(let cc=0;cc<COLS;cc++){
+      const cell=grid[r][cc];
+      if(cell.kind===-1)continue;
+      const rect=cellRect(r,cc);
+      const isSel=selected&&selected.r===r&&selected.cc===cc;
+
+      // swap offset
+      let offX=0,offY=0;
+      if(swapping&&swapping.prog<1){
+        const t=swapping.back?swapping.prog*(1-swapping.prog)*4:Math.sin(swapping.prog*Math.PI);
+        const {r0,c0,r1,c1}=swapping;
+        if(r===r0&&cc===c0){offX=(c1-c0)*CELL*t;offY=(r1-r0)*CELL*t;}
+        else if(r===r1&&cc===c1){offX=(c0-c1)*CELL*t;offY=(r0-r1)*CELL*t;}
+      }
+
+      const selScale=isSel?1.12+Math.sin(Date.now()/200)*0.04:cell.scale;
+      drawCandy(
+        rect.x+offX,rect.y+offY,rect.w,rect.h,
+        cell.kind,selScale,cell.alpha,cell.fallY,isSel
+      );
+    }
+  }
+
+  // ── Draw particles ────────────────────────────────────
+  particles=particles.filter(p=>{
+    p.x+=p.vx;p.y+=p.vy;p.vy+=0.15;p.life-=0.035;
+    ctx.globalAlpha=p.life;ctx.fillStyle=p.col;
+    ctx.beginPath();ctx.arc(p.x,p.y,p.r*p.life,0,Math.PI*2);ctx.fill();
+    return p.life>0;
+  });
+  ctx.globalAlpha=1;
+
+  drawHUD();
+
+  requestAnimationFrame(loop);
+}
+loop();
+</script></body></html>

@@ -1,0 +1,445 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Crossy Road</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>body{background:#08080f}#c{display:block;border-radius:8px;touch-action:none}</style>
+</head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Crossy Road</div>
+  <div class="game-frame"><canvas id="c" width="480" height="520"></canvas></div>
+  <div class="game-instructions"><b>Arrow keys</b> to hop. On mobile, <b>swipe</b> in any direction. Cross roads and rivers to score!</div>
+</div>
+<script>
+const c=document.getElementById('c'),ctx=c.getContext('2d');
+const W=480,H=520,TILE=48,COLS=10,ROWS=11; // 10 cols, 11 visible rows
+
+// ── Persistent state ──────────────────────────────────
+let hi=+(localStorage.getItem('crossy_hi')||0);
+let state='idle'; // idle | play | dead
+
+// ── World ─────────────────────────────────────────────
+// rowOffset: how many rows the world has scrolled (player row index from bottom)
+let rowOffset=0,score=0,frame=0;
+let rows=[]; // generated rows, row[0] = bottommost visible
+let player={col:5,row:0,px:0,py:0,targetPx:0,targetPy:0,moving:false,stepProg:0,dir:0,dead:false,hop:0};
+// hop: used for arc animation
+
+// ── Row types ─────────────────────────────────────────
+// type: 'grass'|'road'|'river'
+// For road/river: vehicles/logs array
+
+const PALETTE={
+  grass:['#2d5a27','#3a7a30','#236120'],
+  road:['#3a3a3a','#2e2e2e','#444'],
+  river:['#1565c0','#0d47a1','#1976d2'],
+  log:'#8B5E3C',
+  car:['#e94560','#f7c948','#5e72eb','#22c55e','#a855f7','#00d2c6'],
+};
+
+function makeRow(type,index){
+  const row={type,index,vehicles:[]};
+  if(type==='road'){
+    const dir=(Math.random()<0.5)?1:-1;
+    const spd=1.2+Math.random()*1.8+Math.min(score*0.06,2);
+    const count=2+Math.floor(Math.random()*3);
+    const gap=Math.floor(W/count);
+    for(let i=0;i<count;i++){
+      row.vehicles.push({
+        x:i*gap+(Math.random()*gap*0.4),
+        w:48+Math.floor(Math.random()*40),
+        h:34,
+        speed:spd*dir,
+        color:PALETTE.car[Math.floor(Math.random()*PALETTE.car.length)],
+        type:'car'
+      });
+    }
+  } else if(type==='river'){
+    const dir=(Math.random()<0.5)?1:-1;
+    const spd=0.8+Math.random()*1.0;
+    const count=2+Math.floor(Math.random()*3);
+    const gap=Math.floor(W/count);
+    for(let i=0;i<count;i++){
+      row.vehicles.push({
+        x:i*gap+(Math.random()*gap*0.4),
+        w:60+Math.floor(Math.random()*60),
+        h:32,
+        speed:spd*dir,
+        type:'log'
+      });
+    }
+  }
+  return row;
+}
+
+function genRows(count){
+  rows=[];
+  // first few rows are grass
+  for(let i=0;i<count;i++){
+    if(i<3){rows.push(makeRow('grass',i));}
+    else {
+      const r=Math.random();
+      const t=r<0.35?'road':r<0.65?'river':'grass';
+      rows.push(makeRow(t,i));
+    }
+  }
+}
+
+function ensureRows(){
+  // need ROWS+4 rows above player's visible area
+  const need=rowOffset+ROWS+4;
+  while(rows.length<need){
+    const idx=rows.length;
+    if(idx<3){rows.push(makeRow('grass',idx));continue;}
+    const prev=rows[idx-1].type;
+    // no more than 3 consecutive same non-grass
+    let t;
+    const r=Math.random();
+    // avoid 3 consecutive rivers or roads
+    const last3=rows.slice(-3).map(r=>r.type);
+    if(last3.every(x=>x==='road')){t='grass';}
+    else if(last3.every(x=>x==='river')){t='grass';}
+    else{t=r<0.35?'road':r<0.65?'river':'grass';}
+    rows.push(makeRow(t,idx));
+  }
+}
+
+function reset(){
+  score=0;frame=0;rowOffset=0;
+  genRows(ROWS+6);
+  player={col:5,row:0,px:W/2,py:rowY(0)+TILE*0.1,targetPx:W/2,targetPy:rowY(0)+TILE*0.1,moving:false,stepProg:0,dir:0,dead:false,hop:0};
+  state='play';
+}
+
+// ── Coordinate helpers ────────────────────────────────
+// rowY: screen Y of a row given its world index
+// Rows scroll upward — bottom row is always near H-TILE
+function rowY(worldIdx){
+  // worldIdx 0 = starting bottom row
+  // As player goes up, rowOffset increases, rows scroll up
+  const rel=worldIdx-rowOffset; // 0=bottom, positive=above
+  return H - TILE - rel*TILE + TILE; // H-TILE is bottom row
+}
+
+function colX(col){return col*TILE+TILE/2;}
+
+// ── Movement ──────────────────────────────────────────
+function tryMove(dc,dr){
+  if(player.moving||player.dead)return;
+  const nc=player.col+dc;
+  const nr=player.row+dr;
+  if(nc<0||nc>=COLS)return;
+  if(nr<rowOffset-1)return; // can't go back too far
+  player.col=nc;
+  player.row=Math.max(nr,0);
+  player.targetPx=colX(nc);
+  player.targetPy=rowY(player.row)+TILE*0.1;
+  player.moving=true;player.stepProg=0;
+  player.dir=dc!==0?(dc>0?1:-1):0;
+  if(dr>0){ // moved forward
+    score=Math.max(score,player.row-rowOffset);
+    // scroll world if player is near top
+    if(player.row>=rowOffset+ROWS-3){
+      rowOffset=player.row-ROWS+3;
+      ensureRows();
+      if(score>hi){hi=score;localStorage.setItem('crossy_hi',hi);}
+    }
+  }
+}
+
+document.addEventListener('keydown',e=>{
+  if(state==='idle'||state==='dead'){reset();return;}
+  const m={'ArrowUp':[0,1],'ArrowDown':[0,-1],'ArrowLeft':[-1,0],'ArrowRight':[1,0]};
+  if(m[e.key]){e.preventDefault();tryMove(...m[e.key]);}
+});
+
+// Touch swipe
+let tx0=0,ty0=0;
+c.addEventListener('touchstart',e=>{
+  e.preventDefault();
+  if(state==='idle'||state==='dead'){reset();return;}
+  tx0=e.touches[0].clientX;ty0=e.touches[0].clientY;
+},{passive:false});
+c.addEventListener('touchend',e=>{
+  e.preventDefault();
+  if(state!=='play')return;
+  const dx=e.changedTouches[0].clientX-tx0;
+  const dy=e.changedTouches[0].clientY-ty0;
+  if(Math.abs(dx)<10&&Math.abs(dy)<10)return;
+  if(Math.abs(dx)>Math.abs(dy)){tryMove(dx>0?1:-1,0);}
+  else{tryMove(0,dy<0?1:-1);}
+},{passive:false});
+
+// ── Draw helpers ──────────────────────────────────────
+function drawRow(row){
+  const y=rowY(row.index);
+  if(y>H+TILE||y<-TILE)return;
+  const pal=PALETTE[row.type];
+  // alternating shade
+  ctx.fillStyle=pal[(row.index)%pal.length];
+  ctx.fillRect(0,y,W,TILE);
+  // detail
+  if(row.type==='grass'){
+    ctx.fillStyle='rgba(255,255,255,0.04)';
+    for(let col=0;col<COLS;col++){
+      if((col+row.index)%2===0)ctx.fillRect(col*TILE,y,TILE,TILE);
+    }
+    // random grass tufts (stable per row+col)
+    for(let col=0;col<COLS;col++){
+      const seed=(row.index*13+col*7)%17;
+      if(seed<4){
+        ctx.fillStyle='rgba(255,255,255,0.07)';
+        ctx.fillRect(col*TILE+seed*4,y+TILE*0.6,3,8);
+        ctx.fillRect(col*TILE+seed*4+6,y+TILE*0.65,3,6);
+      }
+    }
+  } else if(row.type==='road'){
+    // centre dashes
+    ctx.fillStyle='rgba(255,255,255,0.15)';
+    const dashOff=(frame*Math.abs(row.vehicles[0]?.speed||1)*0.3)%60;
+    for(let x=-dashOff;x<W+60;x+=60){
+      ctx.fillRect(x,y+TILE/2-3,36,6);
+    }
+  } else if(row.type==='river'){
+    // water ripples
+    ctx.strokeStyle='rgba(255,255,255,0.1)';ctx.lineWidth=1;
+    const rOff=(frame*0.5)%30;
+    for(let x=-rOff;x<W+30;x+=30){
+      ctx.beginPath();ctx.moveTo(x,y+12);ctx.quadraticCurveTo(x+8,y+8,x+16,y+12);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(x+4,y+28);ctx.quadraticCurveTo(x+12,y+24,x+20,y+28);ctx.stroke();
+    }
+  }
+}
+
+function drawVehicles(row){
+  const y=rowY(row.index);
+  if(y>H+TILE||y<-TILE)return;
+  row.vehicles.forEach(v=>{
+    if(v.type==='car'){
+      const x=((v.x%W)+W)%W;
+      ctx.save();
+      ctx.fillStyle=v.color;
+      ctx.shadowBlur=8;ctx.shadowColor=v.color;
+      ctx.beginPath();
+      ctx.roundRect(x-v.w/2,y+(TILE-v.h)/2,v.w,v.h,6);
+      ctx.fill();
+      ctx.shadowBlur=0;
+      // windows
+      ctx.fillStyle='rgba(180,230,255,0.6)';
+      const wd=v.speed>0;
+      ctx.fillRect(x+(wd?v.w/2-18:-v.w/2+6),y+(TILE-v.h)/2+5,12,10);
+      // wheels
+      ctx.fillStyle='#111';
+      [-v.w/2+6,v.w/2-12].forEach(wx=>{
+        ctx.beginPath();ctx.arc(x+wx,y+TILE/2+v.h/2-2,5,0,Math.PI*2);ctx.fill();
+      });
+      ctx.restore();
+    } else {
+      const x=((v.x%W)+W)%W;
+      ctx.save();
+      ctx.fillStyle=PALETTE.log;
+      ctx.shadowBlur=4;ctx.shadowColor='#5a3b20';
+      ctx.beginPath();ctx.roundRect(x-v.w/2,y+(TILE-v.h)/2,v.w,v.h,8);ctx.fill();
+      ctx.shadowBlur=0;
+      // log grain lines
+      ctx.strokeStyle='rgba(0,0,0,0.15)';ctx.lineWidth=2;
+      for(let lx=x-v.w/2+10;lx<x+v.w/2;lx+=14){
+        ctx.beginPath();ctx.moveTo(lx,y+(TILE-v.h)/2+4);ctx.lineTo(lx,y+(TILE-v.h)/2+v.h-4);ctx.stroke();
+      }
+      ctx.restore();
+    }
+  });
+}
+
+function drawPlayer(){
+  const p=player;
+  const px=p.px,py=p.py;
+  const hop=Math.sin(p.stepProg*Math.PI)*12;
+  const scale=1+Math.sin(p.stepProg*Math.PI)*0.12;
+
+  ctx.save();
+  ctx.translate(px,py-hop);
+  ctx.scale(scale,scale);
+
+  // shadow on ground
+  ctx.fillStyle='rgba(0,0,0,0.2)';
+  ctx.beginPath();
+  ctx.ellipse(0,TILE/2+hop*0.5,14*scale,5,0,0,Math.PI*2);
+  ctx.fill();
+
+  // body — cute yellow chick / frog
+  // body
+  ctx.fillStyle='#f7c948';
+  ctx.shadowBlur=10;ctx.shadowColor='#f7c948';
+  ctx.beginPath();ctx.ellipse(0,0,16,14,0,0,Math.PI*2);ctx.fill();
+  ctx.shadowBlur=0;
+  // head
+  ctx.fillStyle='#f7c948';
+  ctx.beginPath();ctx.ellipse(0,-18,12,12,0,0,Math.PI*2);ctx.fill();
+  // eyes
+  ctx.fillStyle='#fff';
+  ctx.beginPath();ctx.arc(-5,-20,4,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.arc(5,-20,4,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#222';
+  ctx.beginPath();ctx.arc(-5,-20,2,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.arc(5,-20,2,0,Math.PI*2);ctx.fill();
+  // beak
+  ctx.fillStyle='#ff8c00';
+  ctx.beginPath();ctx.moveTo(-3,-15);ctx.lineTo(3,-15);ctx.lineTo(0,-11);ctx.closePath();ctx.fill();
+  // wings
+  const wingFlap=p.moving?Math.sin(p.stepProg*Math.PI*2)*8:0;
+  ctx.fillStyle='#e6a800';
+  ctx.beginPath();ctx.ellipse(-16,0+wingFlap,8,5,-0.4,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.ellipse(16,0-wingFlap,8,5,0.4,0,Math.PI*2);ctx.fill();
+  // feet
+  ctx.fillStyle='#ff8c00';
+  ctx.beginPath();ctx.ellipse(-6,13,5,4,0.2,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.ellipse(6,13,5,4,-0.2,0,Math.PI*2);ctx.fill();
+
+  ctx.restore();
+}
+
+function drawHUD(){
+  ctx.fillStyle='rgba(0,0,0,0.5)';
+  ctx.fillRect(0,0,W,44);
+  ctx.fillStyle='#fff';ctx.font='bold 22px Arial';ctx.textAlign='left';
+  ctx.fillText('Score: '+score,14,30);
+  ctx.textAlign='right';
+  ctx.font='14px Arial';ctx.fillStyle='rgba(255,255,255,0.5)';
+  ctx.fillText('Best: '+hi,W-14,30);
+}
+
+function drawOverlay(title,sub1,sub2){
+  ctx.fillStyle='rgba(0,0,0,0.65)';
+  ctx.fillRect(60,160,360,160);
+  ctx.strokeStyle='rgba(94,114,235,0.5)';ctx.lineWidth=1.5;
+  ctx.strokeRect(60,160,360,160);
+  ctx.fillStyle='#fff';ctx.font='bold 30px Arial';ctx.textAlign='center';
+  ctx.fillText(title,W/2,210);
+  ctx.font='17px Arial';ctx.fillStyle='rgba(255,255,255,0.75)';
+  ctx.fillText(sub1,W/2,248);
+  ctx.font='14px Arial';ctx.fillStyle='rgba(255,255,255,0.5)';
+  ctx.fillText(sub2,W/2,282);
+}
+
+// ── Collision ─────────────────────────────────────────
+function checkCollision(){
+  if(player.moving)return; // check only when landed
+  const row=rows[player.row];
+  if(!row)return;
+  const px=player.px,py=player.py;
+
+  if(row.type==='road'){
+    // hit by car?
+    for(const v of row.vehicles){
+      const vx=((v.x%W)+W)%W;
+      // wrap check
+      const dl=Math.abs(px-vx);
+      const dl2=Math.abs(px-(vx+W));
+      const dl3=Math.abs(px-(vx-W));
+      const dist=Math.min(dl,dl2,dl3);
+      if(dist<v.w/2+10){player.dead=true;state='dead';return;}
+    }
+  }
+  if(row.type==='river'){
+    // standing on log?
+    let onLog=false;
+    for(const v of row.vehicles){
+      const vx=((v.x%W)+W)%W;
+      const dl=Math.abs(px-vx);
+      const dl2=Math.abs(px-(vx+W));
+      const dl3=Math.abs(px-(vx-W));
+      const dist=Math.min(dl,dl2,dl3);
+      if(dist<v.w/2-6){onLog=true;break;}
+    }
+    if(!onLog){player.dead=true;state='dead';}
+  }
+}
+
+// ── Update vehicles ───────────────────────────────────
+function updateVehicles(){
+  rows.forEach(row=>{
+    if(row.type==='road'||row.type==='river'){
+      row.vehicles.forEach(v=>{
+        v.x+=v.speed;
+        if(v.x>W+v.w/2)v.x=-v.w/2;
+        if(v.x<-v.w/2)v.x=W+v.w/2;
+      });
+    }
+  });
+  // push player along log
+  if(!player.dead&&!player.moving){
+    const row=rows[player.row];
+    if(row&&row.type==='river'){
+      for(const v of row.vehicles){
+        const vx=((v.x%W)+W)%W;
+        const dl=Math.abs(player.px-vx);
+        const dl2=Math.abs(player.px-(vx+W));
+        const dl3=Math.abs(player.px-(vx-W));
+        const dist=Math.min(dl,dl2,dl3);
+        if(dist<v.w/2-6){
+          player.px+=v.speed;
+          player.targetPx+=v.speed;
+          // clamp
+          if(player.px<0||player.px>W){player.dead=true;state='dead';}
+          break;
+        }
+      }
+    }
+  }
+}
+
+// ── Main loop ─────────────────────────────────────────
+function loop(){
+  // BG
+  ctx.fillStyle='#0a120a';ctx.fillRect(0,0,W,H);
+
+  if(state==='idle'){
+    // draw a couple demo rows
+    for(let i=0;i<ROWS;i++){
+      const drow={type:i%3===0?'road':i%3===1?'river':'grass',index:i,vehicles:[]};
+      drawRow(drow);
+    }
+    drawOverlay('CROSSY ROAD','Cross roads and rivers safely!','Arrow keys or Swipe to start');
+    requestAnimationFrame(loop);return;
+  }
+
+  frame++;
+
+  // animate player movement
+  if(player.moving){
+    player.stepProg+=0.15;
+    if(player.stepProg>=1){
+      player.stepProg=1;player.moving=false;
+      player.px=player.targetPx;player.py=player.targetPy;
+      checkCollision();
+    } else {
+      player.px+=(player.targetPx-player.px)*0.25;
+      player.py+=(player.targetPy-player.py)*0.25;
+    }
+  }
+
+  updateVehicles();
+
+  // draw visible rows (bottom to top)
+  const visStart=rowOffset-1;
+  const visEnd=rowOffset+ROWS+1;
+  for(let i=visStart;i<=visEnd;i++){
+    if(rows[i])drawRow(rows[i]);
+  }
+  for(let i=visStart;i<=visEnd;i++){
+    if(rows[i])drawVehicles(rows[i]);
+  }
+
+  if(!player.dead)drawPlayer();
+
+  drawHUD();
+
+  if(state==='dead'){
+    ctx.fillStyle='rgba(0,0,0,0.55)';ctx.fillRect(0,0,W,H);
+    drawPlayer();
+    drawOverlay('SQUASHED!','Score: '+score+'   Best: '+hi,'Tap or press any key to retry');
+  }
+
+  requestAnimationFrame(loop);
+}
+loop();
+</script></body></html>

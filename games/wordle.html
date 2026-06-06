@@ -175,7 +175,7 @@ document.addEventListener('keydown', e => {
 function submitGuess() {
   if (currentCol < COLS) { shakeRow(currentRow); setMsg('Not enough letters'); setTimeout(() => setMsg(''), 1400); return; }
   const guess = currentGuess.join('');
-  if (!WORDS.includes(guess)) { shakeRow(currentRow); setMsg('Not in word list'); setTimeout(() => setMsg(''), 1400); return; }
+  if (guess.length !== COLS) { shakeRow(currentRow); setMsg('Not enough letters'); setTimeout(() => setMsg(''), 1400); return; }
 
   const result = scoreGuess(guess);
   revealing = true;

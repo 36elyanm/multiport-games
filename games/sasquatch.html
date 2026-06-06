@@ -50,6 +50,50 @@ const PATROL=[
   [{x:640,y:340},{x:860,y:340},{x:860,y:660},{x:640,y:660}],
 ];
 
+// ── Raccoon companion ─────────────────────────────────────────────────────────
+const RACCOON_TIPS=[
+  '🦝 Hide in bushes when rangers look your way!',
+  '🦝 Collect all 8 foods to win the level!',
+  '🦝 Rangers move faster each level. Stay sneaky!',
+  '🦝 Watch the minimap — red dots are rangers!',
+  '🦝 Move slowly near rangers or use the bushes!',
+  '🦝 Yellow dots on map = food. Grab them all!',
+];
+let raccoonTip='',raccoonTimer=0,raccoonShown=false;
+function showTip(msg){raccoonTip=msg;raccoonTimer=200;raccoonShown=true;}
+
+function drawRaccoon(){
+  const x=sx(player.x+30),y=sy(player.y-10);
+  if(x<-40||x>CW+40||y<-40||y>CH+40)return;
+  // Body
+  ctx.fillStyle='#888';ctx.beginPath();ctx.ellipse(x,y+2,9,7,0,0,Math.PI*2);ctx.fill();
+  // Head
+  ctx.fillStyle='#999';ctx.beginPath();ctx.arc(x,y-8,7,0,Math.PI*2);ctx.fill();
+  // Mask
+  ctx.fillStyle='#333';ctx.beginPath();ctx.ellipse(x-3,y-8,3,2.5,-.3,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.ellipse(x+3,y-8,3,2.5,.3,0,Math.PI*2);ctx.fill();
+  // Eyes
+  ctx.fillStyle='#fff';[-3,3].forEach(ox=>{ctx.beginPath();ctx.arc(x+ox,y-9,1.8,0,Math.PI*2);ctx.fill();});
+  ctx.fillStyle='#111';[-3,3].forEach(ox=>{ctx.beginPath();ctx.arc(x+ox,y-9,1,0,Math.PI*2);ctx.fill();});
+  // Tail stripes
+  ctx.strokeStyle='#666';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(x-9,y+3);ctx.quadraticCurveTo(x-22,y+10,x-16,y-2);ctx.stroke();
+  ctx.strokeStyle='#aaa';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(x-9,y+3);ctx.quadraticCurveTo(x-22,y+10,x-16,y-2);ctx.stroke();
+  // Speech bubble
+  if(raccoonTimer>0){
+    raccoonTimer--;
+    const bx=Math.max(4,Math.min(CW-180,x-90)),by=Math.max(4,y-50);
+    ctx.fillStyle='rgba(20,20,30,.92)';
+    const bw=Math.min(170,CW-10);
+    ctx.beginPath();ctx.roundRect(bx,by,bw,28,8);ctx.fill();
+    ctx.strokeStyle='rgba(168,230,122,.6)';ctx.lineWidth=1.2;ctx.stroke();
+    ctx.fillStyle='#a8e67a';ctx.font='bold 10px sans-serif';ctx.textAlign='left';
+    // Word wrap in one line, truncate
+    const txt=raccoonTip.length>34?raccoonTip.slice(0,33)+'…':raccoonTip;
+    ctx.fillText(txt,bx+6,by+18);
+    ctx.textAlign='center';
+  }
+}
+
 // ── State ────────────────────────────────────────────────────────────────────
 let state,player,rangers,foods,tents,bushes,trees,cam,score,lives,level,flashT,winPending;
 
@@ -64,7 +108,7 @@ function spawn(){
   rangers=PATROL.map(pts=>({x:pts[0].x,y:pts[0].y,r:13,dir:0,patrol:pts,pi:0,speed:sp,alert:0}));
 }
 
-function newGame(){lives=3;score=0;level=1;spawn();state='idle';}
+function newGame(){lives=3;score=0;level=1;spawn();state='idle';raccoonTimer=0;raccoonShown=false;}
 function nextLevel(){level++;spawn();state='play';}
 
 // ── Geometry helpers ─────────────────────────────────────────────────────────
@@ -140,6 +184,10 @@ function collectFood(){
   for(const f of foods){
     if(!f.out&&circHit(player.x,player.y,player.r,f.x,f.y,14)){
       f.out=true;score+=100;
+      const got=foods.filter(x=>x.out).length;
+      if(got===1)showTip('🦝 Keep going! Collect all 8 foods!');
+      else if(got===4)showTip('🦝 Halfway there! Watch out for rangers!');
+      else if(got===7)showTip('🦝 One more! Almost done!');
     }
   }
 }
@@ -316,10 +364,10 @@ function loop(){
   if(state==='idle'){
     updateCam();drawWorld();
     bushes.forEach(drawBush);trees.forEach(drawTree);tents.forEach(drawTent);
-    foods.forEach(drawFood);rangers.forEach(drawRanger);drawSasquatch();
+    foods.forEach(drawFood);rangers.forEach(drawRanger);drawSasquatch();drawRaccoon();
     drawOverlay('🦶 Sneaky Sasquatch',
-      'Steal all the food from the campsite!',
-      'Hide in bushes 🌿 to dodge rangers!',
+      'Your raccoon pal will give you tips!',
+      'Steal all food 🍔  ·  Hide in bushes 🌿',
       'Click or tap to start','#a8e67a');
     return requestAnimationFrame(loop);
   }
@@ -378,8 +426,12 @@ function loop(){
   foods.forEach(drawFood);
   rangers.forEach(drawRanger);
   drawSasquatch();
+  drawRaccoon();
   drawMinimap();
   drawHUD();
+  // Show tip at start
+  if(!raccoonShown&&frame===90){showTip(RACCOON_TIPS[0]);raccoonShown=true;}
+  if(player.hiding&&raccoonTimer<=0&&Math.random()<.005)showTip(RACCOON_TIPS[Math.floor(Math.random()*RACCOON_TIPS.length)]);
 
   requestAnimationFrame(loop);
 }
