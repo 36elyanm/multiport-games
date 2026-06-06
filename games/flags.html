@@ -1,0 +1,220 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>World Flags</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+body{background:#08080f}
+#flags-root{max-width:520px;margin:0 auto;padding:14px 10px 30px;user-select:none}
+#hud{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px}
+#score-box{font-size:1.05rem;font-weight:700;color:#f7c948}
+#streak-box{font-size:.9rem;color:#a855f7;font-weight:700}
+#level-box{font-size:.85rem;color:rgba(255,255,255,0.55);font-weight:600;background:rgba(255,255,255,0.08);padding:4px 12px;border-radius:50px}
+#timer-bar-wrap{width:100%;height:10px;background:rgba(255,255,255,0.1);border-radius:50px;overflow:hidden;margin-bottom:14px}
+#timer-bar{height:100%;background:linear-gradient(90deg,#22c55e,#f7c948,#e94560);border-radius:50px;transition:width .1s linear;width:100%}
+#flag-display{text-align:center;font-size:7rem;margin:10px 0 6px;line-height:1;min-height:120px;display:flex;align-items:center;justify-content:center;filter:drop-shadow(0 4px 18px rgba(0,0,0,0.5))}
+#question-num{text-align:center;font-size:.82rem;color:rgba(255,255,255,0.4);margin-bottom:18px}
+#choices{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.choice-btn{background:rgba(255,255,255,0.08);border:2px solid rgba(255,255,255,0.14);border-radius:14px;color:#fff;font-size:.95rem;font-weight:600;padding:14px 10px;cursor:pointer;font-family:inherit;transition:all .15s;text-align:center;touch-action:manipulation;line-height:1.3}
+.choice-btn:hover{background:rgba(255,255,255,0.14);border-color:rgba(255,255,255,0.28);transform:translateY(-2px)}
+.choice-btn.correct{background:rgba(34,197,94,0.35);border-color:#22c55e;color:#86efac;animation:correct-flash .4s}
+.choice-btn.wrong{background:rgba(233,69,96,0.3);border-color:#e94560;color:#fca5a5;animation:shake-btn .3s}
+@keyframes correct-flash{0%{transform:scale(1)}50%{transform:scale(1.06)}100%{transform:scale(1)}}
+@keyframes shake-btn{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+#feedback{text-align:center;font-size:1rem;font-weight:700;min-height:30px;color:#f7c948;margin-bottom:6px}
+#levelup-banner{display:none;text-align:center;background:linear-gradient(135deg,rgba(168,85,247,0.3),rgba(94,114,235,0.3));border:1px solid rgba(168,85,247,0.5);border-radius:14px;padding:12px;margin-bottom:10px;font-size:1.05rem;font-weight:700;color:#d8b4fe;animation:pop-in .4s cubic-bezier(.34,1.56,.64,1)}
+@keyframes pop-in{0%{transform:scale(0.7);opacity:0}100%{transform:scale(1);opacity:1}}
+#gameover-box{display:none;background:rgba(10,8,30,0.96);border:1px solid rgba(94,114,235,0.4);border-radius:20px;padding:28px 20px;text-align:center;margin-top:10px}
+#gameover-box h2{font-size:2rem;color:#e94560;margin-bottom:12px}
+#final-score-txt{font-size:1.2rem;font-weight:700;color:#f7c948;margin-bottom:6px}
+#final-streak-txt{font-size:.95rem;color:#a855f7;margin-bottom:16px}
+#play-again-btn{padding:12px 36px;background:linear-gradient(135deg,#5e72eb,#e94560);border:none;border-radius:50px;color:#fff;font-size:1rem;font-weight:700;cursor:pointer;font-family:inherit;transition:transform .15s}
+#play-again-btn:hover{transform:scale(1.05)}
+@media(max-width:400px){#flag-display{font-size:5rem;min-height:90px}.choice-btn{font-size:.85rem;padding:11px 8px}}
+</style>
+</head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">World Flags 🌍</div>
+  <div class="game-frame">
+    <div id="flags-root">
+      <div id="hud">
+        <div id="score-box">Score: 0</div>
+        <div id="streak-box">Streak: 0</div>
+        <div id="level-box">Level 1</div>
+      </div>
+      <div id="timer-bar-wrap"><div id="timer-bar"></div></div>
+      <div id="flag-display">🏳️</div>
+      <div id="question-num">Question 1</div>
+      <div id="levelup-banner"></div>
+      <div id="choices"></div>
+      <div id="feedback"></div>
+      <div id="gameover-box">
+        <h2>Time's Up! ⏰</h2>
+        <div id="final-score-txt"></div>
+        <div id="final-streak-txt"></div>
+        <button id="play-again-btn">Play Again</button>
+      </div>
+    </div>
+  </div>
+  <div class="game-instructions">Look at the flag emoji and pick the correct country! You have <b>20 seconds</b> per question (timer speeds up after 10 correct). Build a streak for big points!</div>
+</div>
+<script>
+const FLAGS=[
+  {flag:'🇺🇸',name:'United States'},{flag:'🇬🇧',name:'United Kingdom'},{flag:'🇯🇵',name:'Japan'},
+  {flag:'🇧🇷',name:'Brazil'},{flag:'🇨🇳',name:'China'},{flag:'🇩🇪',name:'Germany'},
+  {flag:'🇫🇷',name:'France'},{flag:'🇮🇳',name:'India'},{flag:'🇦🇺',name:'Australia'},
+  {flag:'🇨🇦',name:'Canada'},{flag:'🇲🇽',name:'Mexico'},{flag:'🇰🇷',name:'South Korea'},
+  {flag:'🇮🇹',name:'Italy'},{flag:'🇪🇸',name:'Spain'},{flag:'🇷🇺',name:'Russia'},
+  {flag:'🇿🇦',name:'South Africa'},{flag:'🇦🇷',name:'Argentina'},{flag:'🇳🇬',name:'Nigeria'},
+  {flag:'🇪🇬',name:'Egypt'},{flag:'🇸🇦',name:'Saudi Arabia'},{flag:'🇹🇷',name:'Turkey'},
+  {flag:'🇮🇩',name:'Indonesia'},{flag:'🇵🇰',name:'Pakistan'},{flag:'🇧🇩',name:'Bangladesh'},
+  {flag:'🇵🇭',name:'Philippines'},{flag:'🇻🇳',name:'Vietnam'},{flag:'🇹🇭',name:'Thailand'},
+  {flag:'🇵🇱',name:'Poland'},{flag:'🇺🇦',name:'Ukraine'},{flag:'🇳🇱',name:'Netherlands'},
+  {flag:'🇧🇪',name:'Belgium'},{flag:'🇸🇪',name:'Sweden'},{flag:'🇳🇴',name:'Norway'},
+  {flag:'🇩🇰',name:'Denmark'},{flag:'🇫🇮',name:'Finland'},{flag:'🇨🇭',name:'Switzerland'},
+  {flag:'🇦🇹',name:'Austria'},{flag:'🇵🇹',name:'Portugal'},{flag:'🇬🇷',name:'Greece'},
+  {flag:'🇮🇱',name:'Israel'},{flag:'🇮🇷',name:'Iran'},{flag:'🇰🇪',name:'Kenya'},
+  {flag:'🇬🇭',name:'Ghana'},{flag:'🇲🇦',name:'Morocco'},{flag:'🇨🇴',name:'Colombia'},
+  {flag:'🇵🇪',name:'Peru'},{flag:'🇨🇱',name:'Chile'},{flag:'🇳🇿',name:'New Zealand'},
+  {flag:'🇸🇬',name:'Singapore'},{flag:'🇯🇲',name:'Jamaica'},
+];
+
+let score=0,streak=0,bestStreak=0,questionNum=0,level=1,totalCorrect=0;
+let timeLeft=20,timerInterval=null,answered=false,gameOver=false;
+let currentCorrect=null;
+
+function shuffle(arr){const a=[...arr];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+
+function getTimerDuration(){
+  return level===1?20:level===2?16:12;
+}
+
+function nextQuestion(){
+  if(gameOver)return;
+  answered=false;
+  questionNum++;
+  document.getElementById('question-num').textContent='Question '+questionNum;
+  document.getElementById('feedback').textContent='';
+
+  const shuffled=shuffle(FLAGS);
+  const correct=shuffled[0];
+  const distractors=shuffled.slice(1,4);
+  currentCorrect=correct;
+
+  document.getElementById('flag-display').textContent=correct.flag;
+
+  const options=shuffle([correct,...distractors]);
+  const choicesEl=document.getElementById('choices');
+  choicesEl.innerHTML='';
+  options.forEach(opt=>{
+    const btn=document.createElement('button');
+    btn.className='choice-btn';
+    btn.textContent=opt.name;
+    btn.addEventListener('click',()=>handleAnswer(opt.name===correct.name,btn));
+    btn.addEventListener('touchstart',e=>{e.preventDefault();handleAnswer(opt.name===correct.name,btn);},{passive:false});
+    choicesEl.appendChild(btn);
+  });
+
+  startTimer();
+}
+
+function startTimer(){
+  clearInterval(timerInterval);
+  const dur=getTimerDuration();
+  timeLeft=dur;
+  updateTimerBar();
+  timerInterval=setInterval(()=>{
+    if(answered)return;
+    timeLeft-=0.1;
+    updateTimerBar();
+    if(timeLeft<=0){
+      clearInterval(timerInterval);
+      timesUp();
+    }
+  },100);
+}
+
+function updateTimerBar(){
+  const dur=getTimerDuration();
+  const pct=Math.max(0,timeLeft/dur*100);
+  document.getElementById('timer-bar').style.width=pct+'%';
+}
+
+function timesUp(){
+  if(answered)return;
+  answered=true;
+  clearInterval(timerInterval);
+  streak=0;
+  document.getElementById('streak-box').textContent='Streak: 0';
+  // highlight correct
+  document.querySelectorAll('.choice-btn').forEach(btn=>{
+    if(btn.textContent===currentCorrect.name)btn.classList.add('correct');
+    btn.style.pointerEvents='none';
+  });
+  document.getElementById('feedback').textContent='⏰ Time\'s up! It was '+currentCorrect.name;
+  endGame();
+}
+
+function handleAnswer(isCorrect,btn){
+  if(answered||gameOver)return;
+  answered=true;
+  clearInterval(timerInterval);
+
+  if(isCorrect){
+    btn.classList.add('correct');
+    streak++;bestStreak=Math.max(bestStreak,streak);totalCorrect++;
+    const pts=10*(1+Math.floor(streak/3));
+    score+=pts;
+    document.getElementById('feedback').textContent='✅ Correct! +'+pts+(streak>1?' (streak ×'+streak+')':'');
+    document.getElementById('score-box').textContent='Score: '+score;
+    document.getElementById('streak-box').textContent='Streak: '+streak+(streak>1?' 🔥':'');
+    // Level up?
+    if(totalCorrect>0&&totalCorrect%10===0){
+      level=Math.min(3,level+1);
+      document.getElementById('level-box').textContent='Level '+level;
+      const banner=document.getElementById('levelup-banner');
+      banner.style.display='block';
+      banner.textContent='🚀 Level Up! Timer is now faster!';
+      setTimeout(()=>banner.style.display='none',2000);
+    }
+    document.querySelectorAll('.choice-btn').forEach(b=>b.style.pointerEvents='none');
+    setTimeout(()=>nextQuestion(),900);
+  } else {
+    btn.classList.add('wrong');
+    streak=0;
+    document.getElementById('streak-box').textContent='Streak: 0';
+    // show correct
+    document.querySelectorAll('.choice-btn').forEach(b=>{
+      if(b.textContent===currentCorrect.name)b.classList.add('correct');
+      b.style.pointerEvents='none';
+    });
+    document.getElementById('feedback').textContent='❌ It\'s '+currentCorrect.name+'!';
+    setTimeout(()=>nextQuestion(),1200);
+  }
+}
+
+function endGame(){
+  setTimeout(()=>{
+    gameOver=true;
+    clearInterval(timerInterval);
+    document.getElementById('choices').innerHTML='';
+    document.getElementById('flag-display').textContent='🏆';
+    document.getElementById('question-num').textContent='';
+    document.getElementById('feedback').textContent='';
+    const gb=document.getElementById('gameover-box');
+    gb.style.display='block';
+    document.getElementById('final-score-txt').textContent='Final Score: '+score;
+    document.getElementById('final-streak-txt').textContent='Best Streak: '+bestStreak+' 🔥 | Questions: '+questionNum;
+  },1500);
+}
+
+document.getElementById('play-again-btn').addEventListener('click',()=>{
+  score=0;streak=0;bestStreak=0;questionNum=0;level=1;totalCorrect=0;gameOver=false;answered=false;
+  document.getElementById('gameover-box').style.display='none';
+  document.getElementById('score-box').textContent='Score: 0';
+  document.getElementById('streak-box').textContent='Streak: 0';
+  document.getElementById('level-box').textContent='Level 1';
+  document.getElementById('feedback').textContent='';
+  nextQuestion();
+});
+
+nextQuestion();
+</script></body></html>
