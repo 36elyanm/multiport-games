@@ -31,10 +31,14 @@ async function notifySubscribers(env, gameName, desc) {
     const { results: subs } = await env.DB.prepare('SELECT endpoint, p256dh, auth FROM push_subscriptions').all();
     if (!subs?.length) return;
 
+    const { results: countRows } = await env.DB.prepare('SELECT COUNT(*) AS n FROM bug_reports WHERE fixed = 0').all();
+    const openCount = countRows?.[0]?.n || 1;
+
     const payload = {
       title: '🐛 New Bug Report',
       body: `${gameName}: ${desc.slice(0, 120)}`,
       url: '/admin.html',
+      badgeCount: openCount,
     };
 
     await Promise.allSettled(subs.map(async (s) => {

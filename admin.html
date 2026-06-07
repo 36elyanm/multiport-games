@@ -95,6 +95,7 @@ async function loadReports(){
     document.getElementById('login').style.display='none';
     document.getElementById('dashboard').style.display='block';
     renderStats();renderReports();
+    if(navigator.clearAppBadge)navigator.clearAppBadge().catch(()=>{});
   }catch{
     const e=document.getElementById('login-err');e.textContent='Could not connect.';e.style.display='block';
   }
