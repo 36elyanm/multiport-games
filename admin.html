@@ -39,11 +39,14 @@ body{padding:24px;min-height:100vh}
 </head><body>
 
 <div id="login">
-  <div class="login-card">
-    <h2>🔐 Admin Login</h2>
-    <input id="pwd" type="password" placeholder="Admin password" onkeydown="if(event.key==='Enter')doLogin()">
-    <div id="login-err" style="color:#ff8a9a;font-size:.85rem;margin-bottom:10px;display:none"></div>
-    <button class="btn" onclick="doLogin()">Sign In</button>
+  <div style="width:100%;max-width:360px">
+    <a href="index.html" style="display:inline-block;margin-bottom:14px;color:rgba(255,255,255,.4);font-size:.85rem;text-decoration:none" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,.4)'">← Back to Games</a>
+    <div class="login-card">
+      <h2>🔐 Admin Login</h2>
+      <input id="pwd" type="password" placeholder="Admin password" onkeydown="if(event.key==='Enter')doLogin()">
+      <div id="login-err" style="color:#ff8a9a;font-size:.85rem;margin-bottom:10px;display:none"></div>
+      <button class="btn" onclick="doLogin()">Sign In</button>
+    </div>
   </div>
 </div>
 
