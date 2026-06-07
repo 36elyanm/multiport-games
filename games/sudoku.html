@@ -1,0 +1,338 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"><title>Sudoku</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+body{background:#08080f}
+#wrap{display:flex;flex-direction:column;align-items:center;padding:18px;gap:14px}
+#topbar{display:flex;justify-content:space-between;align-items:center;width:100%;max-width:430px;color:#eee;font-size:.95rem;font-weight:600}
+#topbar span{color:#e94560}
+#board{display:grid;grid-template-columns:repeat(9,1fr);grid-template-rows:repeat(9,1fr);width:min(92vw,430px);height:min(92vw,430px);background:#1a1a24;border:3px solid #e94560;border-radius:8px;overflow:hidden;user-select:none;touch-action:manipulation}
+.cell{display:flex;align-items:center;justify-content:center;font-size:clamp(14px,4vw,22px);font-weight:700;color:#dfe6ff;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);cursor:pointer;transition:background .12s;position:relative}
+.cell.given{color:#9aa4c2;cursor:default}
+.cell.b-right{border-right:2px solid #e94560}
+.cell.b-bottom{border-bottom:2px solid #e94560}
+.cell.selected{background:rgba(233,69,96,0.35)}
+.cell.peer{background:rgba(255,255,255,0.09)}
+.cell.same{background:rgba(102,192,244,0.28)}
+.cell.conflict{color:#ff5252;background:rgba(255,82,82,0.18)}
+.cell.hint{animation:flashHint .8s ease}
+@keyframes flashHint{0%{background:rgba(76,175,80,.6)}100%{background:transparent}}
+#padwrap{display:flex;flex-direction:column;align-items:center;gap:10px;width:100%;max-width:430px}
+#numpad{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;width:100%}
+#numpad button{padding:12px 0;font-size:1.1rem;font-weight:700;border:none;border-radius:8px;background:rgba(255,255,255,0.09);color:#fff;cursor:pointer;transition:background .15s}
+#numpad button:hover{background:rgba(255,255,255,0.18)}
+#numpad button.erase{background:rgba(233,69,96,0.35)}
+#numpad button.erase:hover{background:rgba(233,69,96,0.55)}
+#controls{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+#controls button{padding:9px 18px;background:#e94560;border:none;border-radius:20px;color:#fff;cursor:pointer;font-size:.9rem;font-weight:600;transition:background .15s}
+#controls button:hover{background:#ff5e7a}
+#controls button:disabled{opacity:.45;cursor:default}
+#controls button.secondary{background:rgba(255,255,255,0.09)}
+#controls button.secondary:hover{background:rgba(255,255,255,0.18)}
+#overlay{position:absolute;inset:0;background:rgba(0,0,0,.72);display:none;align-items:center;justify-content:center;flex-direction:column;gap:10px;border-radius:8px;text-align:center;padding:20px}
+#overlay.show{display:flex}
+#overlay h2{color:#66ffb0;font-size:1.6rem;margin:0}
+#overlay p{color:#fff;margin:0;font-size:1rem}
+#boardWrap{position:relative;width:min(92vw,430px);height:min(92vw,430px)}
+</style></head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Sudoku</div>
+  <div class="game-frame">
+    <div id="wrap">
+      <div id="topbar">
+        <span id="timer">⏱ 0:00</span>
+        <span id="hintsLeft">💡 Hints: 3</span>
+      </div>
+      <div id="boardWrap">
+        <div id="board"></div>
+        <div id="overlay">
+          <h2>🎉 Solved!</h2>
+          <p id="winMsg"></p>
+          <div id="controls"><button id="playAgainBtn">New Game</button></div>
+        </div>
+      </div>
+      <div id="padwrap">
+        <div id="numpad"></div>
+        <div id="controls">
+          <button id="newGameBtn">New Game</button>
+          <button id="hintBtn" class="secondary">Hint</button>
+          <button id="eraseBtn" class="secondary">Erase</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="game-instructions">
+    Click/tap a cell to select it, then use the number pad or your <b>keyboard (1-9)</b> to fill it in. Press <b>Backspace/Delete</b> or the Erase button to clear a cell. Matching numbers and the selected cell's row, column &amp; box are highlighted; conflicting numbers turn red. Use <b>Hint</b> (3 per game) to reveal a correct cell. Fill the whole grid correctly to win!
+  </div>
+</div>
+<script>
+const boardEl=document.getElementById('board');
+const overlayEl=document.getElementById('overlay');
+const timerEl=document.getElementById('timer');
+const hintsLeftEl=document.getElementById('hintsLeft');
+const winMsgEl=document.getElementById('winMsg');
+
+let solution=[],puzzle=[],given=[],selected=null;
+let seconds=0,timerId=null,running=false,hintsLeft=3,won=false;
+
+// ---------- Generation ----------
+function emptyGrid(){return Array.from({length:9},()=>Array(9).fill(0));}
+
+function shuffled(arr){
+  const a=arr.slice();
+  for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}
+  return a;
+}
+
+function isSafe(grid,r,c,v){
+  for(let i=0;i<9;i++){
+    if(grid[r][i]===v)return false;
+    if(grid[i][c]===v)return false;
+  }
+  const br=r-r%3,bc=c-c%3;
+  for(let i=0;i<3;i++)for(let j=0;j<3;j++)if(grid[br+i][bc+j]===v)return false;
+  return true;
+}
+
+function fillGrid(grid){
+  for(let pos=0;pos<81;pos++){
+    const r=Math.floor(pos/9),c=pos%9;
+    if(grid[r][c]!==0)continue;
+    for(const v of shuffled([1,2,3,4,5,6,7,8,9])){
+      if(isSafe(grid,r,c,v)){
+        grid[r][c]=v;
+        if(fillGrid(grid))return true;
+        grid[r][c]=0;
+      }
+    }
+    return false;
+  }
+  return true;
+}
+
+function generateSolution(){
+  const g=emptyGrid();
+  fillGrid(g);
+  return g;
+}
+
+// Count solutions up to a limit (for uniqueness check), with a safety cap on iterations
+function countSolutions(grid,limit){
+  let count=0;
+  let iterations=0;
+  function solve(g){
+    if(count>=limit)return;
+    iterations++;
+    if(iterations>200000){count=Math.max(count,2);return;} // bail out, treat as non-unique
+    let r=-1,c=-1;
+    outer:
+    for(let i=0;i<9;i++)for(let j=0;j<9;j++){if(g[i][j]===0){r=i;c=j;break outer;}}
+    if(r===-1){count++;return;}
+    for(let v=1;v<=9;v++){
+      if(isSafe(g,r,c,v)){
+        g[r][c]=v;
+        solve(g);
+        g[r][c]=0;
+        if(count>=limit)return;
+      }
+    }
+  }
+  solve(grid.map(row=>row.slice()));
+  return count;
+}
+
+function generatePuzzle(sol,clueCount){
+  const grid=sol.map(row=>row.slice());
+  const cells=shuffled(Array.from({length:81},(_,i)=>i));
+  let removed=0;
+  const targetRemoved=81-clueCount;
+  for(const pos of cells){
+    if(removed>=targetRemoved)break;
+    const r=Math.floor(pos/9),c=pos%9;
+    if(grid[r][c]===0)continue;
+    const backup=grid[r][c];
+    grid[r][c]=0;
+    // Check uniqueness (capped)
+    if(countSolutions(grid,2)!==1){
+      grid[r][c]=backup; // revert, keep this clue
+    } else {
+      removed++;
+    }
+  }
+  return grid;
+}
+
+function newGame(){
+  clearInterval(timerId);
+  seconds=0;running=false;won=false;hintsLeft=3;selected=null;
+  hintsLeftEl.textContent=`💡 Hints: ${hintsLeft}`;
+  timerEl.textContent='⏱ 0:00';
+  overlayEl.classList.remove('show');
+  solution=generateSolution();
+  // ~40-45 clues for medium difficulty
+  const clueCount=40+Math.floor(Math.random()*6);
+  puzzle=generatePuzzle(solution,clueCount);
+  given=puzzle.map(row=>row.map(v=>v!==0));
+  renderBoard();
+  startTimer();
+}
+
+function startTimer(){
+  running=true;
+  timerId=setInterval(()=>{
+    if(!running)return;
+    seconds++;
+    const m=Math.floor(seconds/60),s=seconds%60;
+    timerEl.textContent=`⏱ ${m}:${s<10?'0':''}${s}`;
+  },1000);
+}
+
+// ---------- Rendering ----------
+function buildBoardDom(){
+  boardEl.innerHTML='';
+  for(let r=0;r<9;r++){
+    for(let c=0;c<9;c++){
+      const cell=document.createElement('div');
+      cell.className='cell';
+      if(c===2||c===5)cell.classList.add('b-right');
+      if(r===2||r===5)cell.classList.add('b-bottom');
+      cell.dataset.r=r;
+      cell.dataset.c=c;
+      cell.addEventListener('click',()=>selectCell(r,c));
+      boardEl.appendChild(cell);
+    }
+  }
+}
+
+function cellAt(r,c){return boardEl.children[r*9+c];}
+
+function selectCell(r,c){
+  if(won)return;
+  selected={r,c};
+  renderBoard();
+}
+
+function renderBoard(){
+  for(let r=0;r<9;r++){
+    for(let c=0;c<9;c++){
+      const el=cellAt(r,c);
+      const v=puzzle[r][c];
+      el.textContent=v===0?'':v;
+      el.classList.toggle('given',given[r][c]);
+      el.classList.remove('selected','peer','same','conflict','hint');
+      if(v!==0&&isConflict(r,c,v))el.classList.add('conflict');
+    }
+  }
+  if(selected){
+    const {r:sr,c:sc}=selected;
+    const sv=puzzle[sr][sc];
+    const bsr=sr-sr%3,bsc=sc-sc%3;
+    for(let r=0;r<9;r++){
+      for(let c=0;c<9;c++){
+        const el=cellAt(r,c);
+        const inRow=r===sr,inCol=c===sc;
+        const inBox=(r>=bsr&&r<bsr+3&&c>=bsc&&c<bsc+3);
+        if(inRow||inCol||inBox)el.classList.add('peer');
+        if(sv!==0&&puzzle[r][c]===sv)el.classList.add('same');
+      }
+    }
+    cellAt(sr,sc).classList.add('selected');
+  }
+}
+
+function isConflict(r,c,v){
+  for(let i=0;i<9;i++){
+    if(i!==c&&puzzle[r][i]===v)return true;
+    if(i!==r&&puzzle[i][c]===v)return true;
+  }
+  const br=r-r%3,bc=c-c%3;
+  for(let i=0;i<3;i++)for(let j=0;j<3;j++){
+    const rr=br+i,cc=bc+j;
+    if((rr!==r||cc!==c)&&puzzle[rr][cc]===v)return true;
+  }
+  return false;
+}
+
+function setValue(v){
+  if(won||!selected)return;
+  const {r,c}=selected;
+  if(given[r][c])return;
+  puzzle[r][c]=v;
+  renderBoard();
+  checkWin();
+}
+
+function eraseValue(){
+  if(won||!selected)return;
+  const {r,c}=selected;
+  if(given[r][c])return;
+  puzzle[r][c]=0;
+  renderBoard();
+}
+
+function checkWin(){
+  for(let r=0;r<9;r++)for(let c=0;c<9;c++){
+    if(puzzle[r][c]===0||puzzle[r][c]!==solution[r][c])return;
+  }
+  won=true;running=false;
+  clearInterval(timerId);
+  const m=Math.floor(seconds/60),s=seconds%60;
+  winMsgEl.textContent=`You solved it in ${m}:${s<10?'0':''}${s}!`;
+  overlayEl.classList.add('show');
+}
+
+function useHint(){
+  if(won||hintsLeft<=0)return;
+  // find an empty or wrong cell
+  const candidates=[];
+  for(let r=0;r<9;r++)for(let c=0;c<9;c++){
+    if(!given[r][c]&&puzzle[r][c]!==solution[r][c])candidates.push({r,c});
+  }
+  if(candidates.length===0)return;
+  const {r,c}=candidates[Math.floor(Math.random()*candidates.length)];
+  puzzle[r][c]=solution[r][c];
+  hintsLeft--;
+  hintsLeftEl.textContent=`💡 Hints: ${hintsLeft}`;
+  selected={r,c};
+  renderBoard();
+  cellAt(r,c).classList.add('hint');
+  checkWin();
+}
+
+// ---------- Numpad ----------
+function buildNumpad(){
+  const pad=document.getElementById('numpad');
+  pad.innerHTML='';
+  for(let n=1;n<=9;n++){
+    const btn=document.createElement('button');
+    btn.textContent=n;
+    btn.addEventListener('click',()=>setValue(n));
+    pad.appendChild(btn);
+  }
+  const erase=document.createElement('button');
+  erase.textContent='⌫';
+  erase.className='erase';
+  erase.addEventListener('click',eraseValue);
+  pad.appendChild(erase);
+}
+
+// ---------- Input ----------
+document.addEventListener('keydown',e=>{
+  if(!selected)return;
+  if(e.key>='1'&&e.key<='9'){setValue(parseInt(e.key,10));}
+  else if(e.key==='Backspace'||e.key==='Delete'||e.key==='0'){eraseValue();}
+  else if(e.key==='ArrowUp'){selected={r:Math.max(0,selected.r-1),c:selected.c};renderBoard();}
+  else if(e.key==='ArrowDown'){selected={r:Math.min(8,selected.r+1),c:selected.c};renderBoard();}
+  else if(e.key==='ArrowLeft'){selected={r:selected.r,c:Math.max(0,selected.c-1)};renderBoard();}
+  else if(e.key==='ArrowRight'){selected={r:selected.r,c:Math.min(8,selected.c+1)};renderBoard();}
+});
+
+document.getElementById('newGameBtn').addEventListener('click',newGame);
+document.getElementById('playAgainBtn').addEventListener('click',newGame);
+document.getElementById('hintBtn').addEventListener('click',useHint);
+document.getElementById('eraseBtn').addEventListener('click',eraseValue);
+
+buildBoardDom();
+buildNumpad();
+newGame();
+</script></body></html>
