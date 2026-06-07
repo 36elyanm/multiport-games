@@ -1,0 +1,475 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"><title>Checkers</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+body{background:#08080f}
+#wrap{padding:16px;text-align:center}
+#c{display:block;margin:0 auto;border-radius:10px;touch-action:none;max-width:100%;height:auto}
+#status{color:#fff;font-size:1.15rem;font-weight:700;margin:14px 0;letter-spacing:.3px}
+#status .turn-dot{display:inline-block;width:14px;height:14px;border-radius:50%;vertical-align:middle;margin-right:8px;box-shadow:0 0 8px currentColor}
+.btn{padding:9px 26px;background:#e94560;border:none;border-radius:20px;color:#fff;cursor:pointer;font-size:1rem;font-weight:700;letter-spacing:.2px;transition:transform .12s,box-shadow .12s}
+.btn:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(233,69,96,.4)}
+#overlay{position:absolute;inset:0;background:rgba(8,8,15,.82);display:none;flex-direction:column;align-items:center;justify-content:center;border-radius:10px;z-index:5;backdrop-filter:blur(3px)}
+#overlay.show{display:flex}
+#overlay h2{color:#fff;font-size:2rem;margin:0 0 8px;letter-spacing:-.5px}
+#overlay p{color:rgba(255,255,255,.7);margin:0 0 18px;font-size:1rem}
+#stage{position:relative;display:inline-block;max-width:100%}
+</style></head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Checkers</div>
+  <div class="game-frame">
+    <div id="wrap">
+      <div id="status"><span class="turn-dot" style="color:#e94560;background:#e94560"></span>Your turn (Red)</div>
+      <div id="stage">
+        <canvas id="c" width="480" height="480"></canvas>
+        <div id="overlay">
+          <h2 id="ovTitle">You Win!</h2>
+          <p id="ovText">All enemy pieces captured.</p>
+          <button class="btn" onclick="newGame()">Play Again</button>
+        </div>
+      </div>
+      <div style="margin-top:14px"><button class="btn" onclick="newGame()">Restart</button></div>
+    </div>
+  </div>
+  <div class="game-instructions">
+    You play <b>Red</b>, the CPU plays <b>White</b>. Tap/click a piece to select it — legal destinations light up green. Tap a destination to move.
+    Pieces capture by jumping diagonally over an adjacent enemy piece into the empty square beyond. <b>Captures are mandatory</b> — if a jump is available you must take it, including chained multi-jumps.
+    Reach the far row to crown a piece into a <b>King</b> (marked with a crown), which can move and capture diagonally in any direction. Capture all enemy pieces, or leave them with no legal moves, to win!
+  </div>
+</div>
+<script>
+const c=document.getElementById('c'),ctx=c.getContext('2d');
+const N=8,SQ=c.width/N;
+const RED=1, WHITE=2; // player = RED (moves "up", toward row 0), CPU = WHITE (moves "down", toward row 7)
+const EMPTY=0;
+// piece encoding: {color: RED|WHITE, king:bool}
+let board, turn, selected, legalForSelected, mustCaptureFrom, gameOver, busy;
+
+function initBoard(){
+  const b=Array.from({length:N},()=>Array(N).fill(null));
+  for(let r=0;r<N;r++){
+    for(let col=0;col<N;col++){
+      if((r+col)%2===1){
+        if(r<3)b[r][col]={color:WHITE,king:false};
+        else if(r>4)b[r][col]={color:RED,king:false};
+      }
+    }
+  }
+  return b;
+}
+
+function newGame(){
+  board=initBoard();
+  turn=RED;
+  selected=null;
+  legalForSelected=[];
+  mustCaptureFrom=null;
+  gameOver=false;
+  busy=false;
+  document.getElementById('overlay').classList.remove('show');
+  setStatus();
+  draw();
+}
+
+function setStatus(msg){
+  const el=document.getElementById('status');
+  if(msg){el.innerHTML=msg;return;}
+  if(turn===RED)el.innerHTML='<span class="turn-dot" style="color:#e94560;background:#e94560"></span>Your turn (Red)';
+  else el.innerHTML='<span class="turn-dot" style="color:#eee;background:#eee"></span>CPU thinking… (White)';
+}
+
+// ---- Move generation ----
+const DIRS_KING=[[-1,-1],[-1,1],[1,-1],[1,1]];
+function forwardDirs(color){
+  return color===RED ? [[-1,-1],[-1,1]] : [[1,-1],[1,1]];
+}
+function inBounds(r,c){return r>=0&&r<N&&c>=0&&c<N;}
+
+// returns: {simple:[{from:[r,c],to:[r,c]}...], capture:[{from,to,captured:[r,c],chain:[...further captures as sequences]}...]}
+// We'll generate capture sequences fully (multi-jump) as arrays of landing squares with captured pieces.
+
+function pieceMoveDirs(piece){
+  return piece.king ? DIRS_KING : forwardDirs(piece.color);
+}
+
+// Find all capture sequences starting at (r,c). Returns array of sequences;
+// each sequence = {path:[[r,c] landing squares...], captured:[[r,c]...]} representing a full multi-jump from start.
+function findCaptureSequences(b,r,c,piece,visitedCaptures){
+  visitedCaptures = visitedCaptures || [];
+  let sequences=[];
+  const dirs=pieceMoveDirs(piece);
+  for(const [dr,dc] of dirs){
+    const mr=r+dr, mc=c+dc; // enemy square
+    const lr=r+2*dr, lc=c+2*dc; // landing square
+    if(!inBounds(lr,lc))continue;
+    if(!inBounds(mr,mc))continue;
+    const mid=b[mr][mc];
+    const land=b[lr][lc];
+    if(mid && mid.color!==piece.color && !land){
+      // check not already captured in this chain (can't jump same piece twice)
+      const already=visitedCaptures.some(([vr,vc])=>vr===mr&&vc===mc);
+      if(already)continue;
+      const newVisited=visitedCaptures.concat([[mr,mc]]);
+      // simulate
+      const b2=cloneBoard(b);
+      b2[lr][lc]=piece;
+      b2[r][c]=null;
+      b2[mr][mc]=null; // tentatively remove captured (final removal happens at sequence end, but for further-jump detection from landing square this is correct: a piece can't be jumped twice and removing it prevents using it again)
+      let crowned=piece;
+      if(!piece.king){
+        if((piece.color===RED && lr===0)||(piece.color===WHITE && lr===N-1)){
+          crowned={color:piece.color,king:true};
+          b2[lr][lc]=crowned;
+        }
+      }
+      const further=findCaptureSequences(b2,lr,lc,crowned,newVisited);
+      if(further.length){
+        for(const f of further){
+          sequences.push({path:[[lr,lc],...f.path],captured:[[mr,mc],...f.captured]});
+        }
+      } else {
+        sequences.push({path:[[lr,lc]],captured:[[mr,mc]]});
+      }
+    }
+  }
+  return sequences;
+}
+
+function findSimpleMoves(b,r,c,piece){
+  let moves=[];
+  const dirs=pieceMoveDirs(piece);
+  for(const [dr,dc] of dirs){
+    const nr=r+dr,nc=c+dc;
+    if(inBounds(nr,nc) && !b[nr][nc]) moves.push([nr,nc]);
+  }
+  return moves;
+}
+
+function cloneBoard(b){
+  return b.map(row=>row.map(p=>p?{color:p.color,king:p.king}:null));
+}
+
+// Get all legal moves for a color: prefers captures (mandatory). Returns
+// {captures: [{from:[r,c], sequences:[...]}], simples: [{from:[r,c], moves:[[r,c]...]}]}
+function allMovesFor(b,color){
+  let captures=[];
+  let simples=[];
+  for(let r=0;r<N;r++)for(let col=0;col<N;col++){
+    const p=b[r][col];
+    if(p && p.color===color){
+      const seqs=findCaptureSequences(b,r,col,p);
+      if(seqs.length) captures.push({from:[r,col],sequences:seqs});
+      const sm=findSimpleMoves(b,r,col,p);
+      if(sm.length) simples.push({from:[r,col],moves:sm});
+    }
+  }
+  if(captures.length) return {captures,simples:[]};
+  return {captures:[],simples};
+}
+
+// ---- Game flow ----
+function newGame_(){} // placeholder removed
+
+function getLegalForSquare(r,col){
+  // returns either capture sequences or simple moves for the selected square,
+  // but only if mandatory-capture rules allow selecting it
+  const moves=allMovesFor(board,turn);
+  if(moves.captures.length){
+    const found=moves.captures.find(m=>m.from[0]===r&&m.from[1]===col);
+    if(!found) return null;
+    return {type:'capture',sequences:found.sequences};
+  } else {
+    const found=moves.simples.find(m=>m.from[0]===r&&m.from[1]===col);
+    if(!found) return null;
+    return {type:'simple',moves:found.moves};
+  }
+}
+
+function squareToXY(r,col){return {x:col*SQ, y:r*SQ};}
+
+function draw(){
+  // board squares
+  for(let r=0;r<N;r++){
+    for(let col=0;col<N;col++){
+      const dark=(r+col)%2===1;
+      ctx.fillStyle=dark?'#3a2f4a':'#cfc6d6';
+      ctx.fillRect(col*SQ,r*SQ,SQ,SQ);
+    }
+  }
+  // highlight selected square
+  if(selected){
+    ctx.fillStyle='rgba(233,69,96,.55)';
+    ctx.fillRect(selected[1]*SQ,selected[0]*SQ,SQ,SQ);
+  }
+  // highlight legal destinations
+  if(legalForSelected && legalForSelected.length){
+    for(const dest of legalForSelected){
+      const [r,col]=dest;
+      ctx.fillStyle='rgba(76,217,123,.55)';
+      ctx.beginPath();
+      ctx.arc(col*SQ+SQ/2,r*SQ+SQ/2,SQ*0.16,0,Math.PI*2);
+      ctx.fill();
+    }
+  }
+  // pieces
+  for(let r=0;r<N;r++){
+    for(let col=0;col<N;col++){
+      const p=board[r][col];
+      if(p) drawPiece(r,col,p);
+    }
+  }
+}
+
+function drawPiece(r,col,piece){
+  const cx=col*SQ+SQ/2, cy=r*SQ+SQ/2;
+  const rad=SQ*0.38;
+  ctx.save();
+  ctx.shadowColor='rgba(0,0,0,.5)';
+  ctx.shadowBlur=6;
+  ctx.shadowOffsetY=3;
+  const grad=ctx.createRadialGradient(cx-rad*0.35,cy-rad*0.35,rad*0.15,cx,cy,rad);
+  if(piece.color===RED){
+    grad.addColorStop(0,'#ff7a90');
+    grad.addColorStop(1,'#c5283d');
+  } else {
+    grad.addColorStop(0,'#ffffff');
+    grad.addColorStop(1,'#b9b9c4');
+  }
+  ctx.fillStyle=grad;
+  ctx.beginPath();
+  ctx.arc(cx,cy,rad,0,Math.PI*2);
+  ctx.fill();
+  ctx.lineWidth=2;
+  ctx.strokeStyle=piece.color===RED?'#7a1424':'#7a7a86';
+  ctx.stroke();
+  ctx.restore();
+  if(piece.king){
+    ctx.fillStyle=piece.color===RED?'#ffe9b0':'#5b4a1a';
+    ctx.font=`bold ${Math.floor(rad*1.05)}px Arial`;
+    ctx.textAlign='center';
+    ctx.textBaseline='middle';
+    ctx.fillText('♛',cx,cy+1);
+  }
+}
+
+function squareFromEvent(e){
+  const rect=c.getBoundingClientRect();
+  let clientX,clientY;
+  if(e.touches && e.touches.length){clientX=e.touches[0].clientX;clientY=e.touches[0].clientY;}
+  else {clientX=e.clientX;clientY=e.clientY;}
+  const x=(clientX-rect.left)*c.width/rect.width;
+  const y=(clientY-rect.top)*c.height/rect.height;
+  const col=Math.floor(x/SQ), r=Math.floor(y/SQ);
+  if(col<0||col>=N||r<0||r>=N)return null;
+  return [r,col];
+}
+
+function handlePointer(e){
+  e.preventDefault();
+  if(gameOver||busy||turn!==RED)return;
+  const sq=squareFromEvent(e);
+  if(!sq)return;
+  const [r,col]=sq;
+  const p=board[r][col];
+
+  // If a destination is currently highlighted and this square matches one, perform the move
+  if(selected && legalForSelected){
+    const idx=legalForSelected.findIndex(([lr,lc])=>lr===r&&lc===col);
+    if(idx!==-1){
+      performPlayerMove(selected, legalForSelected[idx], idx);
+      return;
+    }
+  }
+
+  // Otherwise try selecting a piece belonging to the player
+  if(p && p.color===RED){
+    const legal=getLegalForSquare(r,col);
+    if(legal){
+      selected=[r,col];
+      if(legal.type==='capture'){
+        // legal destinations are first-step landing squares of sequences
+        legalForSelected=legal.sequences.map(s=>s.path[0]);
+        selected._sequences=legal.sequences;
+        selected._type='capture';
+      } else {
+        legalForSelected=legal.moves;
+        selected._sequences=null;
+        selected._type='simple';
+      }
+    } else {
+      // selecting a piece with no legal moves (e.g. mandatory capture elsewhere) - just deselect/no-op
+      selected=null;
+      legalForSelected=[];
+    }
+  } else {
+    selected=null;
+    legalForSelected=[];
+  }
+  draw();
+}
+
+function performPlayerMove(from, dest, idx){
+  const [fr,fc]=from;
+  const piece=board[fr][fc];
+  if(selected._type==='capture'){
+    const seq=selected._sequences[idx];
+    animateAndApplySequence(fr,fc,piece,seq,()=>{
+      finishTurn();
+    });
+  } else {
+    board[fr][fc]=null;
+    let moved={color:piece.color,king:piece.king};
+    maybeCrown(moved,dest[0]);
+    board[dest[0]][dest[1]]=moved;
+    selected=null; legalForSelected=[];
+    draw();
+    finishTurn();
+  }
+}
+
+function maybeCrown(piece,row){
+  if(!piece.king){
+    if((piece.color===RED && row===0)||(piece.color===WHITE && row===N-1)){
+      piece.king=true;
+    }
+  }
+}
+
+// Apply a full capture sequence with simple step-by-step redraw (no fancy animation, just sequential application)
+function animateAndApplySequence(fr,fc,piece,seq,done){
+  busy=true;
+  let cur={r:fr,c:fc,piece:{color:piece.color,king:piece.king}};
+  let step=0;
+  function next(){
+    if(step>=seq.path.length){
+      busy=false;
+      selected=null; legalForSelected=[];
+      done();
+      return;
+    }
+    const [tr,tc]=seq.path[step];
+    const [capR,capC]=seq.captured[step];
+    board[cur.r][cur.c]=null;
+    board[capR][capC]=null;
+    maybeCrown(cur.piece,tr);
+    board[tr][tc]=cur.piece;
+    cur={r:tr,c:tc,piece:cur.piece};
+    draw();
+    step++;
+    setTimeout(next, 220);
+  }
+  next();
+}
+
+function finishTurn(){
+  if(checkGameEnd())return;
+  turn = (turn===RED)?WHITE:RED;
+  setStatus();
+  draw();
+  if(turn===WHITE && !gameOver){
+    busy=true;
+    setTimeout(cpuMove, 500);
+  }
+}
+
+function checkGameEnd(){
+  // check if the OTHER player (whose turn is about to start) has no pieces or no legal moves
+  const next = (turn===RED)?WHITE:RED;
+  const pieces = countPieces(next);
+  if(pieces===0){
+    endGame(turn===RED);
+    return true;
+  }
+  const moves=allMovesFor(board,next);
+  if(moves.captures.length===0 && moves.simples.length===0){
+    endGame(turn===RED);
+    return true;
+  }
+  return false;
+}
+
+function countPieces(color){
+  let n=0;
+  for(let r=0;r<N;r++)for(let c2=0;c2<N;c2++){const p=board[r][c2];if(p&&p.color===color)n++;}
+  return n;
+}
+
+function endGame(playerWon){
+  gameOver=true;
+  busy=false;
+  selected=null; legalForSelected=[];
+  draw();
+  const ov=document.getElementById('overlay');
+  document.getElementById('ovTitle').textContent = playerWon ? 'You Win!' : 'CPU Wins';
+  document.getElementById('ovText').textContent = playerWon ? 'The CPU has no pieces or moves left.' : 'You have no pieces or legal moves left.';
+  ov.classList.add('show');
+  setStatus(playerWon ? '<span class="turn-dot" style="color:#4cd97b;background:#4cd97b"></span>You win! 🎉' : '<span class="turn-dot" style="color:#eee;background:#eee"></span>CPU wins');
+}
+
+// ---- CPU AI ----
+function cpuMove(){
+  if(gameOver)return;
+  const moves=allMovesFor(board,WHITE);
+  if(moves.captures.length){
+    // Choose the capture sequence that captures the most pieces; among ties prefer ones ending in a king or capturing a king
+    let best=null, bestScore=-1;
+    for(const group of moves.captures){
+      for(const seq of group.sequences){
+        let score = seq.captured.length*10;
+        // bonus for capturing kings
+        for(const [cr,cc] of seq.captured){
+          const cp=board[cr][cc];
+          if(cp && cp.king) score += 5;
+        }
+        // small randomness
+        score += Math.random();
+        if(score>bestScore){bestScore=score;best={from:group.from,seq};}
+      }
+    }
+    const piece=board[best.from[0]][best.from[1]];
+    animateAndApplySequence(best.from[0],best.from[1],piece,best.seq,()=>{
+      finishTurn();
+    });
+  } else if(moves.simples.length){
+    // Light 1-ply lookahead: avoid moves that leave a piece capturable if a safe alternative exists; prefer advancing / crowning
+    let scored=[];
+    for(const group of moves.simples){
+      for(const dest of group.moves){
+        const [fr,fc]=group.from;
+        const piece=board[fr][fc];
+        const b2=cloneBoard(board);
+        b2[fr][fc]=null;
+        let moved={color:piece.color,king:piece.king};
+        if(!moved.king && ((moved.color===WHITE && dest[0]===N-1)||(moved.color===RED && dest[0]===0))) moved.king=true;
+        b2[dest[0]][dest[1]]=moved;
+        // does opponent get a capture against this piece (or any) immediately after?
+        const oppMoves=allMovesFor(b2,RED);
+        let exposed = oppMoves.captures.length>0 ? 1 : 0;
+        let score = 0;
+        score -= exposed*8;
+        score += dest[0]*1; // advance toward row 7
+        if(moved.king && !piece.king) score += 6;
+        score += Math.random()*2;
+        scored.push({from:group.from,dest,score});
+      }
+    }
+    scored.sort((a,b)=>b.score-a.score);
+    const choice=scored[0];
+    const [fr,fc]=choice.from;
+    const piece=board[fr][fc];
+    board[fr][fc]=null;
+    let moved={color:piece.color,king:piece.king};
+    maybeCrown(moved,choice.dest[0]);
+    board[choice.dest[0]][choice.dest[1]]=moved;
+    draw();
+    finishTurn();
+  } else {
+    finishTurn();
+  }
+}
+
+c.addEventListener('mousedown',handlePointer);
+c.addEventListener('touchstart',handlePointer,{passive:false});
+
+newGame();
+</script></body></html>
