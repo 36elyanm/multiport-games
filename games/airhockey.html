@@ -254,15 +254,15 @@ function drawPuck(){
 }
 
 function drawScore(){
-  ctx.fillStyle='#fff';
-  ctx.font='bold 36px Arial';
-  ctx.textAlign='center';
-  ctx.fillText(cpuScore, W/2, MID-30);
-  ctx.fillText(playerScore, W/2, MID+50);
   ctx.font='12px Arial';
   ctx.fillStyle='rgba(255,255,255,0.5)';
-  ctx.fillText('CPU', W/2, MID-50);
-  ctx.fillText('YOU', W/2, MID+70);
+  ctx.textAlign='center';
+  ctx.fillText('CPU', W/2, MID-66);
+  ctx.fillText('YOU', W/2, MID+78);
+  ctx.fillStyle='#fff';
+  ctx.font='bold 36px Arial';
+  ctx.fillText(cpuScore, W/2, MID-32);
+  ctx.fillText(playerScore, W/2, MID+58);
 }
 
 function drawOverlay(text,sub){
