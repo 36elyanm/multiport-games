@@ -41,7 +41,7 @@ if(sessionStorage.getItem('captcha_ok')||screen.width<200){
   <input id="search-bar" type="text" placeholder="Search games…" oninput="filterGames()">
   <div style="display:flex;gap:8px;align-items:center;flex-shrink:0">
     <a href="bug-report.html" class="auth-pill outline">🐛 Report Bug</a>
-    <a href="admin.html" class="auth-pill outline">Admin</a>
+    <a href="admin.html" class="auth-pill outline" style="position:relative">Admin<span id="admin-badge" style="display:none;position:absolute;top:-6px;right:-6px;background:#e94560;color:#fff;font-size:.65rem;font-weight:800;line-height:1;min-width:16px;height:16px;border-radius:50%;align-items:center;justify-content:center;padding:2px;box-shadow:0 0 0 2px #0f0f1e"></span></a>
     <div id="auth-btns" style="display:flex;gap:8px;align-items:center"></div>
   </div>
 </header>
@@ -61,7 +61,7 @@ if(sessionStorage.getItem('captcha_ok')||screen.width<200){
 
 <div class="games-grid" id="games-grid"></div>
 
-<footer>Multiport Games &copy; 2026 – 65 Free Browser Games &nbsp;·&nbsp; <a href="bug-report.html" style="color:rgba(255,255,255,.35);text-decoration:none;transition:color .18s" onmouseover="this.style.color='#e94560'" onmouseout="this.style.color='rgba(255,255,255,.35)'">🐛 Report a Bug</a> &nbsp;·&nbsp; <a href="admin.html" style="color:rgba(255,255,255,.35);text-decoration:none;transition:color .18s" onmouseover="this.style.color='#e94560'" onmouseout="this.style.color='rgba(255,255,255,.35)'">Admin</a></footer>
+<footer>Multiport Games &copy; 2026 – 65 Free Browser Games &nbsp;·&nbsp; <a href="bug-report.html" style="color:rgba(255,255,255,.35);text-decoration:none;transition:color .18s" onmouseover="this.style.color='#e94560'" onmouseout="this.style.color='rgba(255,255,255,.35)'">🐛 Report a Bug</a> &nbsp;·&nbsp; <a href="admin.html" style="color:rgba(255,255,255,.35);text-decoration:none;transition:color .18s;position:relative" onmouseover="this.style.color='#e94560'" onmouseout="this.style.color='rgba(255,255,255,.35)'">Admin<span id="admin-badge-footer" style="display:none;position:absolute;top:-8px;right:-12px;background:#e94560;color:#fff;font-size:.6rem;font-weight:800;line-height:1;min-width:15px;height:15px;border-radius:50%;align-items:center;justify-content:center;padding:2px;box-shadow:0 0 0 2px #0f0f1e"></span></a></footer>
 
 <script>
 const GAMES = [
@@ -186,6 +186,17 @@ function onTurnstileSuccess(token){
   gate.style.opacity='0';
   setTimeout(()=>gate.remove(),400);
 }
+
+fetch('/api/bug-count').then(r=>r.json()).then(d=>{
+  const n=d.count||0;
+  if(!n)return;
+  [['admin-badge',n],['admin-badge-footer',n]].forEach(([id,count])=>{
+    const el=document.getElementById(id);
+    if(!el)return;
+    el.textContent=count>9?'9+':count;
+    el.style.display='flex';
+  });
+}).catch(()=>{});
 </script>
 </body>
 </html>
