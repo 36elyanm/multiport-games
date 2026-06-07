@@ -1,0 +1,817 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"><title>Bowling</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+body{background:#08080f}
+#c{display:block;border-radius:8px;touch-action:none}
+#scorebox{width:100%;max-width:600px;overflow-x:auto;margin:10px auto 0;-webkit-overflow-scrolling:touch}
+#scoretable{border-collapse:collapse;width:100%;min-width:560px;color:#eee;font-size:.8rem;text-align:center}
+#scoretable th,#scoretable td{border:1px solid rgba(255,255,255,0.15);padding:4px 2px;min-width:48px}
+#scoretable th{background:rgba(255,255,255,0.07);font-weight:700}
+#scoretable td.frame-active{background:rgba(233,69,96,0.25)}
+.rolls{font-size:.72rem;color:#9aa4c2;display:flex;justify-content:center;gap:4px;min-height:14px}
+.total{font-weight:800;color:#66ffb0}
+#statusbar{display:flex;justify-content:space-between;align-items:center;width:100%;max-width:600px;color:#eee;padding:8px 4px;font-size:.95rem;font-weight:600}
+#statusbar span{color:#e94560}
+#again{display:none;padding:10px 24px;background:#e94560;border:none;border-radius:20px;color:#fff;cursor:pointer;font-size:1rem;font-weight:700;margin-top:10px}
+#again.show{display:inline-block}
+#wrap2{display:flex;flex-direction:column;align-items:center;padding:14px 8px}
+</style></head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Bowling</div>
+  <div class="game-frame">
+    <div id="wrap2">
+      <div id="statusbar">
+        <span id="frameInfo">Frame 1 — Roll 1</span>
+        <span id="msg">Aim, then tap to charge power</span>
+      </div>
+      <canvas id="c" width="480" height="620"></canvas>
+      <button id="again">Play Again 🎳</button>
+      <div id="scorebox">
+        <table id="scoretable">
+          <thead><tr id="scorehead"></tr></thead>
+          <tbody>
+            <tr id="rollsrow"></tr>
+            <tr id="totalsrow"></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <div class="game-instructions">
+    <b>Aim:</b> drag left/right on the lane (or use ◀ ▶ buttons) to set your throw angle. <b>Power:</b> tap/click to start charging the meter, tap again to lock in power and roll the ball — timing matters! The ball curves based on your aim angle and knocks down pins. Bowl all 10 frames; strikes 🎳 and spares get bonus scoring just like real bowling.
+  </div>
+</div>
+<script>
+const c=document.getElementById('c'),ctx=c.getContext('2d');
+const W=c.width,H=c.height;
+
+// Lane geometry (angled/perspective view): far end (pins) is narrower, near end (player) wider
+const LANE_TOP=70, LANE_BOTTOM=H-40;
+const LANE_TOP_W=170, LANE_BOTTOM_W=340;
+const LANE_CX=W/2;
+
+function laneEdgesAtY(y){
+  const t=(y-LANE_TOP)/(LANE_BOTTOM-LANE_TOP);
+  const halfW=(LANE_TOP_W + (LANE_BOTTOM_W-LANE_TOP_W)*t)/2;
+  return {left:LANE_CX-halfW, right:LANE_CX+halfW, halfW};
+}
+
+// ---------- Game / scoring state ----------
+let frames=[]; // each frame: {rolls:[...], frameIndex}
+let currentFrame=0; // 0-based, 0..9
+let currentRoll=0; // 0 or 1 (or up to 2 for 10th frame bonus)
+let standingPins=[]; // array of 10 booleans (true = standing)
+let pinsDownThisRoll=0;
+let gameOver=false;
+
+// Throw state machine: 'aim' -> 'charging' -> 'rolling' -> resolve -> next
+let phase='aim';
+let aimAngle=0; // radians, negative = left, positive = right
+let power=0;
+let powerDir=1;
+let chargeStart=0;
+
+let ball=null; // {x,y,vx,vy,r}
+let pins=[]; // {x,y, standing, vx,vy, fallProgress}
+
+const PIN_R=9;
+const BALL_R=14;
+
+function freshFrames(){
+  const f=[];
+  for(let i=0;i<10;i++)f.push({rolls:[]});
+  return f;
+}
+
+function resetGame(){
+  frames=freshFrames();
+  currentFrame=0;
+  currentRoll=0;
+  gameOver=false;
+  phase='aim';
+  aimAngle=0;
+  power=0;
+  document.getElementById('again').classList.remove('show');
+  setupPinsForNewRack();
+  updateStatus();
+  renderScoreboard();
+}
+
+// Standard 10-pin triangle layout (row from back to front): 4,3,2,1
+function pinPositions(){
+  const arr=[];
+  const spacing=26;
+  const rowY=LANE_TOP+34;
+  const rows=[4,3,2,1];
+  let idx=0;
+  for(let row=0; row<4; row++){
+    const count=rows[row];
+    const y=rowY + row*spacing*0.92;
+    const totalW=(count-1)*spacing;
+    for(let k=0;k<count;k++){
+      const x=LANE_CX - totalW/2 + k*spacing;
+      arr.push({x,y,id:idx});
+      idx++;
+    }
+  }
+  return arr;
+}
+
+function setupPinsForNewRack(){
+  const positions=pinPositions();
+  pins=positions.map(p=>({
+    baseX:p.x, baseY:p.y,
+    x:p.x, y:p.y,
+    standing:true,
+    falling:false,
+    fallAngle:0,
+    fallSpeed:0,
+    vx:0, vy:0,
+    knockedThisRoll:false
+  }));
+  standingPins=pins.map(()=>true);
+}
+
+function standingPinsLeft(){
+  return pins.filter(p=>p.standing).length;
+}
+
+function isTenth(){return currentFrame===9;}
+
+function startRoll(){
+  // Reset pins that were knocked: only on roll 0 of a frame (new rack), unless 10th frame special bonus rules
+  ball={
+    x:LANE_CX,
+    y:LANE_BOTTOM-20,
+    vx:Math.sin(aimAngle)*2,
+    vy:-(6+power*9),
+    r:BALL_R,
+    curve:aimAngle*0.018,
+    spent:false
+  };
+  phase='rolling';
+  pinsDownThisRoll=0;
+  pins.forEach(p=>p.knockedThisRoll=false);
+  document.getElementById('msg').textContent='Rolling...';
+}
+
+function updateStatus(){
+  const fi=document.getElementById('frameInfo');
+  const msg=document.getElementById('msg');
+  if(gameOver){
+    fi.textContent='Game Over';
+  } else {
+    fi.textContent=`Frame ${currentFrame+1} — Roll ${currentRoll+1}`;
+  }
+  if(!gameOver){
+    if(phase==='aim') msg.textContent='Drag lane or ◀▶ to aim, tap to charge power';
+    else if(phase==='charging') msg.textContent='Tap again to lock power!';
+  }
+}
+
+// ---------- Physics / animation ----------
+function updateRolling(){
+  if(!ball)return;
+  ball.x += ball.vx;
+  ball.y += ball.vy;
+  ball.vx += ball.curve; // gradual curve based on aim angle
+  ball.curve *= 0.995;
+
+  // Wall bounce off lane edges (gutters act as soft walls visually but ball can "gutter")
+  const edges=laneEdgesAtY(ball.y);
+  if(ball.x - ball.r < edges.left){
+    ball.x = edges.left + ball.r;
+    ball.vx = Math.abs(ball.vx)*0.3;
+  } else if(ball.x + ball.r > edges.right){
+    ball.x = edges.right - ball.r;
+    ball.vx = -Math.abs(ball.vx)*0.3;
+  }
+
+  // Collide with standing pins
+  for(const p of pins){
+    if(!p.standing || p.falling) continue;
+    const dx=ball.x-p.x, dy=ball.y-p.y;
+    const dist=Math.hypot(dx,dy);
+    if(dist < ball.r+PIN_R){
+      knockPin(p, ball.vx, ball.vy);
+      // slight deflection of ball
+      ball.vx += (dx/ (dist||1)) * 0.6;
+    }
+  }
+
+  // pin-to-pin chain reaction (falling pins can knock standing neighbors)
+  for(const p of pins){
+    if(p.falling || !p.standing) continue;
+    for(const q of pins){
+      if(q===p) continue;
+      if(!q.falling) continue;
+      const dx=p.x-q.baseX, dy=p.y-q.baseY;
+      const dist=Math.hypot(dx,dy);
+      if(dist < PIN_R*2.1 && Math.random()<0.18){
+        knockPin(p, q.vx*0.6, q.vy*0.6);
+      }
+    }
+  }
+
+  updateFallingPins();
+
+  // ball reaches end of lane or stops
+  if(ball.y < LANE_TOP+10 || Math.abs(ball.vy) < 0.6){
+    finishRoll();
+  }
+}
+
+function knockPin(p, vx, vy){
+  if(p.knockedThisRoll) return;
+  p.standing=false;
+  p.falling=true;
+  p.knockedThisRoll=true;
+  p.vx = vx*0.5 + (Math.random()-0.5)*2;
+  p.vy = vy*0.5 + (Math.random()-0.5)*2;
+  p.fallAngle=0;
+  p.fallSpeed = 0.12+Math.random()*0.08;
+  pinsDownThisRoll++;
+}
+
+function updateFallingPins(){
+  for(const p of pins){
+    if(p.falling){
+      p.fallAngle = Math.min(Math.PI/2, p.fallAngle + p.fallSpeed);
+      p.x += p.vx*0.6;
+      p.y += p.vy*0.6;
+      p.vx *= 0.9; p.vy *= 0.9;
+      if(p.fallAngle >= Math.PI/2){
+        p.falling=false; // settled, lying down
+      }
+    }
+  }
+}
+
+function finishRoll(){
+  phase='resolve';
+  const knockedDown = pins.filter(p=>!p.standing).length;
+  const thisRollCount = pinsDownThisRoll; // pins newly knocked down this roll attempt relative to start-of-roll standing count
+  recordRoll(knockedDown);
+}
+
+// We need to know how many pins were standing BEFORE this roll to compute the roll's pin count properly
+let standingBeforeRoll=10;
+
+function recordRoll(totalKnockedDownNow){
+  const knockedThisThrow = standingBeforeRoll - (10 - totalKnockedDownNow) ; // not used; compute directly
+  // Simpler: pins knocked this roll = pins that were standing before roll and are now down
+  let count=0;
+  pins.forEach(p=>{ if(p.knockedThisRoll) count++; });
+
+  const frame=frames[currentFrame];
+  frame.rolls.push(count);
+
+  const isLast = isTenth();
+
+  if(!isLast){
+    if(currentRoll===0){
+      if(count===10){
+        // strike -> frame done
+        advanceFrame();
+      } else {
+        currentRoll=1;
+        phase='aim';
+        ball=null;
+      }
+    } else {
+      // second roll of a normal frame -> frame done regardless
+      advanceFrame();
+    }
+  } else {
+    // 10th frame special handling
+    handleTenthFrame(frame, count);
+  }
+
+  renderScoreboard();
+  updateStatus();
+  if(!gameOver) document.getElementById('msg').textContent = describeRoll(count);
+}
+
+function describeRoll(count){
+  if(count===10) return 'STRIKE! 🎳';
+  if(count===0) return 'Gutter ball...';
+  return `${count} pin${count===1?'':'s'} down!`;
+}
+
+function handleTenthFrame(frame, count){
+  const r=frame.rolls;
+  if(r.length===1){
+    if(r[0]===10){
+      // strike -> reset pins for bonus roll, continue
+      currentRoll=1;
+      resetRackForBonus();
+      phase='aim'; ball=null;
+    } else {
+      currentRoll=1;
+      phase='aim'; ball=null;
+      // pins remain as-is for second roll (no reset) unless... standard: only reset if first roll was strike
+    }
+  } else if(r.length===2){
+    const sum=r[0]+r[1];
+    if(r[0]===10 || sum===10){
+      // strike or spare in 10th -> bonus 3rd roll, reset rack
+      currentRoll=2;
+      resetRackForBonus();
+      phase='aim'; ball=null;
+    } else {
+      finishGame();
+    }
+  } else if(r.length===3){
+    finishGame();
+  }
+}
+
+function resetRackForBonus(){
+  setupPinsForNewRack();
+}
+
+function advanceFrame(){
+  currentFrame++;
+  currentRoll=0;
+  if(currentFrame>=10){
+    finishGame();
+  } else {
+    setupPinsForNewRack();
+    phase='aim';
+    ball=null;
+  }
+}
+
+function finishGame(){
+  gameOver=true;
+  phase='done';
+  ball=null;
+  document.getElementById('again').classList.add('show');
+  const total=computeTotals()[9];
+  document.getElementById('msg').textContent = `Final score: ${total!=null?total:'-'}`;
+}
+
+// ---------- Scoring computation (frame-by-frame, with running totals) ----------
+function computeTotals(){
+  const totals=new Array(10).fill(null);
+  let runningTotal=0;
+  let cumulative=true;
+  for(let i=0;i<10;i++){
+    const rolls=frames[i].rolls;
+    if(i<9){
+      if(rolls.length===0){ totals[i]=null; cumulative=false; continue; }
+      if(rolls[0]===10){
+        // strike: need next two rolls (from subsequent frames)
+        const bonus=nextNRolls(i+1,2);
+        if(bonus.length<2){ totals[i]=null; cumulative=false; continue; }
+        if(cumulative){ runningTotal += 10+bonus[0]+bonus[1]; totals[i]=runningTotal; }
+      } else if(rolls.length>=2){
+        const sum=rolls[0]+rolls[1];
+        if(sum===10){
+          const bonus=nextNRolls(i+1,1);
+          if(bonus.length<1){ totals[i]=null; cumulative=false; continue; }
+          if(cumulative){ runningTotal += 10+bonus[0]; totals[i]=runningTotal; }
+        } else {
+          if(cumulative){ runningTotal += sum; totals[i]=runningTotal; }
+        }
+      } else {
+        totals[i]=null; cumulative=false;
+      }
+    } else {
+      // 10th frame: just sum all rolls once frame is "scoreable" (i.e., complete)
+      if(isFrameTenComplete()){
+        const sum=rolls.reduce((a,b)=>a+b,0);
+        if(cumulative){ runningTotal += sum; totals[i]=runningTotal; }
+      } else {
+        totals[i]=null;
+      }
+    }
+  }
+  return totals;
+}
+
+function isFrameTenComplete(){
+  const r=frames[9].rolls;
+  if(r.length<2) return false;
+  if(r.length===2){
+    return !(r[0]===10 || r[0]+r[1]===10); // open frame complete with 2 rolls
+  }
+  return r.length>=3; // strike or spare needs 3 rolls
+}
+
+function nextNRolls(startFrame,n){
+  const out=[];
+  for(let i=startFrame;i<10 && out.length<n;i++){
+    for(const r of frames[i].rolls){
+      out.push(r);
+      if(out.length>=n)break;
+    }
+  }
+  return out;
+}
+
+// ---------- Scoreboard rendering ----------
+function renderScoreboard(){
+  const head=document.getElementById('scorehead');
+  const rollsRow=document.getElementById('rollsrow');
+  const totalsRow=document.getElementById('totalsrow');
+  head.innerHTML='';
+  rollsRow.innerHTML='';
+  totalsRow.innerHTML='';
+
+  const thLabel=document.createElement('th');
+  thLabel.textContent='Frame';
+  head.appendChild(thLabel);
+  const rollsLabel=document.createElement('td');
+  rollsLabel.textContent='Rolls';
+  rollsLabel.style.fontWeight='700';
+  rollsRow.appendChild(rollsLabel);
+  const totalsLabel=document.createElement('td');
+  totalsLabel.textContent='Total';
+  totalsLabel.style.fontWeight='700';
+  totalsRow.appendChild(totalsLabel);
+
+  const totals=computeTotals();
+
+  for(let i=0;i<10;i++){
+    const th=document.createElement('th');
+    th.textContent=(i+1);
+    head.appendChild(th);
+
+    const td=document.createElement('td');
+    if(!gameOver && i===currentFrame) td.classList.add('frame-active');
+    const rollsDiv=document.createElement('div');
+    rollsDiv.className='rolls';
+    rollsDiv.appendChild(rollSymbols(i));
+    td.appendChild(rollsDiv);
+    rollsRow.appendChild(td);
+
+    const tdTotal=document.createElement('td');
+    if(!gameOver && i===currentFrame) tdTotal.classList.add('frame-active');
+    if(totals[i]!=null){
+      tdTotal.innerHTML=`<span class="total">${totals[i]}</span>`;
+    } else {
+      tdTotal.textContent='–';
+    }
+    totalsRow.appendChild(tdTotal);
+  }
+}
+
+function rollSymbols(frameIdx){
+  const frag=document.createDocumentFragment();
+  const rolls=frames[frameIdx].rolls;
+  const isLast = frameIdx===9;
+  for(let i=0;i<rolls.length;i++){
+    const span=document.createElement('span');
+    let label;
+    if(rolls[i]===10){
+      label='X';
+    } else if(i>0 && !isLast && rolls[i-1]+rolls[i]===10){
+      label='/';
+    } else if(isLast && i>0){
+      // For 10th frame spares between consecutive rolls (not after a strike reset boundary is tricky;
+      // simple heuristic: mark '/' if previous + current = 10 and previous wasn't a strike
+      if(rolls[i-1]!==10 && rolls[i-1]+rolls[i]===10) label='/';
+      else label=String(rolls[i]);
+    } else {
+      label = rolls[i]===0 ? '–' : String(rolls[i]);
+    }
+    span.textContent=label;
+    frag.appendChild(span);
+  }
+  return frag;
+}
+
+// ---------- Input ----------
+let dragging=false, dragStartX=0, dragStartAngle=0;
+
+function getX(e){
+  const rect=c.getBoundingClientRect();
+  const cx=(e.touches?e.touches[0].clientX:e.clientX);
+  return (cx-rect.left)*W/rect.width;
+}
+function getY(e){
+  const rect=c.getBoundingClientRect();
+  const cy=(e.touches?e.touches[0].clientY:e.clientY);
+  return (cy-rect.top)*H/rect.height;
+}
+
+function onPointerDown(e){
+  e.preventDefault();
+  if(gameOver) return;
+  const x=getX(e), y=getY(e);
+
+  if(phase==='aim'){
+    // start drag for aiming, but a quick tap (no move) will start charging
+    dragging=true;
+    dragStartX=x;
+    dragStartAngle=aimAngle;
+    pendingTapStart={x,y,t:Date.now()};
+  } else if(phase==='charging'){
+    lockPower();
+  }
+}
+let pendingTapStart=null;
+
+function onPointerMove(e){
+  if(!dragging) return;
+  e.preventDefault();
+  const x=getX(e);
+  const dx=x-dragStartX;
+  aimAngle = clampAngle(dragStartAngle + dx*0.006);
+  if(Math.abs(dx)>6) pendingTapStart=null; // it's a drag, not a tap
+}
+
+function onPointerUp(e){
+  if(dragging){
+    dragging=false;
+    if(pendingTapStart){
+      // treat as tap -> start charging power
+      if(phase==='aim') startCharging();
+      pendingTapStart=null;
+    }
+  }
+}
+
+function clampAngle(a){
+  return Math.max(-0.5, Math.min(0.5, a));
+}
+
+c.addEventListener('mousedown',onPointerDown);
+c.addEventListener('mousemove',onPointerMove);
+window.addEventListener('mouseup',onPointerUp);
+c.addEventListener('touchstart',onPointerDown,{passive:false});
+c.addEventListener('touchmove',onPointerMove,{passive:false});
+c.addEventListener('touchend',onPointerUp);
+c.addEventListener('touchcancel',onPointerUp);
+
+function startCharging(){
+  phase='charging';
+  power=0;
+  powerDir=1;
+  updateStatus();
+}
+
+function lockPower(){
+  // power is already being animated 0..1..0; lock current value
+  startRoll();
+}
+
+function nudgeAim(delta){
+  if(phase!=='aim') return;
+  aimAngle=clampAngle(aimAngle+delta);
+}
+</script>
+<script>
+// Aim buttons overlay drawn on canvas; handle clicks via canvas regions
+c.addEventListener('click', function(e){
+  if(phase!=='aim' || gameOver) return;
+  const x=getX(e), y=getY(e);
+  // left/right arrow hot-zones near bottom corners
+  if(y > H-40){
+    if(x < 70){ nudgeAim(-0.07); e.stopPropagation(); }
+    else if(x > W-70){ nudgeAim(0.07); e.stopPropagation(); }
+  }
+});
+</script>
+<script>
+// ---------- Drawing ----------
+function drawLane(){
+  // background
+  ctx.fillStyle='#10131c';
+  ctx.fillRect(0,0,W,H);
+
+  // Lane trapezoid (wood grain look)
+  const topEdges=laneEdgesAtY(LANE_TOP);
+  const botEdges=laneEdgesAtY(LANE_BOTTOM);
+
+  const grad=ctx.createLinearGradient(0,LANE_TOP,0,LANE_BOTTOM);
+  grad.addColorStop(0,'#c98a4b');
+  grad.addColorStop(0.5,'#deab6f');
+  grad.addColorStop(1,'#b97c3e');
+  ctx.fillStyle=grad;
+  ctx.beginPath();
+  ctx.moveTo(topEdges.left,LANE_TOP);
+  ctx.lineTo(topEdges.right,LANE_TOP);
+  ctx.lineTo(botEdges.right,LANE_BOTTOM);
+  ctx.lineTo(botEdges.left,LANE_BOTTOM);
+  ctx.closePath();
+  ctx.fill();
+
+  // wood grain lines
+  ctx.save();
+  ctx.clip();
+  ctx.strokeStyle='rgba(120,70,20,0.18)';
+  ctx.lineWidth=1;
+  for(let i=-8;i<=8;i++){
+    ctx.beginPath();
+    ctx.moveTo(LANE_CX + i*22, LANE_TOP-10);
+    ctx.lineTo(LANE_CX + i*46, LANE_BOTTOM+10);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // gutters
+  ctx.fillStyle='#1c2433';
+  ctx.beginPath();
+  ctx.moveTo(topEdges.left-22,LANE_TOP);
+  ctx.lineTo(topEdges.left,LANE_TOP);
+  ctx.lineTo(botEdges.left,LANE_BOTTOM);
+  ctx.lineTo(botEdges.left-34,LANE_BOTTOM);
+  ctx.closePath();ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(topEdges.right+22,LANE_TOP);
+  ctx.lineTo(topEdges.right,LANE_TOP);
+  ctx.lineTo(botEdges.right,LANE_BOTTOM);
+  ctx.lineTo(botEdges.right+34,LANE_BOTTOM);
+  ctx.closePath();ctx.fill();
+
+  // lane outline
+  ctx.strokeStyle='rgba(255,255,255,0.25)';
+  ctx.lineWidth=2;
+  ctx.beginPath();
+  ctx.moveTo(topEdges.left,LANE_TOP);
+  ctx.lineTo(botEdges.left,LANE_BOTTOM);
+  ctx.moveTo(topEdges.right,LANE_TOP);
+  ctx.lineTo(botEdges.right,LANE_BOTTOM);
+  ctx.stroke();
+
+  // foul line
+  ctx.strokeStyle='rgba(233,69,96,0.7)';
+  ctx.lineWidth=3;
+  ctx.beginPath();
+  ctx.moveTo(botEdges.left, LANE_BOTTOM-6);
+  ctx.lineTo(botEdges.right, LANE_BOTTOM-6);
+  ctx.stroke();
+
+  // arrows guides
+  ctx.fillStyle='rgba(255,255,255,0.35)';
+  for(let i=-2;i<=2;i++){
+    const yy=LANE_BOTTOM-130;
+    const xx=LANE_CX + i*28;
+    ctx.beginPath();
+    ctx.moveTo(xx,yy+10);
+    ctx.lineTo(xx-6,yy);
+    ctx.lineTo(xx+6,yy);
+    ctx.closePath();
+    ctx.fill();
+  }
+}
+
+function drawPins(){
+  for(const p of pins){
+    ctx.save();
+    ctx.translate(p.x,p.y);
+    if(p.falling || !p.standing){
+      ctx.rotate(p.fallAngle * (p.x < LANE_CX ? -1:1) * (p.standing? 0:1) );
+    }
+    const grad=ctx.createLinearGradient(0,-PIN_R*1.6,0,PIN_R*1.6);
+    if(!p.standing){
+      grad.addColorStop(0,'#888');
+      grad.addColorStop(1,'#555');
+    } else {
+      grad.addColorStop(0,'#fff');
+      grad.addColorStop(1,'#dcdcdc');
+    }
+    ctx.fillStyle=grad;
+    ctx.beginPath();
+    ctx.ellipse(0,0,PIN_R*0.65,PIN_R*1.6,0,0,Math.PI*2);
+    ctx.fill();
+    ctx.strokeStyle='#e94560';
+    ctx.lineWidth=2;
+    ctx.beginPath();
+    ctx.ellipse(0,-PIN_R*0.5,PIN_R*0.45,PIN_R*0.5,0,0,Math.PI*2);
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
+function drawBall(){
+  if(!ball) return;
+  ctx.save();
+  ctx.shadowBlur=18;
+  ctx.shadowColor='#66c0f4';
+  ctx.beginPath();
+  ctx.arc(ball.x,ball.y,ball.r,0,Math.PI*2);
+  const g=ctx.createRadialGradient(ball.x-4,ball.y-4,2,ball.x,ball.y,ball.r);
+  g.addColorStop(0,'#9adcff');
+  g.addColorStop(1,'#1a4f7a');
+  ctx.fillStyle=g;
+  ctx.fill();
+  ctx.restore();
+  // finger holes for a bit of rolling visual
+  const rollAngle=(ball.y*0.3);
+  ctx.fillStyle='rgba(0,0,0,0.35)';
+  for(let i=0;i<3;i++){
+    const a=rollAngle + i*2.1;
+    ctx.beginPath();
+    ctx.arc(ball.x+Math.cos(a)*5, ball.y+Math.sin(a)*5, 1.6, 0, Math.PI*2);
+    ctx.fill();
+  }
+}
+
+function drawAimGuide(){
+  if(phase!=='aim' && phase!=='charging') return;
+  const startX=LANE_CX, startY=LANE_BOTTOM-20;
+  const len=420;
+  const endX=startX + Math.sin(aimAngle)*len*0.5;
+  const endY=startY - len*0.85;
+  ctx.save();
+  ctx.strokeStyle='rgba(102,255,176,0.5)';
+  ctx.setLineDash([6,8]);
+  ctx.lineWidth=2;
+  ctx.beginPath();
+  ctx.moveTo(startX,startY);
+  ctx.lineTo(endX,endY);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.restore();
+}
+
+function drawAimButtons(){
+  if(phase!=='aim' || gameOver) return;
+  ctx.save();
+  ctx.globalAlpha=0.85;
+  // left
+  ctx.fillStyle='rgba(255,255,255,0.09)';
+  ctx.beginPath();ctx.roundRect(14,H-54,56,40,10);ctx.fill();
+  ctx.beginPath();ctx.roundRect(W-70,H-54,56,40,10);ctx.fill();
+  ctx.fillStyle='#fff';
+  ctx.font='bold 20px Arial';
+  ctx.textAlign='center';
+  ctx.fillText('◀',42,H-28);
+  ctx.fillText('▶',W-42,H-28);
+  ctx.restore();
+}
+
+function drawPowerMeter(){
+  if(phase!=='charging' && phase!=='rolling' && phase!=='aim') return;
+  const x=W/2-100, y=24, w=200, h=16;
+  ctx.save();
+  ctx.fillStyle='rgba(255,255,255,0.12)';
+  ctx.beginPath();ctx.roundRect(x,y,w,h,8);ctx.fill();
+  const grad=ctx.createLinearGradient(x,0,x+w,0);
+  grad.addColorStop(0,'#66ffb0');
+  grad.addColorStop(0.6,'#ffd166');
+  grad.addColorStop(1,'#e94560');
+  ctx.fillStyle=grad;
+  ctx.beginPath();ctx.roundRect(x,y,w*power,h,8);ctx.fill();
+  ctx.strokeStyle='rgba(255,255,255,0.4)';
+  ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.roundRect(x,y,w,h,8);ctx.stroke();
+  ctx.fillStyle='#fff';
+  ctx.font='bold 12px Arial';
+  ctx.textAlign='center';
+  ctx.fillText('POWER', W/2, y-6);
+  ctx.restore();
+}
+
+function drawPinCount(){
+  ctx.fillStyle='rgba(255,255,255,0.55)';
+  ctx.font='13px Arial';
+  ctx.textAlign='left';
+  ctx.fillText(`Pins standing: ${standingPinsLeft()}`, 14, 56);
+}
+
+// ---------- Main loop ----------
+function update(){
+  if(phase==='charging'){
+    power += 0.022*powerDir;
+    if(power>=1){power=1;powerDir=-1;}
+    if(power<=0){power=0;powerDir=1;}
+  } else if(phase==='rolling'){
+    standingBeforeRoll = pins.filter(p=>p.standing||p.falling).length + 0; // approx; recompute properly below
+    updateRolling();
+  }
+}
+
+// Track standing count accurately at the moment a roll begins
+function captureStandingBeforeRoll(){
+  standingBeforeRoll = pins.filter(p=>p.standing).length;
+}
+
+const _origStartRoll=startRoll;
+startRoll=function(){
+  captureStandingBeforeRoll();
+  _origStartRoll();
+};
+
+function loop(){
+  update();
+  drawLane();
+  drawAimGuide();
+  drawPins();
+  drawBall();
+  drawAimButtons();
+  drawPowerMeter();
+  drawPinCount();
+  requestAnimationFrame(loop);
+}
+
+document.getElementById('again').addEventListener('click', resetGame);
+
+resetGame();
+loop();
+</script>
+</body></html>
