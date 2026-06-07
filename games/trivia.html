@@ -1,0 +1,240 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"><title>Trivia Quiz</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+body{background:#08080f}
+#tv-wrap{display:flex;flex-direction:column;align-items:center;gap:16px;padding:14px 8px;width:100%}
+#tv-bar{display:flex;justify-content:space-between;align-items:center;width:100%;max-width:560px;font-size:.85rem;color:rgba(255,255,255,.6);font-weight:700}
+#tv-bar b{color:#fff}
+#tv-timer-bar{width:100%;max-width:560px;height:6px;background:rgba(255,255,255,.1);border-radius:4px;overflow:hidden}
+#tv-timer-fill{height:100%;background:#e94560;border-radius:4px;transition:width .2s linear,background .3s}
+#tv-category{font-size:.8rem;color:rgba(255,255,255,.5);font-weight:700;text-transform:uppercase;letter-spacing:1px}
+#tv-question{font-size:1.15rem;font-weight:800;color:#fff;text-align:center;max-width:560px;line-height:1.4}
+#tv-options{display:flex;flex-direction:column;gap:10px;width:100%;max-width:560px}
+.option{
+  padding:13px 18px;border-radius:12px;border:2px solid rgba(255,255,255,.12);
+  background:rgba(255,255,255,.05);color:#fff;font-size:1rem;font-weight:600;text-align:left;
+  cursor:pointer;transition:background .15s,border-color .15s,transform .1s;-webkit-tap-highlight-color:transparent;
+}
+.option:active{transform:scale(.98)}
+.option:hover{background:rgba(255,255,255,.1)}
+.option.correct{background:rgba(83,141,78,.35);border-color:#538d4e}
+.option.wrong{background:rgba(233,69,96,.3);border-color:#e94560}
+.option.disabled{pointer-events:none;opacity:.85}
+#tv-feedback{min-height:24px;font-weight:700;text-align:center}
+#tv-results{display:none;flex-direction:column;align-items:center;gap:14px;text-align:center}
+#tv-results.show{display:flex}
+#tv-percent{font-size:3rem;font-weight:900;color:#e94560}
+#tv-summary{font-size:1.05rem;color:#fff;font-weight:700}
+#tv-restart{padding:12px 28px;background:#e94560;border:none;border-radius:20px;color:#fff;cursor:pointer;font-size:1rem;font-weight:700}
+#tv-restart:hover{background:#d63a52}
+#tv-quiz.hide{display:none}
+</style></head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Trivia Quiz</div>
+  <div class="game-frame" style="padding:20px">
+    <div id="tv-wrap">
+      <div id="tv-quiz">
+        <div id="tv-bar"><span>Question <b id="tv-qnum">1</b>/<b id="tv-qtotal">10</b></span><span>⭐ Score: <b id="tv-score">0</b></span></div>
+        <div id="tv-timer-bar"><div id="tv-timer-fill"></div></div>
+        <div id="tv-category">Category</div>
+        <div id="tv-question">Question text</div>
+        <div id="tv-options"></div>
+        <div id="tv-feedback"></div>
+      </div>
+      <div id="tv-results">
+        <div id="tv-percent">0%</div>
+        <div id="tv-summary">You scored 0 / 10</div>
+        <button id="tv-restart">Play Again</button>
+      </div>
+    </div>
+  </div>
+  <div class="game-instructions">
+    Answer 10 multiple-choice questions pulled randomly from a bank of 40+ across general knowledge, science, geography, history, and more. You have 20 seconds per question — answer fast for the satisfaction (scoring is based on correctness only). See your final percentage at the end.
+  </div>
+</div>
+<script>
+const QUESTIONS = [
+  {cat:'Geography', q:'Which ocean is the largest by surface area?', options:['Atlantic','Indian','Pacific','Arctic'], answer:2},
+  {cat:'Geography', q:'What is the longest river in the world?', options:['Amazon','Nile','Yangtze','Mississippi'], answer:1},
+  {cat:'Geography', q:'Which country has the most time zones?', options:['Russia','USA','China','France'], answer:3},
+  {cat:'Geography', q:'Mount Kilimanjaro is located on which continent?', options:['Asia','Africa','South America','Australia'], answer:1},
+  {cat:'Geography', q:'What is the smallest country in the world by area?', options:['Monaco','San Marino','Vatican City','Liechtenstein'], answer:2},
+  {cat:'Geography', q:'Which desert is the largest hot desert on Earth?', options:['Gobi','Kalahari','Sahara','Mojave'], answer:2},
+  {cat:'Geography', q:'The Great Barrier Reef is located off the coast of which country?', options:['Brazil','Australia','Mexico','Indonesia'], answer:1},
+  {cat:'Geography', q:'Which two countries share the longest international border?', options:['USA & Canada','Russia & China','India & China','Chile & Argentina'], answer:0},
+
+  {cat:'Science', q:'What is the chemical symbol for gold?', options:['Ag','Au','Gd','Go'], answer:1},
+  {cat:'Science', q:'How many bones are in the adult human body?', options:['186','206','226','246'], answer:1},
+  {cat:'Science', q:'What planet is known as the Red Planet?', options:['Venus','Jupiter','Mars','Saturn'], answer:2},
+  {cat:'Science', q:'What gas do plants absorb from the atmosphere for photosynthesis?', options:['Oxygen','Nitrogen','Carbon dioxide','Hydrogen'], answer:2},
+  {cat:'Science', q:'What is the powerhouse of the cell?', options:['Nucleus','Ribosome','Mitochondria','Golgi apparatus'], answer:2},
+  {cat:'Science', q:'What is the speed of light in a vacuum (approx.)?', options:['300,000 km/s','150,000 km/s','3,000 km/s','30,000 km/s'], answer:0},
+  {cat:'Science', q:'Which element has the atomic number 1?', options:['Helium','Hydrogen','Oxygen','Carbon'], answer:1},
+  {cat:'Science', q:'What type of animal is a Komodo dragon?', options:['Snake','Lizard','Crocodile','Amphibian'], answer:1},
+  {cat:'Science', q:'What force keeps planets in orbit around the Sun?', options:['Magnetism','Friction','Gravity','Inertia'], answer:2},
+  {cat:'Science', q:'What is the boiling point of water at sea level in Celsius?', options:['90°C','100°C','110°C','120°C'], answer:1},
+
+  {cat:'History', q:'In which year did World War II end?', options:['1943','1944','1945','1946'], answer:2},
+  {cat:'History', q:'Who was the first President of the United States?', options:['Thomas Jefferson','George Washington','John Adams','Abraham Lincoln'], answer:1},
+  {cat:'History', q:'The ancient pyramids of Giza were built in which country?', options:['Mexico','Egypt','Peru','Greece'], answer:1},
+  {cat:'History', q:'Which empire was ruled by Julius Caesar?', options:['Ottoman','Roman','Persian','Byzantine'], answer:1},
+  {cat:'History', q:'The Berlin Wall fell in which year?', options:['1987','1989','1991','1993'], answer:1},
+  {cat:'History', q:'Who wrote the Declaration of Independence?', options:['Benjamin Franklin','Thomas Jefferson','John Hancock','James Madison'], answer:1},
+  {cat:'History', q:'Which civilization built Machu Picchu?', options:['Aztec','Maya','Inca','Olmec'], answer:2},
+  {cat:'History', q:'The Renaissance began in which country?', options:['France','Spain','Italy','Germany'], answer:2},
+
+  {cat:'General Knowledge', q:'How many continents are there on Earth?', options:['5','6','7','8'], answer:2},
+  {cat:'General Knowledge', q:'What is the largest mammal in the world?', options:['African elephant','Blue whale','Giraffe','Polar bear'], answer:1},
+  {cat:'General Knowledge', q:'Which language has the most native speakers worldwide?', options:['English','Spanish','Mandarin Chinese','Hindi'], answer:2},
+  {cat:'General Knowledge', q:'What is the main ingredient in traditional guacamole?', options:['Tomato','Avocado','Lime','Onion'], answer:1},
+  {cat:'General Knowledge', q:'How many strings does a standard violin have?', options:['Three','Four','Five','Six'], answer:1},
+  {cat:'General Knowledge', q:'Which is the most widely used social media platform (by monthly active users) as of recent years?', options:['Twitter/X','Instagram','Facebook','TikTok'], answer:2},
+  {cat:'General Knowledge', q:'What does "www" stand for?', options:['World Wide Web','World Web Wide','Web World Wide','Wide World Web'], answer:0},
+  {cat:'General Knowledge', q:'Which fruit is known for having its seeds on the outside?', options:['Kiwi','Strawberry','Raspberry','Fig'], answer:1},
+
+  {cat:'Arts & Literature', q:'Who painted the Mona Lisa?', options:['Vincent van Gogh','Pablo Picasso','Leonardo da Vinci','Claude Monet'], answer:2},
+  {cat:'Arts & Literature', q:'Who wrote the play "Romeo and Juliet"?', options:['Charles Dickens','William Shakespeare','Mark Twain','Jane Austen'], answer:1},
+  {cat:'Arts & Literature', q:'Which novel begins with the line "Call me Ishmael"?', options:['Moby-Dick','The Great Gatsby','War and Peace','Treasure Island'], answer:0},
+  {cat:'Arts & Literature', q:'Which artist is famous for cutting off part of his own ear?', options:['Salvador Dalí','Vincent van Gogh','Henri Matisse','Edgar Degas'], answer:1},
+
+  {cat:'Sports', q:'In which sport would you perform a "slam dunk"?', options:['Volleyball','Basketball','Tennis','Badminton'], answer:1},
+  {cat:'Sports', q:'How many players are on a standard soccer (football) team on the field?', options:['9','10','11','12'], answer:2},
+  {cat:'Sports', q:'The Olympic Games are held every how many years?', options:['2','3','4','5'], answer:2},
+  {cat:'Sports', q:'In tennis, what is a score of zero called?', options:['Love','Nil','Duck','Ace'], answer:0},
+
+  {cat:'Technology', q:'Who is credited with co-founding Apple Inc. alongside Steve Wozniak?', options:['Bill Gates','Steve Jobs','Elon Musk','Larry Page'], answer:1},
+  {cat:'Technology', q:'What does "CPU" stand for?', options:['Central Processing Unit','Computer Personal Unit','Central Program Utility','Core Processing Unit'], answer:0},
+  {cat:'Technology', q:'Which company developed the Android operating system?', options:['Apple','Microsoft','Google','Samsung'], answer:2},
+  {cat:'Technology', q:'What does "HTML" stand for?', options:['Hyperlinks Text Markup Language','HyperText Markup Language','HighText Machine Language','Hyper Transfer Markup Language'], answer:1},
+
+  {cat:'Geography', q:'Which country is shaped like a boot?', options:['Greece','Spain','Italy','Portugal'], answer:2},
+  {cat:'Science', q:'What is H2O more commonly known as?', options:['Salt','Water','Hydrogen peroxide','Sugar'], answer:1},
+  {cat:'History', q:'The Titanic sank in which year?', options:['1905','1912','1918','1923'], answer:1},
+  {cat:'General Knowledge', q:'How many days are there in a leap year?', options:['364','365','366','367'], answer:2}
+];
+
+const NUM_QUESTIONS = 10;
+const TIME_PER_Q = 20; // seconds
+
+let quiz, qIndex, score, answered, timerInterval, timeLeft;
+
+function shuffle(arr){
+  const a = [...arr];
+  for (let i=a.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+
+function buildQuiz(){
+  const picked = shuffle(QUESTIONS).slice(0, NUM_QUESTIONS);
+  // Shuffle options within each question, tracking the new answer index
+  quiz = picked.map(q => {
+    const optionOrder = shuffle(q.options.map((_, i) => i));
+    const newOptions = optionOrder.map(i => q.options[i]);
+    const newAnswer = optionOrder.indexOf(q.answer);
+    return {cat: q.cat, q: q.q, options: newOptions, answer: newAnswer};
+  });
+}
+
+function startQuiz(){
+  buildQuiz();
+  qIndex = 0;
+  score = 0;
+  document.getElementById('tv-score').textContent = '0';
+  document.getElementById('tv-qtotal').textContent = NUM_QUESTIONS;
+  document.getElementById('tv-results').classList.remove('show');
+  document.getElementById('tv-quiz').classList.remove('hide');
+  showQuestion();
+}
+
+function showQuestion(){
+  answered = false;
+  const cur = quiz[qIndex];
+  document.getElementById('tv-qnum').textContent = qIndex + 1;
+  document.getElementById('tv-category').textContent = cur.cat;
+  document.getElementById('tv-question').textContent = cur.q;
+  document.getElementById('tv-feedback').textContent = '';
+  const opts = document.getElementById('tv-options');
+  opts.innerHTML = '';
+  cur.options.forEach((opt, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'option';
+    btn.textContent = opt;
+    btn.addEventListener('click', () => selectAnswer(i));
+    opts.appendChild(btn);
+  });
+  startTimer();
+}
+
+function startTimer(){
+  clearInterval(timerInterval);
+  timeLeft = TIME_PER_Q;
+  updateTimerBar();
+  timerInterval = setInterval(() => {
+    timeLeft -= 0.1;
+    if (timeLeft <= 0){
+      timeLeft = 0;
+      updateTimerBar();
+      clearInterval(timerInterval);
+      if (!answered) selectAnswer(-1);
+      return;
+    }
+    updateTimerBar();
+  }, 100);
+}
+
+function updateTimerBar(){
+  const pct = Math.max(0, (timeLeft / TIME_PER_Q) * 100);
+  const fill = document.getElementById('tv-timer-fill');
+  fill.style.width = pct + '%';
+  fill.style.background = pct > 50 ? '#538d4e' : pct > 20 ? '#b59f3b' : '#e94560';
+}
+
+function selectAnswer(choiceIdx){
+  if (answered) return;
+  answered = true;
+  clearInterval(timerInterval);
+  const cur = quiz[qIndex];
+  const buttons = document.querySelectorAll('#tv-options .option');
+  buttons.forEach((btn, i) => {
+    btn.classList.add('disabled');
+    if (i === cur.answer) btn.classList.add('correct');
+    else if (i === choiceIdx) btn.classList.add('wrong');
+  });
+  const fb = document.getElementById('tv-feedback');
+  if (choiceIdx === cur.answer){
+    score++;
+    document.getElementById('tv-score').textContent = score;
+    fb.textContent = '✅ Correct!';
+    fb.style.color = '#538d4e';
+  } else if (choiceIdx === -1){
+    fb.textContent = `⏰ Time's up! The answer was "${cur.options[cur.answer]}"`;
+    fb.style.color = '#e94560';
+  } else {
+    fb.textContent = `❌ Wrong — the answer was "${cur.options[cur.answer]}"`;
+    fb.style.color = '#e94560';
+  }
+  setTimeout(() => {
+    qIndex++;
+    if (qIndex >= quiz.length) showResults();
+    else showQuestion();
+  }, 1500);
+}
+
+function showResults(){
+  document.getElementById('tv-quiz').classList.add('hide');
+  const results = document.getElementById('tv-results');
+  results.classList.add('show');
+  const pct = Math.round((score / quiz.length) * 100);
+  document.getElementById('tv-percent').textContent = pct + '%';
+  document.getElementById('tv-summary').textContent = `You scored ${score} / ${quiz.length}`;
+}
+
+document.getElementById('tv-restart').addEventListener('click', startQuiz);
+
+startQuiz();
+</script>
+</body></html>

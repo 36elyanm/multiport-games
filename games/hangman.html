@@ -1,0 +1,200 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"><title>Hangman</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+body{background:#08080f}
+#hg-wrap{display:flex;flex-direction:column;align-items:center;gap:14px;padding:14px 8px}
+#category{font-size:.95rem;color:rgba(255,255,255,.6);font-weight:700;letter-spacing:.5px;text-transform:uppercase}
+#gallows{width:220px;height:220px}
+#word-display{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;font-size:1.8rem;font-weight:800;color:#fff;letter-spacing:2px}
+.letter-box{min-width:34px;border-bottom:3px solid #e94560;text-align:center;text-transform:uppercase}
+#status{min-height:28px;font-size:1.05rem;font-weight:700;color:#fff;text-align:center}
+#wrong-info{font-size:.85rem;color:rgba(255,255,255,.55)}
+#keyboard{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;max-width:520px}
+.key{
+  width:38px;height:44px;border:none;border-radius:6px;
+  background:#818384;color:#fff;font-family:inherit;font-size:1rem;font-weight:700;
+  cursor:pointer;text-transform:uppercase;transition:background .15s,transform .1s;
+  user-select:none;-webkit-tap-highlight-color:transparent;
+}
+.key:active{transform:scale(.92)}
+.key:disabled{cursor:default}
+.key.correct{background:#538d4e}
+.key.wrong{background:#3a3a3c;opacity:.6}
+#new-word-btn{padding:10px 26px;background:#e94560;border:none;border-radius:20px;color:#fff;cursor:pointer;font-size:1rem;font-weight:700;margin-top:4px}
+#new-word-btn:hover{background:#d63a52}
+@media(max-width:480px){
+  #word-display{font-size:1.4rem}
+  .key{width:32px;height:40px;font-size:.85rem}
+  #gallows{width:180px;height:180px}
+}
+</style></head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Hangman</div>
+  <div class="game-frame" style="padding:18px">
+    <div id="hg-wrap">
+      <div id="category">Category: ...</div>
+      <svg id="gallows" viewBox="0 0 200 200"></svg>
+      <div id="word-display"></div>
+      <div id="status"></div>
+      <div id="wrong-info"></div>
+      <div id="keyboard"></div>
+      <button id="new-word-btn">New Word</button>
+    </div>
+  </div>
+  <div class="game-instructions">
+    Guess the hidden word one letter at a time before the figure is fully drawn. Click letters on the on-screen keyboard or use your physical keyboard. You have 6 wrong guesses allowed. A category hint is shown above the gallows.
+  </div>
+</div>
+<script>
+const CATEGORIES = {
+  'Animals': ['ELEPHANT','GIRAFFE','PENGUIN','DOLPHIN','KANGAROO','CHEETAH','OCTOPUS','RACCOON','FLAMINGO','HEDGEHOG','PANTHER','WALRUS','GAZELLE','OTTER','PEACOCK'],
+  'Countries': ['CANADA','BRAZIL','JAPAN','EGYPT','FRANCE','MEXICO','NORWAY','KENYA','GREECE','THAILAND','ICELAND','PORTUGAL','VIETNAM','MOROCCO','FINLAND'],
+  'Foods': ['PIZZA','BURRITO','PANCAKE','SPAGHETTI','SANDWICH','OMELETTE','AVOCADO','PRETZEL','LASAGNA','DUMPLING','BAGUETTE','WAFFLE','NACHOS','SUSHI','BISCUIT'],
+  'Sports': ['BASKETBALL','SWIMMING','CRICKET','HOCKEY','VOLLEYBALL','BADMINTON','CYCLING','BOXING','SURFING','ARCHERY','BOWLING','ROWING','FENCING','RUGBY','SKIING'],
+  'Movies Genres': ['COMEDY','THRILLER','MYSTERY','ROMANCE','FANTASY','WESTERN','MUSICAL','HORROR','DRAMA','ANIMATION','ADVENTURE','DOCUMENTARY'],
+  'Occupations': ['PLUMBER','TEACHER','SURGEON','PAINTER','FARMER','LIBRARIAN','ELECTRICIAN','JOURNALIST','ARCHITECT','MECHANIC','CHEMIST','FLORIST']
+};
+const CAT_NAMES = Object.keys(CATEGORIES);
+const MAX_WRONG = 6;
+
+let answer = '', category = '', guessed = new Set(), wrongCount = 0, gameOver = false;
+const keyEls = {};
+
+function pickWord(){
+  category = CAT_NAMES[Math.floor(Math.random()*CAT_NAMES.length)];
+  const list = CATEGORIES[category];
+  answer = list[Math.floor(Math.random()*list.length)];
+}
+
+function setStatus(t){ document.getElementById('status').textContent = t; }
+
+function buildKeyboard(){
+  const kb = document.getElementById('keyboard');
+  kb.innerHTML = '';
+  for (let i=0;i<26;i++){
+    const letter = String.fromCharCode(65+i);
+    const btn = document.createElement('button');
+    btn.className = 'key';
+    btn.textContent = letter;
+    btn.addEventListener('click', () => guessLetter(letter));
+    btn.addEventListener('touchend', e => { e.preventDefault(); guessLetter(letter); });
+    kb.appendChild(btn);
+    keyEls[letter] = btn;
+  }
+}
+
+function renderWord(){
+  const wd = document.getElementById('word-display');
+  wd.innerHTML = '';
+  for (const ch of answer){
+    const box = document.createElement('div');
+    box.className = 'letter-box';
+    box.style.width = '1.1ch';
+    box.style.padding = '0 4px';
+    box.textContent = guessed.has(ch) || gameOver ? ch : '';
+    if (gameOver && !guessed.has(ch)) box.style.color = '#e94560';
+    wd.appendChild(box);
+  }
+}
+
+function renderWrongInfo(){
+  document.getElementById('wrong-info').textContent = `Wrong guesses: ${wrongCount} / ${MAX_WRONG}`;
+}
+
+// Gallows drawing: build up parts based on wrongCount (1..6)
+const PARTS = [
+  // base
+  '<line x1="20" y1="190" x2="120" y2="190" stroke="#888" stroke-width="4"/>',
+  // pole
+  '<line x1="50" y1="190" x2="50" y2="20" stroke="#888" stroke-width="4"/>',
+  // beam
+  '<line x1="50" y1="20" x2="140" y2="20" stroke="#888" stroke-width="4"/>',
+  // rope
+  '<line x1="140" y1="20" x2="140" y2="50" stroke="#888" stroke-width="4"/>',
+  // head
+  '<circle cx="140" cy="68" r="18" stroke="#e94560" stroke-width="4" fill="none"/>',
+  // body
+  '<line x1="140" y1="86" x2="140" y2="135" stroke="#e94560" stroke-width="4"/>',
+  // arms + legs
+  '<line x1="140" y1="100" x2="118" y2="120" stroke="#e94560" stroke-width="4"/><line x1="140" y1="100" x2="162" y2="120" stroke="#e94560" stroke-width="4"/><line x1="140" y1="135" x2="120" y2="165" stroke="#e94560" stroke-width="4"/><line x1="140" y1="135" x2="160" y2="165" stroke="#e94560" stroke-width="4"/>'
+];
+// Indices 0-3 are gallows structure shown always; 4..(4+MAX_WRONG-1) appear with wrong guesses.
+function renderGallows(){
+  const svg = document.getElementById('gallows');
+  let html = PARTS[0]+PARTS[1]+PARTS[2]+PARTS[3];
+  // wrongCount 1 -> head, 2 -> body, 3 -> left arm, 4 -> right arm, 5 -> left leg, 6 -> right leg
+  // We'll split part 4 (head) and 5 (body) singly, and part 6 (limbs) progressively.
+  const figureSteps = [
+    '<circle cx="140" cy="68" r="18" stroke="#e94560" stroke-width="4" fill="none"/>',
+    '<line x1="140" y1="86" x2="140" y2="135" stroke="#e94560" stroke-width="4"/>',
+    '<line x1="140" y1="100" x2="118" y2="120" stroke="#e94560" stroke-width="4"/>',
+    '<line x1="140" y1="100" x2="162" y2="120" stroke="#e94560" stroke-width="4"/>',
+    '<line x1="140" y1="135" x2="120" y2="165" stroke="#e94560" stroke-width="4"/>',
+    '<line x1="140" y1="135" x2="160" y2="165" stroke="#e94560" stroke-width="4"/>'
+  ];
+  for (let i=0;i<wrongCount && i<figureSteps.length;i++) html += figureSteps[i];
+  svg.innerHTML = html;
+}
+
+function guessLetter(letter){
+  if (gameOver || guessed.has(letter)) return;
+  guessed.add(letter);
+  if (answer.includes(letter)){
+    keyEls[letter].classList.add('correct');
+    keyEls[letter].disabled = true;
+  } else {
+    wrongCount++;
+    keyEls[letter].classList.add('wrong');
+    keyEls[letter].disabled = true;
+  }
+  renderWord();
+  renderGallows();
+  renderWrongInfo();
+  checkEnd();
+}
+
+function checkEnd(){
+  const won = [...answer].every(ch => guessed.has(ch));
+  if (won){
+    gameOver = true;
+    setStatus('🎉 You won! The word was ' + answer);
+    disableAll();
+  } else if (wrongCount >= MAX_WRONG){
+    gameOver = true;
+    setStatus('💀 Game over! The word was ' + answer);
+    renderWord();
+    disableAll();
+  } else {
+    setStatus('');
+  }
+}
+
+function disableAll(){
+  Object.values(keyEls).forEach(b => b.disabled = true);
+}
+
+function newGame(){
+  pickWord();
+  guessed = new Set();
+  wrongCount = 0;
+  gameOver = false;
+  document.getElementById('category').textContent = 'Category: ' + category;
+  buildKeyboard();
+  renderWord();
+  renderGallows();
+  renderWrongInfo();
+  setStatus('');
+}
+
+document.getElementById('new-word-btn').addEventListener('click', newGame);
+
+document.addEventListener('keydown', e => {
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  const k = e.key.toUpperCase();
+  if (/^[A-Z]$/.test(k)) guessLetter(k);
+});
+
+newGame();
+</script>
+</body></html>

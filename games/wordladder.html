@@ -1,0 +1,294 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"><title>Word Ladder</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+body{background:#08080f}
+#wl-wrap{display:flex;flex-direction:column;align-items:center;gap:14px;padding:14px 8px;width:100%}
+#wl-goal{font-size:1rem;color:rgba(255,255,255,.7);font-weight:700;text-align:center}
+#wl-goal b{color:#e94560;font-size:1.2rem;letter-spacing:2px}
+#wl-stats{display:flex;gap:24px;font-size:.9rem;color:rgba(255,255,255,.6);font-weight:700}
+#wl-stats b{color:#fff}
+#ladder{display:flex;flex-direction:column;align-items:center;gap:6px;width:100%;max-width:320px}
+.rung{
+  display:flex;gap:6px;align-items:center;justify-content:center;width:100%;
+}
+.rung .tiles{display:flex;gap:6px}
+.tile{
+  width:42px;height:42px;border:2px solid #3a3a3c;border-radius:6px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.3rem;font-weight:800;color:#fff;text-transform:uppercase;background:#121213;
+}
+.rung.locked .tile{border-color:#538d4e;background:#538d4e}
+.rung.target .tile{border-color:#e94560;background:rgba(233,69,96,.18);color:#e94560}
+#wl-input-row{display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap}
+#wl-input{
+  padding:10px 14px;font-size:1.1rem;text-transform:uppercase;letter-spacing:3px;
+  border-radius:8px;border:2px solid #3a3a3c;background:#121213;color:#fff;text-align:center;width:160px;
+  font-family:inherit;
+}
+#wl-input:focus{outline:none;border-color:#e94560}
+.wl-btn{padding:10px 22px;background:#e94560;border:none;border-radius:20px;color:#fff;cursor:pointer;font-size:.95rem;font-weight:700}
+.wl-btn:hover{background:#d63a52}
+.wl-btn.secondary{background:rgba(255,255,255,.1);color:#fff}
+.wl-btn.secondary:hover{background:rgba(255,255,255,.18)}
+#wl-msg{min-height:26px;font-weight:700;color:#fff;text-align:center}
+#wl-btn-row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+</style></head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Word Ladder</div>
+  <div class="game-frame" style="padding:18px">
+    <div id="wl-wrap">
+      <div id="wl-goal">Transform <b id="wl-start"></b> into <b id="wl-end"></b></div>
+      <div id="wl-stats"><span>🪜 Moves: <b id="wl-moves">0</b></span><span>💡 Hints: <b id="wl-hints">0</b></span></div>
+      <div id="ladder"></div>
+      <div id="wl-input-row">
+        <input id="wl-input" maxlength="6" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="next word">
+        <button class="wl-btn" id="wl-submit">Submit</button>
+      </div>
+      <div id="wl-msg"></div>
+      <div id="wl-btn-row">
+        <button class="wl-btn secondary" id="wl-hint">Hint</button>
+        <button class="wl-btn secondary" id="wl-newpuzzle">New Puzzle</button>
+      </div>
+    </div>
+  </div>
+  <div class="game-instructions">
+    Change the start word into the end word, one letter at a time. Each step must be a real word from the built-in dictionary, and must be the same length, differing from the previous word in exactly one letter position. Use <b>Hint</b> to reveal the next word in a valid solution chain (costs nothing but is tracked).
+  </div>
+</div>
+<script>
+// Built-in word list (4-letter words), large enough to form many ladders.
+const WORDS4 = `ABLE ACID AGED ALSO AREA ARMY AWAY BABY BACK BALL BAND BANK BARE BARK BASE BATH BEAM BEAN BEAR BEAT BELL BELT BEND BENT BEST BILL BIRD BITE BOAT BODY BOIL BOLD BOLT BONE BOOK BOOM BOOT BORE BORN BOSS BOTH BOWL BULK BURN BUSH BUSY CAKE CALL CALM CAME CAMP CARD CARE CASE CASH CAST CAVE CELL CHAT CHIP CITY CLAY CLUB COAL COAT CODE COIN COLD COLE COME CONE COOK COOL COPE CORD CORE CORN COST CREW CROP DARE DARK DATA DATE DAWN DAYS DEAD DEAL DEAN DEAR DEBT DECK DEEP DEER DESK DIAL DIET DIRT DISH DOOR DOSE DOWN DRAW DROP DRUG DRUM DUST DUTY EACH EARN EASE EAST EASY EDGE ELSE EVEN EVER EVIL FACE FACT FADE FAIL FAIR FALL FAME FARM FAST FATE FEAR FEED FEEL FEET FELL FELT FILE FILL FILM FIND FINE FIRE FIRM FISH FIST FIVE FLAG FLAT FLEW FLOW FOOD FOOT FORD FORM FORT FOUR FREE FROM FUEL FULL FUND GAIN GAME GATE GAVE GEAR GENE GIFT GIRL GIVE GLAD GOAL GOAT GOLD GOLF GONE GOOD GRAY GREW GREY GRID GRIP GROW HAIR HALF HALL HAND HANG HARD HARM HATE HAVE HEAD HEAR HEAT HELD HELL HELP HERE HERO HIDE HIGH HILL HINT HOLD HOLE HOLY HOME HOPE HORN HOST HOUR HUGE HUNT HURT ICON IDEA INCH INTO IRON ITEM JOIN JUMP JUNE JURY JUST KEEN KEEP KICK KILL KIND KING KNEE KNEW KNOT LACK LADY LAID LAKE LAMP LAND LANE LAST LATE LAWN LEAD LEAF LEAN LEAP LEFT LESS LIFE LIFT LIKE LIMB LINE LINK LION LIST LIVE LOAD LOAN LOCK LOFT LOGO LONG LOOK LORD LOSE LOSS LOST LOUD LOVE LUCK MAIL MAIN MAKE MALE MAP MARK MASK MASS MATE MEAL MEAN MEAT MEET MELT MENU MERE MILD MILE MILK MIND MINE MISS MODE MOOD MOON MORE MOST MOVE MUCH MUST NAME NAVY NEAR NECK NEED NEWS NEXT NICE NINE NOON NOSE NOTE OPEN ORAL OVEN OVER PACE PACK PAGE PAID PAIN PAIR PALE PARK PART PASS PAST PATH PEAK PICK PILE PINE PINK PIPE PLAN PLAY PLOT PLUG PLUS POEM POET POLE POLL POND POOL POOR PORT POSE POST PULL PURE PUSH RACE RAIN RANK RARE RATE READ REAL REAR RELY RENT REST RICE RICH RIDE RING RISE RISK ROAD ROCK ROLE ROLL ROOF ROOM ROOT ROPE ROSE RUDE RULE RUSH RUST SAFE SAID SAIL SAKE SALE SALT SAME SAND SAVE SEAL SEAT SEED SEEK SEEM SEEN SELF SELL SEND SENT SHIP SHOE SHOP SHOT SHOW SHUT SICK SIDE SIGN SILK SING SINK SITE SIZE SKIN SKIP SLIP SLOW SNOW SOAP SOFT SOIL SOLD SOLE SOME SONG SOON SORT SOUL SOUP SOUR SPIN SPOT STAR STAY STEM STEP STOP SUCH SUIT SURE SWIM TAKE TALE TALK TALL TANK TAPE TASK TEAM TEAR TELL TEND TENT TERM TEST TEXT THAN THAT THEM THEN THEY THIN THIS TIDE TIME TINY TOLD TOLL TONE TOOK TOOL TOUR TOWN TREE TRIM TRIP TRUE TUNE TURN TWIN TYPE UNIT UPON USED USER VARY VAST VERY VIEW VOTE WAGE WAIT WAKE WALK WALL WANT WARD WARM WARN WASH WAVE WAYS WEAK WEAR WEEK WELL WENT WERE WEST WHAT WHEN WHOM WIDE WIFE WILD WILL WIND WINE WING WIRE WISE WISH WITH WOOD WOOL WORD WORE WORK YARD YEAR YOUR ZONE ZERO BACK BOLD BOND BORE CAGE CANE CAPE CARD CARS CART CASH CATS CAVE CELL CITE COAL COAT COCK CODE COIL COIN COLD CONE COOL COPE COPS CORD CORE CORK CORN COST COVE CREW CROW CUBE CUFF CUPS CURB CURE CURL CUTE DAME DAMP DARE DARK DARN DASH DATE DAWN DEAD DEAF DEAL DEAN DEAR DECK DEED DEEP DEER DENY DESK DIAL DICE DIET DIME DINE DIRT DISC DISH DOCK DOES DOGS DOLL DOME DONE DOOM DOOR DOSE DOTS DOVE DRAG DRAW DRIP DROP DRUG DRUM DUAL DUCK DUEL DUET DUKE DULL DUMB DUMP DUNE DUSK DUST DUTY EACH EARL EARN EASE EAST EASY EATS EBBS ECHO EDDY EDGE EDIT EELS EGGS EPIC EVEN EVER EVIL EXAM EXIT FACE FACT FADE FAIL FAIR FAKE FALL FAME FANG FARE FARM FAST FATE FAWN FEAR FEAT FEED FEEL FEES FEET FELL FELT FERN FEUD FILE FILL FILM FIND FINE FIRE FIRM FISH FIST FITS FIVE FLAG FLAP FLAT FLED FLEE FLEW FLEX FLIP FLOP FLOW FOAM FOLD FOLK FOND FONT FOOD FOOL FOOT FORD FORE FORK FORM FORT FOUL FOUR FOWL FREE FROG FROM FUEL FULL FUME FUND FURY FUSE GAIN GALE GAME GANG GAPS GASP GATE GAVE GAZE GEAR GENE GIFT GILL GIRL GIVE GLAD GLOW GLUE GOAL GOAT GOES GOLD GOLF GONE GOOD GORE GOWN GRAB GRAY GRID GRIM GRIN GRIP GROW GULF GULL GUMS GUST GUSH HACK HAIL HAIR HALE HALF HALL HALT HAND HANG HARD HARE HARM HARP HART HASH HATE HAUL HAWK HAZE HEAD HEAL HEAP HEAR HEAT HEED HEEL HEFT HELD HELL HELM HELP HERB HERD HERE HERO HIDE HIGH HILL HINT HIRE HISS HIVE HOLD HOLE HOLY HOME HONE HOOD HOOF HOOK HOOP HOPE HORN HOSE HOST HOUR HUGE HULL HUNT HURL HURT HUSH HYMN ICON IDOL INCH INTO IRON ITCH ITEM JADE JAIL JAZZ JEAN JEEP JEST JOBS JOIN JOKE JOLT JOWL JUMP JUNE JURY JUST KEEL KEEN KEEP KELP KEPT KICK KIDS KILL KILN KIND KING KISS KITE KNEE KNEW KNIT LACE LACK LADY LAID LAIR LAKE LAMB LAME LAMP LAND LANE LAPS LARK LASH LAST LATE LAVA LAWN LAYS LEAD LEAF LEAK LEAN LEAP LEFT LEND LENS LESS LICE LICK LIED LIES LIFE LIFT LIKE LIMB LIME LIMP LINE LINK LION LIPS LIST LIVE LOAD LOAF LOAN LOBE LOCK LOFT LOGO LONE LONG LOOK LOOM LOON LOOP LOOT LORD LOSE LOSS LOST LOUD LOVE LUCK LUMP LUNG LURE LUSH LUTE LYRE MACE MAID MAIL MAIN MAKE MALE MALL MANE MAPS MARE MARK MARS MASH MASK MASS MAST MATE MAZE MEAL MEAN MEAT MEET MELT MEND MENU MESH MESS MICE MILD MILE MILK MILL MIME MIND MINE MINT MISS MIST MOAN MOAT MOBS MOCK MODE MOLD MOLE MOMS MONK MOOD MOON MOOR MOPS MORE MOSS MOST MOTH MOVE MUCH MUCK MUDS MUGS MULE MUST MUTE NAIL NAME NAPE NAVY NEAR NECK NEED NEON NERD NEST NETS NEWS NEXT NICE NINE NODE NONE NOON NOPE NOSE NOTE NOUN OARS OATH OATS ODDS ODOR OILS OKAY OMIT ONCE ONES ONLY ONTO OPAL OPEN OPTS ORAL ORBS ORES OUCH OURS OUST OUTS OVAL OVEN OVER PACE PACK PACT PAGE PAID PAIL PAIN PAIR PALE PALM PANE PANG PANS PANT PARK PART PASS PAST PATH PAWS PEAK PEAR PEAS PEAT PECK PEEK PEEL PEER PENS PEPS PETS PICK PIER PIGS PIKE PILE PILL PINE PINK PINT PIPE PITS PITY PLAN PLAY PLEA PLOT PLOW PLOY PLUG PLUM PLUS POEM POET POKE POLE POLL POND PONY POOL POOR PORE PORK PORT POSE POST POUR PRAY PREP PREY PROD PROP PROW PUBS PUFF PULL PULP PUMP PUNK PUNS PUPA PUPS PURE PURR PUSH PUTS QUIT QUIZ RACE RACK RAFT RAGE RAGS RAID RAIL RAIN RAKE RAMS RANG RANK RANT RAPS RARE RASH RATE RATS RAVE RAYS READ REAL REAP REAR REED REEF REEK REEL REIN RELY RENT REST RIBS RICE RICH RICK RIDE RIFT RIGS RILE RIME RIND RING RINK RIOT RIPE RIPS RISE RISK RITE ROAD ROAM ROAR ROBE ROBS ROCK RODS ROLE ROLL ROOF ROOM ROOT ROPE ROSE ROSS ROTS ROVE ROWS RUBS RUBY RUDE RUGS RULE RUMS RUNG RUNS RUNT RUSE RUSH RUST RUTS SACK SAFE SAGA SAGE SAGS SAID SAIL SAKE SALE SALT SAME SAND SANE SANG SANK SAPS SASH SAVE SAWS SAYS SCAB SCAN SCAR SCUM SEAL SEAM SEAR SEAS SEAT SEED SEEK SEEM SEEN SEES SELF SELL SEND SENT SETS SEWN SHED SHIP SHOD SHOE SHOO SHOP SHOT SHOW SHUN SHUT SICK SIDE SIFT SIGH SIGN SILK SILL SILT SING SINK SIPS SIRE SITE SITS SIZE SKID SKIM SKIN SKIP SKIT SLAB SLAM SLAP SLAT SLAY SLED SLID SLIM SLIP SLIT SLOB SLOG SLOP SLOT SLOW SLUG SLUM SLUR SMUG SNAG SNAP SNOB SNOW SNUB SOAK SOAP SOAR SOCK SODA SODS SOFA SOFT SOIL SOLD SOLE SOME SONG SOON SOOT SORE SORT SOUL SOUP SOUR SOWN SPAN SPAR SPAS SPAT SPAY SPED SPIN SPIT SPOT SPRY SPUD SPUN SPUR STAB STAG STAR STAY STEM STEP STEW STIR STOP STOW STUB STUD STUN SUDS SUET SUIT SULK SUMS SUNG SUNK SUNS SURE SURF SWAB SWAM SWAN SWAP SWAT SWAY SWIG SWIM SWUM SYNC TABS TACK TACO TACT TAGS TAIL TAKE TALE TALK TALL TAME TAMS TANG TANK TAPE TAPS TARP TART TASK TAXI TEAL TEAM TEAR TEAS TECH TEEM TEEN TEES TELL TEMP TEND TENS TENT TERM TERN TEST TEXT THAN THAT THAW THEE THEM THEN THEY THIN THIS THUD THUS TICK TIDE TIDY TIED TIER TIES TILE TILL TILT TIME TINE TINS TINT TINY TIPS TIRE TOAD TOES TOFU TOIL TOLD TOLL TOMB TONE TONS TOOK TOOL TOPS TORE TORN TORT TOSS TOTE TOUR TOUT TOWN TOYS TRAM TRAP TRAY TREE TREK TRIM TRIO TRIP TROT TROY TRUE TUBA TUBE TUBS TUCK TUFT TUGS TUNA TUNE TURF TURN TUSK TWIG TWIN TYPE TYPO UGLY UNDO UNIT UPON URGE USED USER USES VAIN VALE VARY VASE VAST VATS VEAL VEIL VEIN VENT VERB VERY VEST VETO VEXT VIAL VIBE VICE VIEW VILE VINE VOID VOTE WADE WAGE WAGS WAIL WAIT WAKE WALK WALL WAND WANE WANT WARD WARE WARM WARN WARP WARS WART WARY WASH WASP WAVE WAVY WAYS WEAK WEAR WEED WEEK WEEP WEIR WELD WELL WENT WEPT WERE WEST WETS WHAM WHAT WHEN WHET WHEY WHIM WHIP WHIT WHIZ WHOA WHOM WHOP WHYS WICK WIDE WIFE WIGS WILD WILL WILT WIMP WIND WINE WING WINK WINS WIPE WIRE WISE WISH WISP WITH WOES WOKE WOLF WOMB WOOD WOOF WOOL WORD WORE WORK WORM WORN WRAP WREN YAKS YAMS YANK YARD YARN YAWN YEAR YEAS YELL YOGA YOKE YOLK YORE YOUR ZAPS ZEAL ZEBU ZERO ZEST ZINC ZING ZIPS ZONE`.split(/\s+/);
+
+const WORD_SET = new Set(WORDS4);
+
+// Curated 4-letter puzzle pairs (start, end). Validity & chain are checked at
+// runtime via BFS over the dictionary, with a generated fallback if needed.
+const PUZZLE_PAIRS = [
+  ['COLD','WARM'],
+  ['HEAD','TAIL'],
+  ['LOVE','HATE'],
+  ['HARD','EASY'],
+  ['FAST','SLOW'],
+  ['WORD','GAME'],
+  ['SHIP','BOAT'],
+  ['WIND','SAND'],
+  ['MOON','STAR'],
+  ['LION','BEAR'],
+  ['FIRE','COLD']
+];
+
+function neighbors(word){
+  const result = [];
+  for (let i=0;i<word.length;i++){
+    for (let c=65;c<=90;c++){
+      const ch = String.fromCharCode(c);
+      if (ch === word[i]) continue;
+      const cand = word.slice(0,i)+ch+word.slice(i+1);
+      if (WORD_SET.has(cand)) result.push(cand);
+    }
+  }
+  return result;
+}
+
+// BFS to find shortest path between two words using WORD_SET
+function findChain(start, end){
+  if (start === end) return [start];
+  const queue = [[start]];
+  const visited = new Set([start]);
+  while (queue.length){
+    const path = queue.shift();
+    const last = path[path.length-1];
+    for (const n of neighbors(last)){
+      if (visited.has(n)) continue;
+      visited.add(n);
+      const newPath = [...path, n];
+      if (n === end) return newPath;
+      if (newPath.length < 8) queue.push(newPath);
+    }
+  }
+  return null;
+}
+
+let startWord, endWord, solutionChain, userChain, hints, moves;
+
+function pickPuzzle(){
+  // try random pairs from curated list until we find one with a valid chain in dictionary
+  const candidates = [...PUZZLE_PAIRS].sort(()=>Math.random()-0.5);
+  for (const [a,b] of candidates){
+    if (a.length !== 4 || b.length !== 4) continue;
+    if (!WORD_SET.has(a) || !WORD_SET.has(b)) continue;
+    const chain = findChain(a,b);
+    if (chain && chain.length >= 3 && chain.length <= 7) return {start:a, end:b, chain};
+  }
+  // fallback: generate random solvable pair via BFS from a random word
+  for (let i=0;i<200;i++){
+    const a = WORDS4[Math.floor(Math.random()*WORDS4.length)];
+    // BFS outwards to depth 3-5 to find an end word
+    const queue = [[a]];
+    const visited = new Set([a]);
+    let best = null;
+    while (queue.length){
+      const path = queue.shift();
+      if (path.length >= 4 && path.length <= 5 && Math.random() < 0.05){ best = path; break; }
+      if (path.length >= 6) continue;
+      const last = path[path.length-1];
+      for (const n of neighbors(last)){
+        if (visited.has(n)) continue;
+        visited.add(n);
+        queue.push([...path, n]);
+      }
+    }
+    if (best && best.length >= 3){
+      return {start: best[0], end: best[best.length-1], chain: best};
+    }
+  }
+  // ultimate fallback
+  return {start:'COLD', end:'WARM', chain:['COLD','CORD','WORD','WARD','WARM']};
+}
+
+function renderLadder(){
+  const ladder = document.getElementById('ladder');
+  ladder.innerHTML = '';
+  const allWords = [startWord, ...userChain];
+  // show start..current chain, plus target row
+  allWords.forEach((w, idx) => {
+    const rung = document.createElement('div');
+    rung.className = 'rung locked';
+    const tiles = document.createElement('div');
+    tiles.className = 'tiles';
+    for (const ch of w){
+      const t = document.createElement('div');
+      t.className = 'tile';
+      t.textContent = ch;
+      tiles.appendChild(t);
+    }
+    rung.appendChild(tiles);
+    ladder.appendChild(rung);
+  });
+  if (allWords[allWords.length-1] !== endWord){
+    const rung = document.createElement('div');
+    rung.className = 'rung target';
+    const tiles = document.createElement('div');
+    tiles.className = 'tiles';
+    for (const ch of endWord){
+      const t = document.createElement('div');
+      t.className = 'tile';
+      t.textContent = ch;
+      tiles.appendChild(t);
+    }
+    rung.appendChild(tiles);
+    ladder.appendChild(rung);
+  }
+}
+
+function setMsg(t, color){
+  const el = document.getElementById('wl-msg');
+  el.textContent = t;
+  el.style.color = color || '#fff';
+}
+
+function diffByOne(a, b){
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i=0;i<a.length;i++) if (a[i]!==b[i]) diff++;
+  return diff === 1;
+}
+
+function submitWord(){
+  const input = document.getElementById('wl-input');
+  const word = input.value.trim().toUpperCase();
+  if (!word) return;
+  if (word.length !== startWord.length){
+    setMsg(`Word must be ${startWord.length} letters long.`, '#e94560');
+    return;
+  }
+  const current = userChain.length ? userChain[userChain.length-1] : startWord;
+  if (word === current){
+    setMsg('That’s the same word — change one letter.', '#e94560');
+    return;
+  }
+  if (!diffByOne(current, word)){
+    setMsg('Change exactly one letter from the previous word.', '#e94560');
+    return;
+  }
+  if (!WORD_SET.has(word)){
+    setMsg(`"${word}" isn’t in the dictionary.`, '#e94560');
+    return;
+  }
+  if (userChain.includes(word) || word === startWord){
+    setMsg('You already used that word.', '#e94560');
+    return;
+  }
+  userChain.push(word);
+  moves++;
+  document.getElementById('wl-moves').textContent = moves;
+  input.value = '';
+  setMsg('');
+  renderLadder();
+  if (word === endWord){
+    setMsg(`🎉 Solved in ${moves} move${moves===1?'':'s'}!`, '#538d4e');
+    input.disabled = true;
+    document.getElementById('wl-submit').disabled = true;
+  }
+}
+
+function giveHint(){
+  const current = userChain.length ? userChain[userChain.length-1] : startWord;
+  if (current === endWord) return;
+  // find current's position in solutionChain; if not present, recompute chain from current
+  let idx = solutionChain.indexOf(current);
+  let nextWord;
+  if (idx !== -1 && idx < solutionChain.length - 1){
+    nextWord = solutionChain[idx+1];
+  } else {
+    const chain = findChain(current, endWord);
+    if (chain && chain.length > 1) nextWord = chain[1];
+  }
+  if (!nextWord){
+    setMsg('No hint available from here — try New Puzzle.', '#e94560');
+    return;
+  }
+  hints++;
+  document.getElementById('wl-hints').textContent = hints;
+  userChain.push(nextWord);
+  moves++;
+  document.getElementById('wl-moves').textContent = moves;
+  renderLadder();
+  setMsg(`Hint: added "${nextWord}"`, '#b59f3b');
+  if (nextWord === endWord){
+    setMsg(`🎉 Solved with hints in ${moves} move${moves===1?'':'s'}!`, '#538d4e');
+    document.getElementById('wl-input').disabled = true;
+    document.getElementById('wl-submit').disabled = true;
+  }
+}
+
+function newPuzzle(){
+  const p = pickPuzzle();
+  startWord = p.start;
+  endWord = p.end;
+  solutionChain = p.chain;
+  userChain = [];
+  hints = 0;
+  moves = 0;
+  document.getElementById('wl-start').textContent = startWord;
+  document.getElementById('wl-end').textContent = endWord;
+  document.getElementById('wl-moves').textContent = '0';
+  document.getElementById('wl-hints').textContent = '0';
+  document.getElementById('wl-input').disabled = false;
+  document.getElementById('wl-input').value = '';
+  document.getElementById('wl-submit').disabled = false;
+  setMsg('');
+  renderLadder();
+}
+
+document.getElementById('wl-submit').addEventListener('click', submitWord);
+document.getElementById('wl-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') submitWord();
+});
+document.getElementById('wl-hint').addEventListener('click', giveHint);
+document.getElementById('wl-newpuzzle').addEventListener('click', newPuzzle);
+
+newPuzzle();
+</script>
+</body></html>
