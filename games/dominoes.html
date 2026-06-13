@@ -1,0 +1,320 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"><title>Dominoes</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+body{background:#08080f}
+#table{background:#0b3d2e;border-radius:14px;padding:16px;text-align:center}
+#status{color:#fff;font-size:1.1rem;font-weight:800;min-height:1.6em;margin:8px 0}
+#scores{color:#ffd54f;font-weight:700;margin-bottom:8px}
+#chain{display:flex;flex-wrap:wrap;gap:4px;justify-content:center;align-items:center;background:rgba(0,0,0,.25);border-radius:10px;padding:14px;min-height:90px;margin:10px 0}
+.dom{display:flex;border:2px solid #222;border-radius:6px;background:#fdfdfd;box-shadow:0 2px 4px rgba(0,0,0,.4);overflow:hidden}
+.dom.h{flex-direction:row}
+.dom.v{flex-direction:column}
+.half{width:34px;height:34px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:1rem;color:#222;position:relative}
+.dom.h .half:first-child{border-right:2px solid #222}
+.dom.v .half:first-child{border-bottom:2px solid #222}
+.dom.cpu{background:#e8e8e8}
+.dom.playable{cursor:pointer;outline:3px solid #ffd54f}
+.label{color:#fff;font-weight:700;margin:8px 0 4px}
+.hand{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;min-height:60px}
+#controls{margin-top:14px}
+#controls button{padding:9px 22px;background:#e94560;border:none;border-radius:20px;color:#fff;cursor:pointer;font-size:1rem}
+#sideChoice{display:none;gap:10px;justify-content:center;margin-top:8px}
+#sideChoice button{padding:8px 18px;background:#1565c0;border:none;border-radius:16px;color:#fff;cursor:pointer}
+</style></head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Dominoes</div>
+  <div class="game-frame" style="padding:16px">
+    <div id="table">
+      <div id="scores">You: 0 — CPU: 0</div>
+      <div id="status">Click "Start Round" to begin</div>
+      <div class="label">Chain</div>
+      <div id="chain"></div>
+      <div id="sideChoice">
+        <button onclick="placeChosen('left')">Place on Left End</button>
+        <button onclick="placeChosen('right')">Place on Right End</button>
+      </div>
+      <div class="label">Your Hand (<span id="handCount">0</span> tiles) — Stock: <span id="stockCount">0</span></div>
+      <div class="hand" id="hand"></div>
+      <div id="controls">
+        <button id="drawBtn" onclick="drawTile()" style="display:none">Draw Tile</button>
+        <button id="passBtn" onclick="passTurn()" style="display:none">Pass (Blocked)</button>
+        <button id="startBtn" onclick="startRound()">Start Round</button>
+      </div>
+    </div>
+  </div>
+  <div class="game-instructions">
+    <b>How to play:</b> You play against a CPU opponent with a standard double-six domino set (28 tiles). Each round both players draw 7 tiles; remaining tiles form the stock. Click a highlighted tile in your hand to play it on a matching end of the chain (if both ends match, choose left or right). If you have no valid move, draw from the stock until you can play or the stock is empty (then you must Pass). The round ends when a player empties their hand (scoring the opponent's remaining pip total) or the game is blocked (lowest pip total wins the difference). First to empty hand or best score after blocking wins each round — scores accumulate across rounds.
+  </div>
+</div>
+<script>
+let tiles, playerHand, cpuHand, stock, chain, chainEnds, turn, roundOver, scores, pendingTile;
+
+function makeSet(){
+  const t=[];
+  for(let a=0;a<=6;a++)for(let b=a;b<=6;b++)t.push({a,b,id:a+'-'+b});
+  return t;
+}
+function shuffle(arr){
+  for(let i=arr.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[arr[i],arr[j]]=[arr[j],arr[i]];}
+  return arr;
+}
+
+function startRound(){
+  tiles=shuffle(makeSet());
+  playerHand=tiles.splice(0,7);
+  cpuHand=tiles.splice(0,7);
+  stock=tiles;
+  chain=[]; // array of {a,b, placedAsGiven} in order, ends tracked separately
+  chainEnds=null; // {left:val, right:val}
+  roundOver=false;
+  scores=scores||{player:0,cpu:0};
+  // determine starter: highest double, else highest pip total
+  const allTiles=[...playerHand.map(t=>({...t,owner:'p'})),...cpuHand.map(t=>({...t,owner:'c'}))];
+  let starter=null;
+  for(let d=6;d>=0;d--){
+    const found=allTiles.find(t=>t.a===d&&t.b===d);
+    if(found){starter=found;break;}
+  }
+  if(!starter){
+    starter=allTiles.slice().sort((a,b)=>(b.a+b.b)-(a.a+a.b))[0];
+  }
+  turn=starter.owner==='p'?'player':'cpu';
+  // remove starter from hand and place it
+  if(starter.owner==='p'){
+    playerHand=playerHand.filter(t=>!(t.a===starter.a&&t.b===starter.b));
+  } else {
+    cpuHand=cpuHand.filter(t=>!(t.a===starter.a&&t.b===starter.b));
+  }
+  chain=[{a:starter.a,b:starter.b}];
+  chainEnds={left:starter.a,right:starter.b};
+  document.getElementById('startBtn').style.display='none';
+  setStatus((turn==='player'?'You':'CPU')+' started with the highest tile. '+(turn==='player'?"Your turn — play a matching tile.":'CPU is thinking...'));
+  render();
+  if(turn==='cpu')setTimeout(cpuPlay,700);
+}
+
+function setStatus(t){document.getElementById('status').textContent=t;}
+
+function pipTotal(hand){return hand.reduce((s,t)=>s+t.a+t.b,0);}
+
+function tileMatches(tile){
+  if(!chainEnds)return true;
+  return tile.a===chainEnds.left||tile.b===chainEnds.left||tile.a===chainEnds.right||tile.b===chainEnds.right;
+}
+
+function hasValidMove(hand){return hand.some(tileMatches);}
+
+function domEl(tile,vertical,cpuStyle){
+  const d=document.createElement('div');
+  d.className='dom '+(vertical?'v':'h')+(cpuStyle?' cpu':'');
+  const h1=document.createElement('div');h1.className='half';h1.textContent=tile.a;
+  const h2=document.createElement('div');h2.className='half';h2.textContent=tile.b;
+  d.appendChild(h1);d.appendChild(h2);
+  return d;
+}
+
+function render(){
+  document.getElementById('scores').textContent=`You: ${scores?scores.player:0} — CPU: ${scores?scores.cpu:0}`;
+  // chain
+  const chainEl=document.getElementById('chain');
+  chainEl.innerHTML='';
+  chain.forEach(t=>chainEl.appendChild(domEl(t,false,false)));
+  if(chain.length)chainEl.insertAdjacentHTML('afterbegin','');
+  // hand
+  const handEl=document.getElementById('hand');
+  handEl.innerHTML='';
+  playerHand.forEach((tile,i)=>{
+    const d=domEl(tile,false,false);
+    if(turn==='player'&&!roundOver&&tileMatches(tile)){
+      d.classList.add('playable');
+      d.onclick=()=>tryPlayPlayerTile(i);
+    }
+    handEl.appendChild(d);
+  });
+  document.getElementById('handCount').textContent=playerHand.length;
+  document.getElementById('stockCount').textContent=stock.length;
+
+  const canPlay=turn==='player'&&!roundOver&&hasValidMove(playerHand);
+  const mustDraw=turn==='player'&&!roundOver&&!hasValidMove(playerHand)&&stock.length>0;
+  const mustPass=turn==='player'&&!roundOver&&!hasValidMove(playerHand)&&stock.length===0;
+  document.getElementById('drawBtn').style.display=mustDraw?'inline-block':'none';
+  document.getElementById('passBtn').style.display=mustPass?'inline-block':'none';
+  document.getElementById('sideChoice').style.display='none';
+}
+
+function tryPlayPlayerTile(i){
+  if(turn!=='player'||roundOver)return;
+  const tile=playerHand[i];
+  if(!tileMatches(tile))return;
+  const fitsLeft=tile.a===chainEnds.left||tile.b===chainEnds.left;
+  const fitsRight=tile.a===chainEnds.right||tile.b===chainEnds.right;
+  if(fitsLeft&&fitsRight&&chainEnds.left!==chainEnds.right){
+    pendingTile={index:i,tile};
+    document.getElementById('sideChoice').style.display='flex';
+    setStatus('This tile fits both ends — choose where to place it.');
+  } else if(fitsLeft){
+    placeTile(tile,'left');
+    playerHand.splice(i,1);
+    afterPlayerMove();
+  } else {
+    placeTile(tile,'right');
+    playerHand.splice(i,1);
+    afterPlayerMove();
+  }
+}
+
+function placeChosen(side){
+  if(!pendingTile)return;
+  placeTile(pendingTile.tile,side);
+  playerHand.splice(pendingTile.index,1);
+  pendingTile=null;
+  document.getElementById('sideChoice').style.display='none';
+  afterPlayerMove();
+}
+
+function placeTile(tile,side){
+  if(side==='left'){
+    // tile must connect to chainEnds.left; orient so the matching pip is adjacent
+    let a=tile.a,b=tile.b;
+    if(b===chainEnds.left){ // place as [a,b] -> b touches left end => new order (a,b) prepended means b adjacent to old left: actually we want new left = a
+      chain.unshift({a:a,b:b});
+      chainEnds.left=a;
+    } else { // a===chainEnds.left, flip so b becomes new left
+      chain.unshift({a:b,b:a});
+      chainEnds.left=b;
+    }
+  } else {
+    let a=tile.a,b=tile.b;
+    if(a===chainEnds.right){
+      chain.push({a:a,b:b});
+      chainEnds.right=b;
+    } else {
+      chain.push({a:b,b:a});
+      chainEnds.right=a;
+    }
+  }
+}
+
+function afterPlayerMove(){
+  render();
+  if(playerHand.length===0){endRound('player');return;}
+  turn='cpu';
+  setStatus('CPU is thinking...');
+  render();
+  setTimeout(cpuPlay,700);
+}
+
+function drawTile(){
+  if(turn!=='player'||roundOver)return;
+  if(stock.length===0)return;
+  playerHand.push(stock.pop());
+  render();
+  if(hasValidMove(playerHand)){
+    setStatus('You drew a tile — now you can play.');
+  } else if(stock.length===0){
+    setStatus('You drew a tile but still cannot play. Pass your turn.');
+  } else {
+    setStatus('Still no valid move — draw again.');
+  }
+  render();
+}
+
+function passTurn(){
+  if(turn!=='player'||roundOver)return;
+  setStatus('You passed. CPU\'s turn...');
+  turn='cpu';
+  render();
+  checkBlocked();
+  if(!roundOver)setTimeout(cpuPlay,700);
+}
+
+function cpuPlay(){
+  if(roundOver)return;
+  // CPU draws if needed
+  while(!hasValidMove(cpuHand)&&stock.length>0){
+    cpuHand.push(stock.pop());
+  }
+  if(!hasValidMove(cpuHand)){
+    setStatus('CPU has no valid move and passes. Your turn.');
+    turn='player';
+    checkBlocked();
+    if(!roundOver)render();
+    return;
+  }
+  // find a playable tile, prefer doubles
+  let choice=null,side=null;
+  const candidates=[];
+  cpuHand.forEach((tile,i)=>{
+    const fitsLeft=tile.a===chainEnds.left||tile.b===chainEnds.left;
+    const fitsRight=tile.a===chainEnds.right||tile.b===chainEnds.right;
+    if(fitsLeft)candidates.push({i,tile,side:'left'});
+    if(fitsRight&&chainEnds.left!==chainEnds.right)candidates.push({i,tile,side:'right'});
+    else if(fitsRight&&!fitsLeft)candidates.push({i,tile,side:'right'});
+  });
+  // prefer doubles, then highest pip
+  candidates.sort((x,y)=>{
+    const dx=(x.tile.a===x.tile.b)?1:0, dy=(y.tile.a===y.tile.b)?1:0;
+    if(dx!==dy)return dy-dx;
+    return (y.tile.a+y.tile.b)-(x.tile.a+x.tile.b);
+  });
+  choice=candidates[0];
+  placeTile(choice.tile,choice.side);
+  cpuHand.splice(choice.i,1);
+  setStatus('CPU played a tile. Your turn.');
+  turn='player';
+  render();
+  if(cpuHand.length===0){endRound('cpu');return;}
+  checkBlocked();
+}
+
+function checkBlocked(){
+  if(roundOver)return;
+  const pCan=hasValidMove(playerHand)||stock.length>0;
+  const cCan=hasValidMove(cpuHand)||stock.length>0;
+  if(!pCan&&!cCan){
+    // blocked - lower pip total wins
+    const pPips=pipTotal(playerHand), cPips=pipTotal(cpuHand);
+    if(pPips<cPips){
+      scores.player+=cPips;
+      setStatus(`Game blocked! You win with fewer pips (You: ${pPips}, CPU: ${cPips}). You score ${cPips} points.`);
+      finishRoundUI();
+    } else if(cPips<pPips){
+      scores.cpu+=pPips;
+      setStatus(`Game blocked! CPU wins with fewer pips (You: ${pPips}, CPU: ${cPips}). CPU scores ${pPips} points.`);
+      finishRoundUI();
+    } else {
+      setStatus(`Game blocked! It's a tie on pip count (${pPips} each). No points awarded.`);
+      finishRoundUI();
+    }
+  }
+}
+
+function endRound(winner){
+  roundOver=true;
+  if(winner==='player'){
+    const cpuPips=pipTotal(cpuHand);
+    scores.player+=cpuPips;
+    setStatus(`🎉 You emptied your hand! You score ${cpuPips} points (CPU's remaining pips).`);
+  } else {
+    const playerPips=pipTotal(playerHand);
+    scores.cpu+=playerPips;
+    setStatus(`CPU emptied its hand. CPU scores ${playerPips} points (your remaining pips).`);
+  }
+  finishRoundUI();
+}
+
+function finishRoundUI(){
+  roundOver=true;
+  render();
+  document.getElementById('drawBtn').style.display='none';
+  document.getElementById('passBtn').style.display='none';
+  document.getElementById('sideChoice').style.display='none';
+  document.getElementById('startBtn').textContent='Next Round';
+  document.getElementById('startBtn').style.display='inline-block';
+}
+
+scores={player:0,cpu:0};
+playerHand=[];cpuHand=[];stock=[];chain=[];chainEnds=null;turn=null;roundOver=true;
+render();
+</script></body></html>

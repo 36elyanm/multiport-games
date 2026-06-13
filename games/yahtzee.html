@@ -1,0 +1,213 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"><title>Yahtzee</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+body{background:#08080f}
+#table{background:#16213e;border-radius:14px;padding:18px;text-align:center}
+#dice{display:flex;gap:12px;justify-content:center;margin:14px 0;flex-wrap:wrap}
+.die{width:62px;height:62px;background:#fdfdfd;border-radius:12px;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);padding:8px;cursor:pointer;box-shadow:0 3px 8px rgba(0,0,0,.5);transition:transform .12s,outline .1s;position:relative}
+.die.held{outline:4px solid #ffd54f;transform:translateY(-6px)}
+.pip{width:9px;height:9px;border-radius:50%;background:#222;align-self:center;justify-self:center}
+#status{color:#fff;font-size:1.05rem;font-weight:700;margin:8px 0;min-height:1.5em}
+#controls{margin:10px 0}
+#controls button{padding:9px 22px;background:#e94560;border:none;border-radius:20px;color:#fff;cursor:pointer;font-size:1rem;margin:0 5px}
+#controls button:disabled{opacity:.4;cursor:not-allowed}
+table.score{border-collapse:collapse;margin:14px auto;color:#eee;width:100%;max-width:480px}
+table.score td,table.score th{border:1px solid rgba(255,255,255,.15);padding:7px 10px;font-size:.92rem}
+table.score th{background:rgba(255,255,255,.06)}
+table.score td.cat{text-align:left}
+table.score td.val{cursor:pointer;font-weight:700;color:#ffd54f}
+table.score td.val.taken{color:#888;cursor:default}
+table.score td.val.suggest{background:rgba(233,69,96,.25)}
+#total{font-size:1.2rem;font-weight:800;color:#ffd54f;margin-top:8px}
+</style></head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Yahtzee</div>
+  <div class="game-frame" style="padding:16px">
+    <div id="table">
+      <div id="status">Click "Roll" to start your turn (Round 1 of 13)</div>
+      <div id="dice"></div>
+      <div id="controls">
+        <button id="rollBtn" onclick="roll()">Roll (3 left)</button>
+      </div>
+      <table class="score" id="scoreTable"></table>
+      <div id="total">Total: 0</div>
+    </div>
+  </div>
+  <div class="game-instructions">
+    <b>How to play:</b> Each turn you get up to 3 rolls of 5 dice. After the first roll, click dice to <b>hold</b> them (highlighted gold) before rolling again. When ready, click any available category in the scorecard to record your score there (highlighted categories show your best current option). Categories highlighted in red are good potential choices for your current dice. The game lasts 13 rounds — once every category is filled, your final total is shown. Score smartly: each category can only be used once!
+  </div>
+</div>
+<script>
+const CATS=[
+  {key:'ones',label:'Ones',fn:d=>sumOf(d,1)},
+  {key:'twos',label:'Twos',fn:d=>sumOf(d,2)},
+  {key:'threes',label:'Threes',fn:d=>sumOf(d,3)},
+  {key:'fours',label:'Fours',fn:d=>sumOf(d,4)},
+  {key:'fives',label:'Fives',fn:d=>sumOf(d,5)},
+  {key:'sixes',label:'Sixes',fn:d=>sumOf(d,6)},
+  {key:'threeKind',label:'Three of a Kind',fn:d=>hasN(d,3)?total(d):0},
+  {key:'fourKind',label:'Four of a Kind',fn:d=>hasN(d,4)?total(d):0},
+  {key:'fullHouse',label:'Full House',fn:d=>isFullHouse(d)?25:0},
+  {key:'smallStraight',label:'Small Straight',fn:d=>isSmallStraight(d)?30:0},
+  {key:'largeStraight',label:'Large Straight',fn:d=>isLargeStraight(d)?40:0},
+  {key:'yahtzee',label:'Yahtzee',fn:d=>hasN(d,5)?50:0},
+  {key:'chance',label:'Chance',fn:d=>total(d)}
+];
+let dice,held,rollsLeft,scores,round,gameOver;
+
+function sumOf(d,face){return d.filter(x=>x===face).reduce((s,x)=>s+x,0);}
+function total(d){return d.reduce((s,x)=>s+x,0);}
+function counts(d){const c={};d.forEach(x=>c[x]=(c[x]||0)+1);return c;}
+function hasN(d,n){return Object.values(counts(d)).some(c=>c>=n);}
+function isFullHouse(d){const c=Object.values(counts(d)).sort();return c.length===2&&c[0]===2&&c[1]===3;}
+function isSmallStraight(d){
+  const s=new Set(d);
+  const seqs=[[1,2,3,4],[2,3,4,5],[3,4,5,6]];
+  return seqs.some(seq=>seq.every(v=>s.has(v)));
+}
+function isLargeStraight(d){
+  const s=Array.from(new Set(d)).sort((a,b)=>a-b);
+  return (s.length===5)&&((s[4]-s[0]===4));
+}
+
+function newGame(){
+  scores={};
+  CATS.forEach(c=>scores[c.key]=null);
+  round=1;
+  gameOver=false;
+  dice=[1,1,1,1,1];
+  held=[false,false,false,false,false];
+  rollsLeft=3;
+  setStatus('Click "Roll" to start your turn (Round 1 of 13)');
+  document.getElementById('rollBtn').disabled=false;
+  document.getElementById('rollBtn').textContent='Roll (3 left)';
+  renderDice(true);
+  renderScoreTable();
+  updateTotal();
+}
+
+function setStatus(t){document.getElementById('status').textContent=t;}
+
+function pipLayout(face){
+  // returns 9-cell boolean grid (3x3) for pip positions
+  const g=Array(9).fill(false);
+  const c=[ [4],[0,8],[0,4,8],[0,2,6,8],[0,2,4,6,8],[0,2,3,5,6,8] ];
+  c[face-1].forEach(i=>g[i]=true);
+  return g;
+}
+
+function dieEl(face,heldFlag,clickable){
+  const d=document.createElement('div');
+  d.className='die'+(heldFlag?' held':'');
+  pipLayout(face).forEach(on=>{
+    const p=document.createElement('div');
+    if(on)p.className='pip';
+    d.appendChild(p);
+  });
+  return d;
+}
+
+function renderDice(initial){
+  const el=document.getElementById('dice');
+  el.innerHTML='';
+  dice.forEach((f,i)=>{
+    const clickable=!initial&&rollsLeft<3&&rollsLeft>0&&!gameOver;
+    const d=dieEl(f,held[i],false);
+    if(clickable){
+      d.onclick=()=>{held[i]=!held[i];renderDice(false);};
+      d.style.cursor='pointer';
+    }
+    el.appendChild(d);
+  });
+}
+
+function roll(){
+  if(gameOver||rollsLeft<=0)return;
+  for(let i=0;i<5;i++){
+    if(!held[i])dice[i]=1+Math.floor(Math.random()*6);
+  }
+  rollsLeft--;
+  renderDice(false);
+  renderScoreTable();
+  if(rollsLeft===0){
+    setStatus('No rolls left — choose a category to score.');
+    document.getElementById('rollBtn').disabled=true;
+    document.getElementById('rollBtn').textContent='Roll (0 left)';
+  } else {
+    setStatus(`Rolled! Hold dice you want to keep, then roll again, or pick a category. (${rollsLeft} roll${rollsLeft===1?'':'s'} left)`);
+    document.getElementById('rollBtn').textContent=`Roll (${rollsLeft} left)`;
+  }
+}
+
+function renderScoreTable(){
+  const tbl=document.getElementById('scoreTable');
+  tbl.innerHTML='';
+  const head=document.createElement('tr');
+  head.innerHTML='<th>Category</th><th>Score</th>';
+  tbl.appendChild(head);
+  const usedRoll = (rollsLeft<3); // dice have been rolled at least once this turn
+  CATS.forEach(cat=>{
+    const tr=document.createElement('tr');
+    const tdCat=document.createElement('td');tdCat.className='cat';tdCat.textContent=cat.label;
+    const tdVal=document.createElement('td');tdVal.className='val';
+    if(scores[cat.key]!==null){
+      tdVal.textContent=scores[cat.key];
+      tdVal.classList.add('taken');
+    } else {
+      const potential=cat.fn(dice);
+      tdVal.textContent=usedRoll?potential:'—';
+      if(usedRoll&&potential>0)tdVal.classList.add('suggest');
+      tdVal.onclick=()=>chooseCategory(cat.key);
+    }
+    tr.appendChild(tdCat);tr.appendChild(tdVal);
+    tbl.appendChild(tr);
+  });
+}
+
+function chooseCategory(key){
+  if(gameOver)return;
+  if(scores[key]!==null)return;
+  if(rollsLeft===3){setStatus('Roll the dice at least once before scoring.');return;}
+  const score=CATS.find(c=>c.key===key).fn(dice);
+  scores[key]=score;
+  updateTotal();
+  // next turn
+  if(Object.values(scores).every(v=>v!==null)){
+    gameOver=true;
+    setStatus(`🎉 Game over! Final score: ${grandTotal()}`);
+    document.getElementById('rollBtn').disabled=true;
+    renderScoreTable();
+    return;
+  }
+  round++;
+  dice=[1,1,1,1,1];
+  held=[false,false,false,false,false];
+  rollsLeft=3;
+  document.getElementById('rollBtn').disabled=false;
+  document.getElementById('rollBtn').textContent='Roll (3 left)';
+  setStatus(`Scored ${score} points. Round ${round} of 13 — click Roll to begin.`);
+  renderDice(true);
+  renderScoreTable();
+}
+
+function grandTotal(){
+  let upper=0;
+  ['ones','twos','threes','fours','fives','sixes'].forEach(k=>{if(scores[k])upper+=scores[k];});
+  const bonus=upper>=63?35:0;
+  let lower=0;
+  CATS.forEach(c=>{
+    if(!['ones','twos','threes','fours','fives','sixes'].includes(c.key)&&scores[c.key])lower+=scores[c.key];
+  });
+  return upper+bonus+lower;
+}
+
+function updateTotal(){
+  let upper=0;
+  ['ones','twos','threes','fours','fives','sixes'].forEach(k=>{if(scores[k])upper+=scores[k];});
+  const bonus=upper>=63?35:0;
+  document.getElementById('total').textContent=`Total: ${grandTotal()}`+(upper>0?` (Upper: ${upper}${bonus?` + 35 bonus`:upper<63?`, need ${63-upper} more for 35 bonus`:''})`:'');
+}
+
+newGame();
+</script></body></html>

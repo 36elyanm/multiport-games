@@ -1,0 +1,194 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"><title>Bingo</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+body{background:#08080f}
+#table{background:#16213e;border-radius:14px;padding:18px;text-align:center}
+#status{color:#fff;font-size:1.1rem;font-weight:800;margin:6px 0;min-height:1.6em}
+#current{font-size:2.4rem;font-weight:900;color:#ffd54f;margin:6px 0;min-height:3rem}
+#card{display:inline-grid;grid-template-columns:repeat(5,60px);grid-template-rows:auto repeat(5,60px);gap:5px;background:#0b3d2e;padding:10px;border-radius:12px;margin:14px auto}
+.hcell{width:60px;height:36px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:1.2rem;color:#e94560}
+.cell{width:60px;height:60px;border-radius:8px;background:#fdfdfd;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:1.05rem;color:#222;cursor:pointer;transition:background .15s,transform .1s}
+.cell.marked{background:#e94560;color:#fff;transform:scale(.93)}
+.cell.free{background:#ffd54f;color:#222;font-size:.85rem}
+.cell.win{outline:4px solid #4caf50}
+#controls{margin:12px 0}
+#controls button{padding:9px 22px;background:#e94560;border:none;border-radius:20px;color:#fff;cursor:pointer;font-size:1rem;margin:0 5px}
+#controls button:disabled{opacity:.4;cursor:not-allowed}
+#history{max-width:520px;margin:10px auto;color:#ddd;font-size:.85rem;background:rgba(0,0,0,.25);border-radius:10px;padding:10px 14px;min-height:2.4em}
+#history b{color:#ffd54f}
+#autoRow{color:#fff;margin-top:6px}
+@media(max-width:480px){
+  #card{grid-template-columns:repeat(5,50px);grid-template-rows:auto repeat(5,50px)}
+  .hcell{width:50px;height:30px;font-size:1rem}
+  .cell{width:50px;height:50px;font-size:.9rem}
+}
+</style></head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Bingo</div>
+  <div class="game-frame" style="padding:16px">
+    <div id="table">
+      <div id="status">Click "Draw Number" to start, then mark matches on your card</div>
+      <div id="current">—</div>
+      <div id="card"></div>
+      <div id="controls">
+        <button id="drawBtn" onclick="drawNumber()">Draw Number</button>
+        <button id="newCardBtn" onclick="newGame()">New Card</button>
+      </div>
+      <div id="autoRow"><label><input type="checkbox" id="autoCheck" onchange="toggleAuto()"> Auto-draw every 3 seconds</label></div>
+      <div id="history">Called numbers: <span id="histList">none yet</span></div>
+    </div>
+  </div>
+  <div class="game-instructions">
+    <b>How to play:</b> You're given a 5×5 card with a free center space. Click <b>Draw Number</b> (or enable auto-draw) to call a random number — it's announced and added to the history list. Click any matching number on your card to mark it. Complete a full row, column, or diagonal of marked cells (the free space counts as marked) to get <b>BINGO</b>! Click <b>New Card</b> any time to generate a fresh card and reset the game.
+  </div>
+</div>
+<script>
+const COLS=['B','I','N','G','O'];
+const RANGES=[[1,15],[16,30],[31,45],[46,60],[61,75]];
+let card,marked,called,calledSet,autoTimer,won;
+
+function randRange(lo,hi,exclude){
+  let v;
+  do{v=lo+Math.floor(Math.random()*(hi-lo+1));}while(exclude.has(v));
+  return v;
+}
+
+function genCard(){
+  const grid=[];
+  const used=new Set();
+  for(let c=0;c<5;c++){
+    const [lo,hi]=RANGES[c];
+    const colVals=new Set();
+    for(let r=0;r<5;r++){
+      if(c===2&&r===2){colVals.add('FREE');continue;}
+      let v=randRange(lo,hi,colVals);
+      colVals.add(v);
+    }
+    grid.push(Array.from(colVals));
+  }
+  // grid[col][row] -> convert to row-major
+  const card=[];
+  for(let r=0;r<5;r++){
+    const row=[];
+    for(let c=0;c<5;c++)row.push(grid[c][r]);
+    card.push(row);
+  }
+  return card;
+}
+
+function newGame(){
+  card=genCard();
+  marked=card.map(row=>row.map(v=>v==='FREE'));
+  called=[];
+  calledSet=new Set();
+  won=false;
+  clearInterval(autoTimer);
+  document.getElementById('autoCheck').checked=false;
+  document.getElementById('drawBtn').disabled=false;
+  document.getElementById('current').textContent='—';
+  setStatus('New card ready! Click "Draw Number" to begin.');
+  updateHistory();
+  render();
+}
+
+function setStatus(t){document.getElementById('status').textContent=t;}
+
+function letterFor(num){
+  for(let i=0;i<5;i++)if(num>=RANGES[i][0]&&num<=RANGES[i][1])return COLS[i];
+  return '';
+}
+
+function drawNumber(){
+  if(won)return;
+  if(calledSet.size>=75){setStatus('All 75 numbers have been called!');clearInterval(autoTimer);document.getElementById('drawBtn').disabled=true;return;}
+  let n;
+  do{n=1+Math.floor(Math.random()*75);}while(calledSet.has(n));
+  calledSet.add(n);
+  called.unshift(n);
+  document.getElementById('current').textContent=letterFor(n)+'-'+n;
+  setStatus(`Number called: ${letterFor(n)}-${n}. Click matching cells on your card to mark them!`);
+  updateHistory();
+}
+
+function updateHistory(){
+  document.getElementById('histList').textContent = called.length? called.map(n=>letterFor(n)+'-'+n).join(', ') : 'none yet';
+}
+
+function toggleAuto(){
+  const on=document.getElementById('autoCheck').checked;
+  clearInterval(autoTimer);
+  if(on&&!won){
+    autoTimer=setInterval(()=>{ if(!won) drawNumber(); else clearInterval(autoTimer); },3000);
+    drawNumber();
+  }
+}
+
+function render(){
+  const cardEl=document.getElementById('card');
+  cardEl.innerHTML='';
+  COLS.forEach(l=>{
+    const h=document.createElement('div');h.className='hcell';h.textContent=l;
+    cardEl.appendChild(h);
+  });
+  const winCells=won?winningCells():null;
+  for(let r=0;r<5;r++){
+    for(let c=0;c<5;c++){
+      const val=card[r][c];
+      const cell=document.createElement('div');
+      cell.className='cell';
+      if(val==='FREE'){
+        cell.classList.add('free');
+        cell.textContent='FREE';
+      } else {
+        cell.textContent=val;
+      }
+      if(marked[r][c])cell.classList.add('marked');
+      if(winCells&&winCells.some(([wr,wc])=>wr===r&&wc===c))cell.classList.add('win');
+      cell.onclick=()=>markCell(r,c);
+      cardEl.appendChild(cell);
+    }
+  }
+}
+
+function markCell(r,c){
+  if(won)return;
+  const val=card[r][c];
+  if(val==='FREE')return;
+  if(!calledSet.has(val)){
+    setStatus(`${val} hasn't been called yet — keep watching for it!`);
+    return;
+  }
+  marked[r][c]=!marked[r][c];
+  render();
+  checkWin();
+}
+
+function winningCells(){
+  // returns array of [r,c] for the first complete line found
+  for(let r=0;r<5;r++){
+    if([0,1,2,3,4].every(c=>marked[r][c]))return [0,1,2,3,4].map(c=>[r,c]);
+  }
+  for(let c=0;c<5;c++){
+    if([0,1,2,3,4].every(r=>marked[r][c]))return [0,1,2,3,4].map(r=>[r,c]);
+  }
+  if([0,1,2,3,4].every(i=>marked[i][i]))return [0,1,2,3,4].map(i=>[i,i]);
+  if([0,1,2,3,4].every(i=>marked[i][4-i]))return [0,1,2,3,4].map(i=>[i,4-i]);
+  // full card
+  if(marked.every(row=>row.every(Boolean)))return marked.flatMap((row,r)=>row.map((_,c)=>[r,c]));
+  return null;
+}
+
+function checkWin(){
+  const wc=winningCells();
+  if(wc){
+    won=true;
+    clearInterval(autoTimer);
+    document.getElementById('drawBtn').disabled=true;
+    setStatus('🎉 BINGO! You win! Click "New Card" to play again.');
+    render();
+  }
+}
+
+newGame();
+</script></body></html>

@@ -1,0 +1,203 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"><title>Video Poker — Jacks or Better</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+body{background:#08080f}
+#table{background:#0b3d2e;border-radius:14px;padding:20px;text-align:center}
+#payouts{display:grid;grid-template-columns:1fr auto;gap:2px 14px;max-width:340px;margin:0 auto 14px;color:#ddd;font-size:.85rem;background:rgba(0,0,0,.25);border-radius:10px;padding:10px 16px}
+#payouts .hl{color:#ffd54f;font-weight:800}
+.hand{display:flex;gap:10px;justify-content:center;margin:14px 0;flex-wrap:wrap}
+.cardwrap{display:flex;flex-direction:column;align-items:center;gap:6px}
+.card{width:70px;height:98px;border-radius:6px;background:#fff;border:1px solid #999;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:1.15rem;cursor:pointer;box-shadow:0 2px 5px rgba(0,0,0,.4);transition:transform .12s}
+.card.red{color:#d32f2f}
+.card.black{color:#222}
+.card.held{outline:3px solid #ffd54f;transform:translateY(-8px)}
+.cardlabel{display:flex;flex-direction:column;align-items:center;line-height:1.05}
+.holdlabel{color:#ffd54f;font-weight:800;font-size:.8rem;visibility:hidden}
+.holdlabel.show{visibility:visible}
+#status{color:#fff;font-size:1.15rem;font-weight:800;min-height:1.6em;margin:8px 0}
+#credits{color:#ffd54f;font-size:1.05rem;font-weight:700;margin-bottom:6px}
+#controls{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:10px}
+#controls button{padding:10px 22px;background:#e94560;border:none;border-radius:20px;color:#fff;cursor:pointer;font-size:1rem;font-weight:600}
+#controls button:disabled{opacity:.4;cursor:not-allowed}
+#betRow{margin-top:8px;color:#fff}
+#betRow input{width:80px;padding:8px;border-radius:10px;border:1px solid #444;background:#16213e;color:#fff;font-size:1rem;text-align:center}
+</style></head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Video Poker — Jacks or Better</div>
+  <div class="game-frame" style="padding:16px">
+    <div id="table">
+      <div id="credits">Credits: 200</div>
+      <div id="payouts"></div>
+      <div id="status">Place your bet and click Deal</div>
+      <div class="hand" id="hand"></div>
+      <div id="betRow">Bet: <input type="number" id="betInput" value="10" min="1" step="1"></div>
+      <div id="controls">
+        <button id="dealBtn" onclick="deal()">Deal</button>
+        <button id="drawBtn" onclick="draw()" disabled>Draw</button>
+      </div>
+    </div>
+  </div>
+  <div class="game-instructions">
+    <b>How to play:</b> Place a bet and click <b>Deal</b> to receive 5 cards. Click any card to <b>hold</b> it (highlighted in gold). Click <b>Draw</b> to replace all unheld cards with new ones from the deck — this is your final hand. You need at least a pair of Jacks (or better) to win. Payouts are shown above and scale with your bet. Your credit balance persists between hands.
+  </div>
+</div>
+<script>
+const SUITS=[{s:'♠',c:'black'},{s:'♥',c:'red'},{s:'♦',c:'red'},{s:'♣',c:'black'}];
+const RANKS=['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+const PAYTABLE=[
+  ['Royal Flush',250],
+  ['Straight Flush',50],
+  ['Four of a Kind',25],
+  ['Full House',9],
+  ['Flush',6],
+  ['Straight',4],
+  ['Three of a Kind',3],
+  ['Two Pair',2],
+  ['Jacks or Better',1]
+];
+let credits=200;
+let deck,hand,held,stage,bet;
+
+function buildPayoutsTable(){
+  const el=document.getElementById('payouts');
+  el.innerHTML='';
+  PAYTABLE.forEach(([name,mult])=>{
+    const a=document.createElement('div');a.textContent=name;
+    const b=document.createElement('div');b.className='hl';b.textContent=mult+':1';
+    el.appendChild(a);el.appendChild(b);
+  });
+}
+
+function freshDeck(){
+  const d=[];
+  for(let su=0;su<4;su++)for(let r=0;r<13;r++)d.push({suit:su,rank:r});
+  for(let i=d.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[d[i],d[j]]=[d[j],d[i]];}
+  return d;
+}
+
+function cardEl(card){
+  const d=document.createElement('div');
+  d.className='card '+SUITS[card.suit].c;
+  const lbl=document.createElement('div');
+  lbl.className='cardlabel';
+  lbl.innerHTML=RANKS[card.rank]+'<span style="font-size:1.2em">'+SUITS[card.suit].s+'</span>';
+  d.appendChild(lbl);
+  return d;
+}
+
+function updateCredits(){document.getElementById('credits').textContent='Credits: '+credits;}
+function setStatus(t){document.getElementById('status').textContent=t;}
+
+function render(){
+  const h=document.getElementById('hand');
+  h.innerHTML='';
+  hand.forEach((card,i)=>{
+    const wrap=document.createElement('div');wrap.className='cardwrap';
+    const c=cardEl(card);
+    if(held[i])c.classList.add('held');
+    if(stage==='holding')c.onclick=()=>toggleHold(i);
+    wrap.appendChild(c);
+    const lab=document.createElement('div');lab.className='holdlabel'+(held[i]?' show':'');lab.textContent='HELD';
+    wrap.appendChild(lab);
+    h.appendChild(wrap);
+  });
+  updateCredits();
+}
+
+function toggleHold(i){
+  if(stage!=='holding')return;
+  held[i]=!held[i];
+  render();
+}
+
+function deal(){
+  const betInput=document.getElementById('betInput');
+  bet=parseInt(betInput.value,10);
+  if(!bet||bet<1){setStatus('Enter a valid bet.');return;}
+  if(bet>credits){setStatus("You can't bet more than your credit balance.");return;}
+  credits-=bet;
+  deck=freshDeck();
+  hand=[deck.pop(),deck.pop(),deck.pop(),deck.pop(),deck.pop()];
+  held=[false,false,false,false,false];
+  stage='holding';
+  document.getElementById('dealBtn').disabled=true;
+  document.getElementById('drawBtn').disabled=false;
+  betInput.disabled=true;
+  setStatus('Click cards to hold, then click Draw');
+  render();
+}
+
+function draw(){
+  if(stage!=='holding')return;
+  for(let i=0;i<5;i++){
+    if(!held[i])hand[i]=deck.pop();
+  }
+  stage='done';
+  document.getElementById('drawBtn').disabled=true;
+  render();
+  const result=evaluateHand(hand);
+  if(result){
+    const winnings=result.mult*bet;
+    credits+=winnings;
+    setStatus(`🎉 ${result.name}! You win ${winnings} credits!`);
+  } else {
+    setStatus('No win this time — try again!');
+  }
+  updateCredits();
+  setTimeout(()=>{
+    stage='betting';
+    document.getElementById('dealBtn').disabled=false;
+    document.getElementById('betInput').disabled=false;
+    if(credits<=0){
+      credits=200;
+      setStatus(document.getElementById('status').textContent+' 💸 Out of credits — refilled to 200.');
+      updateCredits();
+    }
+  },50);
+}
+
+function evaluateHand(cards){
+  const ranks=cards.map(c=>c.rank).slice().sort((a,b)=>a-b);
+  const suits=cards.map(c=>c.suit);
+  const isFlush=suits.every(s=>s===suits[0]);
+  // straight check — handle Ace-low (A,2,3,4,5) where Ace rank=0
+  let sorted=ranks.slice();
+  let isStraight=false;
+  // normal consecutive check
+  let consec=true;
+  for(let i=1;i<5;i++){if(sorted[i]!==sorted[i-1]+1){consec=false;break;}}
+  if(consec)isStraight=true;
+  // Ace-high straight: 10,J,Q,K,A => ranks 9,10,11,12,0
+  const aceHigh=[9,10,11,12,0].slice().sort((a,b)=>a-b);
+  if(JSON.stringify(sorted)===JSON.stringify(aceHigh))isStraight=true;
+  const isRoyal=isFlush&&JSON.stringify(sorted)===JSON.stringify(aceHigh);
+
+  // count rank frequencies
+  const counts={};
+  ranks.forEach(r=>counts[r]=(counts[r]||0)+1);
+  const freq=Object.values(counts).sort((a,b)=>b-a);
+  const pairs=Object.entries(counts).filter(([r,c])=>c===2).map(([r])=>parseInt(r));
+
+  if(isRoyal)return {name:'Royal Flush',mult:250};
+  if(isStraight&&isFlush)return {name:'Straight Flush',mult:50};
+  if(freq[0]===4)return {name:'Four of a Kind',mult:25};
+  if(freq[0]===3&&freq[1]===2)return {name:'Full House',mult:9};
+  if(isFlush)return {name:'Flush',mult:6};
+  if(isStraight)return {name:'Straight',mult:4};
+  if(freq[0]===3)return {name:'Three of a Kind',mult:3};
+  if(freq[0]===2&&freq[1]===2)return {name:'Two Pair',mult:2};
+  if(freq[0]===2){
+    const pairRank=pairs[0];
+    if(pairRank>=10||pairRank===10||pairRank===11||pairRank===12||pairRank===0&&false){}
+    // Jacks(10) Queens(11) Kings(12) or Aces(0) or better -> rank index: J=10,Q=11,K=12,A=0
+    if(pairRank===10||pairRank===11||pairRank===12||pairRank===0)return {name:'Jacks or Better',mult:1};
+    return null;
+  }
+  return null;
+}
+
+buildPayoutsTable();
+hand=[];held=[false,false,false,false,false];stage='betting';
+updateCredits();
+</script></body></html>

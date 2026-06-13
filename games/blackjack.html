@@ -1,0 +1,244 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"><title>Blackjack</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+body{background:#08080f}
+#table{background:#0b3d2e;border-radius:14px;padding:20px;text-align:center}
+.hand{display:flex;gap:8px;justify-content:center;margin:10px 0;min-height:96px;flex-wrap:wrap}
+.card{width:64px;height:90px;border-radius:6px;background:#fff;border:1px solid #999;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:1.1rem;box-shadow:0 2px 5px rgba(0,0,0,.4)}
+.card.red{color:#d32f2f}
+.card.black{color:#222}
+.card.back{background:linear-gradient(135deg,#1565c0,#0d47a1);position:relative}
+.card.back::after{content:'';position:absolute;inset:5px;border:2px solid rgba(255,255,255,.35);border-radius:4px}
+.label{color:#fff;font-weight:700;margin-top:6px}
+#status{color:#fff;font-size:1.15rem;font-weight:800;min-height:1.6em;margin:10px 0}
+#bankroll{color:#ffd54f;font-size:1.05rem;font-weight:700;margin-bottom:6px}
+#controls{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:14px}
+#controls button,#betRow button{padding:10px 20px;background:#e94560;border:none;border-radius:20px;color:#fff;cursor:pointer;font-size:1rem;font-weight:600}
+#controls button:disabled,#betRow button:disabled{opacity:.4;cursor:not-allowed}
+#betRow{display:flex;gap:10px;justify-content:center;align-items:center;margin-top:10px;flex-wrap:wrap}
+#betRow input{width:90px;padding:9px;border-radius:10px;border:1px solid #444;background:#16213e;color:#fff;font-size:1rem;text-align:center}
+.cardlabel{display:flex;flex-direction:column;align-items:center;line-height:1.05}
+</style></head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Blackjack</div>
+  <div class="game-frame" style="padding:16px">
+    <div id="table">
+      <div id="bankroll">Chips: 500</div>
+      <div class="label">Dealer</div>
+      <div class="hand" id="dealerHand"></div>
+      <div id="status">Place your bet and deal!</div>
+      <div class="label">You</div>
+      <div class="hand" id="playerHand"></div>
+      <div id="betRow">
+        <label style="color:#fff">Bet: <input type="number" id="betInput" value="50" min="1" step="1"></label>
+        <button id="dealBtn" onclick="deal()">Deal</button>
+      </div>
+      <div id="controls">
+        <button id="hitBtn" onclick="hit()" disabled>Hit</button>
+        <button id="standBtn" onclick="stand()" disabled>Stand</button>
+        <button id="doubleBtn" onclick="doubleDown()" disabled>Double</button>
+        <button id="newHandBtn" onclick="resetHand()" style="display:none">New Hand</button>
+      </div>
+    </div>
+  </div>
+  <div class="game-instructions">
+    <b>How to play:</b> Enter a bet and click Deal — you and the dealer each get two cards (one dealer card hidden). <b>Hit</b> to take another card, <b>Stand</b> to end your turn, or <b>Double</b> to double your bet and take exactly one more card. The dealer reveals their hidden card and must hit until reaching 17 or more. Closest to 21 without going over wins. Blackjack (Ace + 10-value card on the deal) pays 3:2. Your chip balance persists between hands — click <b>New Hand</b> to continue.
+  </div>
+</div>
+<script>
+const SUITS=[{s:'♠',c:'black'},{s:'♥',c:'red'},{s:'♦',c:'red'},{s:'♣',c:'black'}];
+const RANKS=['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+let bankroll=500;
+let deck,player,dealer,bet,inRound,revealDealer,doubled;
+
+function freshDeck(){
+  const d=[];
+  for(let su=0;su<4;su++)for(let r=0;r<13;r++)d.push({suit:su,rank:r});
+  for(let i=d.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[d[i],d[j]]=[d[j],d[i]];}
+  return d;
+}
+
+function cardValue(card){
+  if(card.rank===0)return 11;
+  if(card.rank>=9)return 10;
+  return card.rank+1;
+}
+function handValue(hand){
+  let total=hand.reduce((s,c)=>s+cardValue(c),0);
+  let aces=hand.filter(c=>c.rank===0).length;
+  while(total>21&&aces>0){total-=10;aces--;}
+  return total;
+}
+function isBlackjack(hand){return hand.length===2&&handValue(hand)===21;}
+
+function cardEl(card,hidden){
+  const d=document.createElement('div');
+  if(hidden){d.className='card back';return d;}
+  d.className='card '+SUITS[card.suit].c;
+  const lbl=document.createElement('div');
+  lbl.className='cardlabel';
+  lbl.innerHTML=RANKS[card.rank]+'<span style="font-size:1.2em">'+SUITS[card.suit].s+'</span>';
+  d.appendChild(lbl);
+  return d;
+}
+
+function updateBankroll(){document.getElementById('bankroll').textContent='Chips: '+bankroll;}
+
+function setStatus(t){document.getElementById('status').textContent=t;}
+
+function render(){
+  const dEl=document.getElementById('dealerHand');
+  dEl.innerHTML='';
+  dealer.forEach((c,i)=>dEl.appendChild(cardEl(c,!revealDealer&&i===1)));
+  const pEl=document.getElementById('playerHand');
+  pEl.innerHTML='';
+  player.forEach(c=>pEl.appendChild(cardEl(c,false)));
+  updateBankroll();
+}
+
+function deal(){
+  const betInput=document.getElementById('betInput');
+  bet=parseInt(betInput.value,10);
+  if(!bet||bet<1){setStatus('Enter a valid bet.');return;}
+  if(bet>bankroll){setStatus("You can't bet more than your chip balance.");return;}
+  bankroll-=bet;
+  deck=freshDeck();
+  player=[deck.pop(),deck.pop()];
+  dealer=[deck.pop(),deck.pop()];
+  inRound=true;revealDealer=false;doubled=false;
+  document.getElementById('dealBtn').disabled=true;
+  betInput.disabled=true;
+  document.getElementById('newHandBtn').style.display='none';
+  setControls(true);
+  render();
+  if(isBlackjack(player)||isBlackjack(dealer)){
+    endRound();
+    return;
+  }
+  setStatus('Your move: Hit, Stand, or Double?');
+  document.getElementById('doubleBtn').disabled=(bankroll<bet);
+}
+
+function setControls(active){
+  document.getElementById('hitBtn').disabled=!active;
+  document.getElementById('standBtn').disabled=!active;
+  document.getElementById('doubleBtn').disabled=!active||bankroll<bet;
+}
+
+function hit(){
+  if(!inRound)return;
+  player.push(deck.pop());
+  render();
+  if(handValue(player)>21){
+    setStatus('Bust! You went over 21.');
+    finishRound('lose');
+  } else if(handValue(player)===21){
+    stand();
+  }
+}
+
+function stand(){
+  if(!inRound)return;
+  setControls(false);
+  revealDealer=true;
+  dealerPlay();
+}
+
+function doubleDown(){
+  if(!inRound||bankroll<bet)return;
+  bankroll-=bet;
+  bet*=2;
+  doubled=true;
+  player.push(deck.pop());
+  render();
+  setControls(false);
+  if(handValue(player)>21){
+    setStatus('Bust on double down!');
+    finishRound('lose');
+    return;
+  }
+  revealDealer=true;
+  dealerPlay();
+}
+
+function dealerPlay(){
+  render();
+  if(handValue(dealer)<17){
+    setTimeout(()=>{dealer.push(deck.pop());dealerPlay();},500);
+  } else {
+    setTimeout(()=>finishRound(),400);
+  }
+}
+
+function finishRound(forced){
+  inRound=false;
+  revealDealer=true;
+  render();
+  let result;
+  const pv=handValue(player), dv=handValue(dealer);
+  if(forced==='lose'){
+    result='lose';
+  } else if(isBlackjack(player)&&isBlackjack(dealer)){
+    result='push';
+  } else if(isBlackjack(player)){
+    result='blackjack';
+  } else if(isBlackjack(dealer)){
+    result='lose';
+  } else if(pv>21){
+    result='lose';
+  } else if(dv>21){
+    result='win';
+  } else if(pv>dv){
+    result='win';
+  } else if(pv<dv){
+    result='lose';
+  } else {
+    result='push';
+  }
+  applyResult(result);
+  endRound();
+}
+
+function applyResult(result){
+  let msg='';
+  if(result==='blackjack'){
+    const payout=Math.floor(bet*2.5);
+    bankroll+=payout;
+    msg=`🂡 Blackjack! You win ${Math.floor(bet*1.5)} chips!`;
+  } else if(result==='win'){
+    bankroll+=bet*2;
+    msg=`🎉 You win ${bet} chips!`;
+  } else if(result==='push'){
+    bankroll+=bet;
+    msg=`🤝 Push — bet returned.`;
+  } else {
+    msg=`💀 You lose ${bet} chips.`;
+  }
+  setStatus(msg+`  (Final: You ${handValue(player)} — Dealer ${handValue(dealer)})`);
+  updateBankroll();
+}
+
+function endRound(){
+  setControls(false);
+  document.getElementById('newHandBtn').style.display='inline-block';
+  if(bankroll<=0){
+    setTimeout(()=>{setStatus(document.getElementById('status').textContent+'  💸 You are out of chips! Refilling to 500.');bankroll=500;updateBankroll();},800);
+  }
+}
+
+function resetHand(){
+  inRound=false;
+  player=[];dealer=[];revealDealer=false;
+  render();
+  document.getElementById('dealerHand').innerHTML='';
+  document.getElementById('playerHand').innerHTML='';
+  document.getElementById('dealBtn').disabled=false;
+  document.getElementById('betInput').disabled=false;
+  document.getElementById('newHandBtn').style.display='none';
+  setControls(false);
+  setStatus('Place your bet and deal!');
+}
+
+resetHand();
+</script></body></html>
