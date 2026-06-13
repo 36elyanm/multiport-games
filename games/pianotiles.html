@@ -1,0 +1,195 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"><title>Piano Tiles</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>body{background:#08080f}#c{display:block;border-radius:8px;touch-action:none}#ui{color:#e94560;font-size:1.1rem;font-weight:700;text-align:center;padding:8px}</style>
+</head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Piano Tiles</div>
+  <div class="game-frame">
+    <div id="ui">Score: 0 | Combo: 0</div>
+    <canvas id="c" width="400" height="600"></canvas>
+  </div>
+  <div class="game-instructions">Tap the <b>black tile</b> in each row as it crosses the hit line near the bottom — or use keys <b>D F J K</b> for the 4 columns. Tapping an empty column or letting a black tile pass the line ends the run. Speed ramps up the longer you survive — keep your combo alive!</div>
+</div>
+<script>
+const c=document.getElementById('c'),ctx=c.getContext('2d');
+const W=c.width,H=c.height;
+const COLS=4, COL_W=W/COLS;
+const HIT_Y=H-110;
+const TILE_H=140;
+
+let tiles, score, combo, best, state, speed, spawnGap, distSinceSpawn, audioCtx;
+
+const NOTES=[261.63,293.66,329.63,349.23,392.00,440.00,493.88,523.25];
+const KEYS=['KeyD','KeyF','KeyJ','KeyK'];
+
+function ensureAudio(){
+  if(!audioCtx){
+    try{audioCtx=new (window.AudioContext||window.webkitAudioContext)();}catch(e){}
+  }
+  if(audioCtx&&audioCtx.state==='suspended')audioCtx.resume();
+}
+function playNote(col){
+  if(!audioCtx)return;
+  const freq=NOTES[(col*2+Math.floor(Math.random()*2))%NOTES.length];
+  const osc=audioCtx.createOscillator();
+  const gain=audioCtx.createGain();
+  osc.type='sine';
+  osc.frequency.value=freq;
+  gain.gain.setValueAtTime(0.18,audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.0001,audioCtx.currentTime+0.4);
+  osc.connect(gain);gain.connect(audioCtx.destination);
+  osc.start();
+  osc.stop(audioCtx.currentTime+0.4);
+}
+
+function start(){
+  tiles=[];
+  score=0;combo=0;if(best===undefined)best=0;state='play';
+  speed=3.2;
+  spawnGap=TILE_H+40;
+  distSinceSpawn=0;
+  // seed initial tiles spaced out
+  let y=-TILE_H;
+  for(let i=0;i<5;i++){
+    spawnTile(y);
+    y-=spawnGap;
+  }
+}
+
+function spawnTile(y){
+  const col=Math.floor(Math.random()*COLS);
+  tiles.push({col,y,h:TILE_H,hit:false,missed:false});
+}
+
+function rectsCross(tile){
+  return tile.y+tile.h>=HIT_Y && tile.y<=HIT_Y;
+}
+
+function tapColumn(col){
+  if(state!=='play'){
+    if(state==='over'){start();}
+    return;
+  }
+  ensureAudio();
+  // find lowest (closest to hit line, below or at it but not yet past) tile in this column that's tappable
+  let candidate=null;
+  for(const t of tiles){
+    if(t.col!==col||t.hit||t.missed)continue;
+    if(t.y<=HIT_Y && t.y+t.h>=HIT_Y-30){
+      if(!candidate||t.y>candidate.y)candidate=t;
+    }
+  }
+  if(candidate){
+    candidate.hit=true;
+    score++;
+    combo++;
+    if(combo>best)best=combo;
+    playNote(col);
+    speed=Math.min(11,3.2+score*0.045);
+  } else {
+    // tapped wrong / empty -> game over
+    state='over';
+    combo=0;
+  }
+}
+
+document.addEventListener('keydown',e=>{
+  const idx=KEYS.indexOf(e.code);
+  if(idx>=0){e.preventDefault();tapColumn(idx);}
+  if(e.code==='Enter'&&state==='over')start();
+});
+
+function pointerCol(e){
+  const rect=c.getBoundingClientRect();
+  const cx=(e.touches?e.touches[0].clientX:e.clientX)-rect.left;
+  return Math.max(0,Math.min(COLS-1,Math.floor(cx*W/rect.width/COL_W)));
+}
+c.addEventListener('mousedown',e=>{ensureAudio();tapColumn(pointerCol(e));});
+c.addEventListener('touchstart',e=>{
+  e.preventDefault();ensureAudio();
+  for(const t of e.changedTouches){
+    const rect=c.getBoundingClientRect();
+    const cx=(t.clientX-rect.left);
+    const col=Math.max(0,Math.min(COLS-1,Math.floor(cx*W/rect.width/COL_W)));
+    tapColumn(col);
+  }
+},{passive:false});
+
+function update(){
+  if(state!=='play')return;
+  for(const t of tiles){
+    t.y+=speed;
+    if(!t.hit&&!t.missed&&t.y>HIT_Y+30){
+      t.missed=true;
+      state='over';
+      combo=0;
+    }
+  }
+  tiles=tiles.filter(t=>t.y<H+TILE_H);
+  // spawn new tiles to maintain spacing
+  while(tiles.length===0||Math.max(...tiles.map(t=>t.y))<spawnGap-TILE_H+0){
+    const minY=tiles.length?Math.min(...tiles.map(t=>t.y)):-TILE_H;
+    spawnTile(minY-spawnGap);
+  }
+}
+
+function draw(){
+  ctx.fillStyle='#08080f';ctx.fillRect(0,0,W,H);
+
+  // column separators
+  ctx.strokeStyle='rgba(255,255,255,.08)';ctx.lineWidth=1;
+  for(let i=1;i<COLS;i++){
+    ctx.beginPath();ctx.moveTo(i*COL_W,0);ctx.lineTo(i*COL_W,H);ctx.stroke();
+  }
+
+  // hit line
+  ctx.strokeStyle='#e94560';ctx.lineWidth=3;
+  ctx.setLineDash([10,8]);
+  ctx.beginPath();ctx.moveTo(0,HIT_Y);ctx.lineTo(W,HIT_Y);ctx.stroke();
+  ctx.setLineDash([]);
+
+  // tiles
+  for(const t of tiles){
+    const x=t.col*COL_W;
+    if(t.hit){
+      ctx.fillStyle='rgba(105,240,174,.35)';
+    } else if(t.missed){
+      ctx.fillStyle='rgba(255,82,82,.5)';
+    } else {
+      ctx.fillStyle='#1a1a2e';
+    }
+    ctx.fillRect(x+3,t.y,COL_W-6,t.h-6);
+    ctx.strokeStyle=t.hit?'#69f0ae':(t.missed?'#ff5252':'rgba(255,255,255,.15)');
+    ctx.lineWidth=2;
+    ctx.strokeRect(x+3,t.y,COL_W-6,t.h-6);
+  }
+
+  // hint labels at bottom of each column
+  ctx.fillStyle='rgba(255,255,255,.25)';
+  ctx.font='14px Arial';ctx.textAlign='center';
+  const labels=['D','F','J','K'];
+  for(let i=0;i<COLS;i++){
+    ctx.fillText(labels[i],i*COL_W+COL_W/2,H-20);
+  }
+
+  if(state==='over'){
+    ctx.fillStyle='rgba(0,0,0,.7)';ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='#e94560';ctx.font='bold 30px Arial';ctx.textAlign='center';
+    ctx.fillText('GAME OVER',W/2,H/2-30);
+    ctx.fillStyle='#fff';ctx.font='18px Arial';
+    ctx.fillText(`Tiles tapped: ${score}`,W/2,H/2+5);
+    ctx.fillText(`Best combo: ${best}`,W/2,H/2+30);
+    ctx.fillText('Tap / click / Enter to retry',W/2,H/2+62);
+  }
+
+  document.getElementById('ui').textContent=`Score: ${score} | Combo: ${combo}`;
+}
+
+function loop(){
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+start();loop();
+</script></body></html>

@@ -1,0 +1,252 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"><title>Light Cycle</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>body{background:#08080f}#c{display:block;border-radius:8px;touch-action:none}#ui{color:#e94560;font-size:1.1rem;font-weight:700;text-align:center;padding:8px}
+.lc-pad{display:grid;grid-template-columns:repeat(3,64px);grid-template-rows:repeat(2,52px);gap:6px;justify-content:center;margin:8px auto;max-width:600px}
+.lc-pad button{background:rgba(233,69,96,.12);border:1px solid rgba(233,69,96,.35);border-radius:10px;color:#e94560;font-size:1.4rem;font-weight:700;cursor:pointer;user-select:none;-webkit-user-select:none;touch-action:manipulation}
+.lc-pad button:active{background:rgba(233,69,96,.3)}
+.lc-up{grid-column:2;grid-row:1}
+.lc-left{grid-column:1;grid-row:2}
+.lc-down{grid-column:2;grid-row:2}
+.lc-right{grid-column:3;grid-row:2}
+</style>
+</head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Light Cycle</div>
+  <div class="game-frame">
+    <div id="ui">Round: 1 | You: 0 — CPU: 0</div>
+    <canvas id="c" width="600" height="500"></canvas>
+  </div>
+  <div class="lc-pad">
+    <button class="lc-up" ontouchstart="turn(0,-1)" onmousedown="turn(0,-1)">↑</button>
+    <button class="lc-left" ontouchstart="turn(-1,0)" onmousedown="turn(-1,0)">←</button>
+    <button class="lc-down" ontouchstart="turn(0,1)" onmousedown="turn(0,1)">↓</button>
+    <button class="lc-right" ontouchstart="turn(1,0)" onmousedown="turn(1,0)">→</button>
+  </div>
+  <div class="game-instructions"><b>Arrows / WASD</b> or the on-screen pad to steer (no reversing). You leave a solid wall behind your cycle — crash into any wall (yours, the CPU's, or the arena edge) and you lose the round. Outlast the CPU to win. First to several round wins takes the match!</div>
+</div>
+<script>
+const c=document.getElementById('c'),ctx=c.getContext('2d');
+const W=c.width,H=c.height;
+const GRID=10;
+const COLS=Math.floor(W/GRID), ROWS=Math.floor(H/GRID);
+
+let player,cpu,grid,round,wins,cpuWins,state,moveTimer,MOVE_INTERVAL;
+
+function emptyGrid(){
+  return Array.from({length:ROWS},()=>new Array(COLS).fill(0));
+}
+
+function startRound(){
+  grid=emptyGrid();
+  player={
+    x:Math.floor(COLS*0.25), y:Math.floor(ROWS/2),
+    dx:1, dy:0, nextDx:1, nextDy:0,
+    trail:[], color:'#4fc3f7', alive:true
+  };
+  cpu={
+    x:Math.floor(COLS*0.75), y:Math.floor(ROWS/2),
+    dx:-1, dy:0,
+    trail:[], color:'#e94560', alive:true
+  };
+  grid[player.y][player.x]=1;
+  grid[cpu.y][cpu.x]=2;
+  player.trail.push({x:player.x,y:player.y});
+  cpu.trail.push({x:cpu.x,y:cpu.y});
+  moveTimer=0;
+  MOVE_INTERVAL=Math.max(4,8-Math.floor((round-1)/2));
+  state='play';
+}
+
+function startMatch(){
+  round=1;wins=0;cpuWins=0;
+  startRound();
+}
+
+function turn(dx,dy){
+  if(state!=='play')return;
+  // prevent reversing directly into self
+  if(dx===-player.dx&&dy===-player.dy)return;
+  if(dx===player.dx&&dy===player.dy)return;
+  player.nextDx=dx;player.nextDy=dy;
+}
+
+document.addEventListener('keydown',e=>{
+  const map={ArrowUp:[0,-1],ArrowDown:[0,1],ArrowLeft:[-1,0],ArrowRight:[1,0],KeyW:[0,-1],KeyS:[0,1],KeyA:[-1,0],KeyD:[1,0]};
+  if(map[e.code]){e.preventDefault();turn(map[e.code][0],map[e.code][1]);}
+  if(e.code==='Enter'&&state!=='play'){if(state==='matchover')startMatch();else startRound();}
+});
+
+// touch swipe support on canvas
+let touchStart=null;
+c.addEventListener('touchstart',e=>{
+  if(state!=='play'){e.preventDefault();if(state==='matchover')startMatch();else startRound();return;}
+  const t=e.touches[0];
+  touchStart={x:t.clientX,y:t.clientY};
+  e.preventDefault();
+},{passive:false});
+c.addEventListener('touchend',e=>{
+  if(!touchStart)return;
+  const t=e.changedTouches[0];
+  const dx=t.clientX-touchStart.x, dy=t.clientY-touchStart.y;
+  if(Math.abs(dx)>Math.abs(dy)){
+    if(Math.abs(dx)>20)turn(dx>0?1:-1,0);
+  } else {
+    if(Math.abs(dy)>20)turn(0,dy>0?1:-1);
+  }
+  touchStart=null;
+},{passive:false});
+c.addEventListener('click',()=>{if(state!=='play'){if(state==='matchover')startMatch();else startRound();}});
+
+function inBounds(x,y){return x>=0&&x<COLS&&y>=0&&y<ROWS;}
+
+function cpuThink(){
+  // Try to keep current direction; turn if about to crash; otherwise occasionally pick safer direction
+  const dirs=[[cpu.dx,cpu.dy],[1,0],[-1,0],[0,1],[0,-1]];
+  function safe(dx,dy){
+    if(dx===-cpu.dx&&dy===-cpu.dy)return false;
+    const nx=cpu.x+dx, ny=cpu.y+dy;
+    return inBounds(nx,ny)&&grid[ny][nx]===0;
+  }
+  // look ahead distance for scoring a direction
+  function lookahead(dx,dy){
+    let nx=cpu.x,ny=cpu.y,steps=0;
+    while(steps<30){
+      nx+=dx;ny+=dy;
+      if(!inBounds(nx,ny)||grid[ny][nx]!==0)break;
+      steps++;
+    }
+    return steps;
+  }
+  let best=null,bestScore=-1;
+  for(const [dx,dy] of dirs){
+    if(!safe(dx,dy))continue;
+    let score=lookahead(dx,dy);
+    if(dx===cpu.dx&&dy===cpu.dy)score+=2; // slight bias to keep going straight
+    if(score>bestScore){bestScore=score;best=[dx,dy];}
+  }
+  if(best){cpu.dx=best[0];cpu.dy=best[1];}
+}
+
+function step(){
+  // apply queued direction for player
+  player.dx=player.nextDx;player.dy=player.nextDy;
+  cpuThink();
+
+  const pnx=player.x+player.dx, pny=player.y+player.dy;
+  const cnx=cpu.x+cpu.dx, cny=cpu.y+cpu.dy;
+
+  let playerCrash=false, cpuCrash=false;
+
+  if(!inBounds(pnx,pny)||grid[pny][pnx]!==0)playerCrash=true;
+  if(!inBounds(cnx,cny)||grid[cny][cnx]!==0)cpuCrash=true;
+
+  // head-on collision (swap or same cell)
+  if(!playerCrash&&!cpuCrash){
+    if(pnx===cnx&&pny===cny){playerCrash=true;cpuCrash=true;}
+    if(pnx===cpu.x&&pny===cpu.y&&cnx===player.x&&cny===player.y){playerCrash=true;cpuCrash=true;}
+  }
+
+  if(!playerCrash){
+    player.x=pnx;player.y=pny;
+    grid[player.y][player.x]=1;
+    player.trail.push({x:player.x,y:player.y});
+  }
+  if(!cpuCrash){
+    cpu.x=cnx;cpu.y=cny;
+    grid[cpu.y][cpu.x]=2;
+    cpu.trail.push({x:cpu.x,y:cpu.y});
+  }
+
+  if(playerCrash)player.alive=false;
+  if(cpuCrash)cpu.alive=false;
+
+  if(playerCrash||cpuCrash){
+    let result;
+    if(playerCrash&&cpuCrash){
+      result='draw';
+    } else if(cpuCrash){
+      wins++;
+      result='win';
+    } else {
+      cpuWins++;
+      result='lose';
+    }
+    state='roundend_'+result;
+    setTimeout(()=>{
+      if(wins>=3||cpuWins>=3){
+        state='matchover';
+      } else {
+        round++;
+        startRound();
+      }
+    },1400);
+  }
+}
+function loop(){
+  ctx.fillStyle='#08080f';ctx.fillRect(0,0,W,H);
+
+  // grid lines (subtle)
+  ctx.strokeStyle='rgba(255,255,255,.04)';ctx.lineWidth=1;
+  for(let gx=0;gx<=COLS;gx++){ctx.beginPath();ctx.moveTo(gx*GRID,0);ctx.lineTo(gx*GRID,H);ctx.stroke();}
+  for(let gy=0;gy<=ROWS;gy++){ctx.beginPath();ctx.moveTo(0,gy*GRID);ctx.lineTo(W,gy*GRID);ctx.stroke();}
+
+  if(state==='play'){
+    moveTimer++;
+    if(moveTimer>=MOVE_INTERVAL){
+      moveTimer=0;
+      step();
+    }
+  }
+
+  // draw trails
+  function drawTrail(trail,color){
+    ctx.fillStyle=color;
+    ctx.shadowColor=color;ctx.shadowBlur=6;
+    for(const seg of trail){
+      ctx.fillRect(seg.x*GRID+1,seg.y*GRID+1,GRID-2,GRID-2);
+    }
+    ctx.shadowBlur=0;
+  }
+  drawTrail(player.trail,'rgba(79,195,247,.65)');
+  drawTrail(cpu.trail,'rgba(233,69,96,.65)');
+
+  // draw heads
+  function drawHead(cyc,color){
+    ctx.fillStyle=color;
+    ctx.shadowColor=color;ctx.shadowBlur=14;
+    ctx.fillRect(cyc.x*GRID,cyc.y*GRID,GRID,GRID);
+    ctx.shadowBlur=0;
+  }
+  if(player.alive)drawHead(player,'#4fc3f7');
+  if(cpu.alive)drawHead(cpu,'#e94560');
+
+  // overlays
+  if(state.startsWith('roundend_')||state==='matchover'){
+    ctx.fillStyle='rgba(0,0,0,.6)';ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='#fff';ctx.font='bold 30px Arial';ctx.textAlign='center';
+    let msg='';
+    if(state==='matchover'){
+      msg=(wins>cpuWins)?'YOU WIN THE MATCH!':'CPU WINS THE MATCH';
+      ctx.fillStyle=(wins>cpuWins)?'#69f0ae':'#e94560';
+      ctx.fillText(msg,W/2,H/2-20);
+      ctx.fillStyle='#fff';ctx.font='18px Arial';
+      ctx.fillText(`Final: You ${wins} — CPU ${cpuWins}`,W/2,H/2+12);
+      ctx.fillText('Click / Tap / Enter for a new match',W/2,H/2+42);
+    } else {
+      if(state.includes('draw')){msg='DRAW — both crashed!';ctx.fillStyle='#ffb74d';}
+      else if(state.includes('win')){msg='ROUND WON!';ctx.fillStyle='#69f0ae';}
+      else {msg='CRASHED!';ctx.fillStyle='#e94560';}
+      ctx.fillText(msg,W/2,H/2-10);
+      ctx.fillStyle='#fff';ctx.font='16px Arial';
+      ctx.fillText(`You ${wins} — CPU ${cpuWins}  ·  Next round starting...`,W/2,H/2+20);
+    }
+  }
+
+  document.getElementById('ui').textContent=`Round: ${round} | You: ${wins} — CPU: ${cpuWins}`;
+  requestAnimationFrame(loop);
+}
+
+startMatch();
+loop();
+</script></body></html>

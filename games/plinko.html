@@ -1,0 +1,207 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"><title>Plinko</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>body{background:#08080f}#c{display:block;border-radius:8px;touch-action:none;cursor:pointer}#ui{color:#e94560;font-size:1.1rem;font-weight:700;text-align:center;padding:8px}</style>
+</head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Plinko</div>
+  <div class="game-frame">
+    <div id="ui">Score: 0 | Balls: 10</div>
+    <canvas id="c" width="600" height="640"></canvas>
+  </div>
+  <div class="game-instructions">Click or tap anywhere along the top to drop a ball. It bounces down through the pegs into a scoring slot at the bottom — land in the bright center slots for big multiplier bonuses! You start with 10 balls; watch your score climb.</div>
+</div>
+<script>
+const c=document.getElementById('c'),ctx=c.getContext('2d');
+const W=c.width,H=c.height;
+
+const ROWS=11, PEG_TOP=90, PEG_GAP=42, PEG_R=5, BALL_R=9;
+const SLOT_Y=H-60, SLOT_H=50;
+let pegs=[];
+for(let r=0;r<ROWS;r++){
+  const cnt=3+r;
+  const rowW=(cnt-1)*PEG_GAP;
+  const startX=W/2-rowW/2;
+  for(let i=0;i<cnt;i++){
+    pegs.push({x:startX+i*PEG_GAP, y:PEG_TOP+r*PEG_GAP});
+  }
+}
+const SLOT_COUNT=ROWS+3; // 14 slots
+const SLOT_W=W/SLOT_COUNT;
+const SLOT_VALUES=(()=>{
+  const vals=[];
+  const mid=(SLOT_COUNT-1)/2;
+  for(let i=0;i<SLOT_COUNT;i++){
+    const d=Math.abs(i-mid);
+    let v;
+    if(d<1)v=100;
+    else if(d<2)v=50;
+    else if(d<3)v=25;
+    else if(d<4)v=15;
+    else if(d<5)v=10;
+    else v=5;
+    vals.push(v);
+  }
+  return vals;
+})();
+const SLOT_COLORS=SLOT_VALUES.map(v=>{
+  if(v>=100)return '#ffd54f';
+  if(v>=50)return '#ff8a65';
+  if(v>=25)return '#e94560';
+  if(v>=15)return '#ba68c8';
+  if(v>=10)return '#4fc3f7';
+  return '#69f0ae';
+});
+
+let balls=[], score=0, ballCount=10, popups=[];
+
+function dropBall(x){
+  if(ballCount<=0)return;
+  ballCount--;
+  balls.push({
+    x:Math.max(BALL_R+10,Math.min(W-BALL_R-10,x)),
+    y:24,
+    vx:(Math.random()-.5)*0.6,
+    vy:0,
+    trail:[]
+  });
+}
+
+function pointer(e){
+  const rect=c.getBoundingClientRect();
+  const cx=(e.touches?e.touches[0].clientX:e.clientX)-rect.left;
+  return cx*W/rect.width;
+}
+function handlePointerDown(e){
+  if(ballCount<=0&&balls.length===0){restart();return;}
+  dropBall(pointer(e));
+}
+c.addEventListener('mousedown',e=>{handlePointerDown(e);});
+c.addEventListener('touchstart',e=>{e.preventDefault();handlePointerDown(e);},{passive:false});
+
+const GRAVITY=0.32, DAMPING=0.72, AIR=0.999;
+
+function update(){
+  for(let i=balls.length-1;i>=0;i--){
+    const b=balls[i];
+    b.vy+=GRAVITY;
+    b.vx*=AIR;
+    b.x+=b.vx;
+    b.y+=b.vy;
+    b.trail.push({x:b.x,y:b.y});
+    if(b.trail.length>8)b.trail.shift();
+
+    // walls
+    if(b.x-BALL_R<0){b.x=BALL_R;b.vx=Math.abs(b.vx)*DAMPING;}
+    if(b.x+BALL_R>W){b.x=W-BALL_R;b.vx=-Math.abs(b.vx)*DAMPING;}
+
+    // pegs
+    for(const p of pegs){
+      const dx=b.x-p.x, dy=b.y-p.y;
+      const dist=Math.hypot(dx,dy);
+      const minDist=BALL_R+PEG_R;
+      if(dist<minDist&&dist>0){
+        const nx=dx/dist, ny=dy/dist;
+        b.x=p.x+nx*minDist;
+        b.y=p.y+ny*minDist;
+        const dot=b.vx*nx+b.vy*ny;
+        b.vx=(b.vx-2*dot*nx)*DAMPING;
+        b.vy=(b.vy-2*dot*ny)*DAMPING;
+        // add slight randomness so it doesn't get stuck
+        b.vx+=(Math.random()-.5)*0.8;
+      }
+    }
+
+    // reached slot row
+    if(b.y+BALL_R>=SLOT_Y){
+      const slot=Math.max(0,Math.min(SLOT_COUNT-1,Math.floor(b.x/SLOT_W)));
+      const val=SLOT_VALUES[slot];
+      score+=val;
+      popups.push({x:b.x,y:SLOT_Y,text:'+'+val,life:50,color:SLOT_COLORS[slot]});
+      balls.splice(i,1);
+      continue;
+    }
+  }
+  popups.forEach(p=>{p.y-=0.6;p.life--;});
+  popups=popups.filter(p=>p.life>0);
+}
+
+function draw(){
+  ctx.fillStyle='#08080f';ctx.fillRect(0,0,W,H);
+
+  // drop zone hint
+  ctx.fillStyle='rgba(233,69,96,.07)';
+  ctx.fillRect(0,0,W,60);
+  ctx.fillStyle='rgba(255,255,255,.35)';
+  ctx.font='13px Arial';ctx.textAlign='center';
+  ctx.fillText('▼ tap here to drop a ball ▼',W/2,30);
+
+  // pegs
+  ctx.fillStyle='#4fc3f7';
+  for(const p of pegs){
+    ctx.beginPath();ctx.arc(p.x,p.y,PEG_R,0,Math.PI*2);ctx.fill();
+  }
+
+  // slots
+  for(let i=0;i<SLOT_COUNT;i++){
+    ctx.fillStyle=SLOT_COLORS[i];
+    ctx.globalAlpha=0.85;
+    ctx.fillRect(i*SLOT_W+2,SLOT_Y,SLOT_W-4,SLOT_H);
+    ctx.globalAlpha=1;
+    ctx.fillStyle='#08080f';
+    ctx.font='bold 14px Arial';ctx.textAlign='center';
+    ctx.fillText(SLOT_VALUES[i],i*SLOT_W+SLOT_W/2,SLOT_Y+SLOT_H/2+5);
+  }
+  // slot dividers
+  ctx.strokeStyle='rgba(8,8,15,.6)';ctx.lineWidth=2;
+  for(let i=0;i<=SLOT_COUNT;i++){
+    ctx.beginPath();ctx.moveTo(i*SLOT_W,SLOT_Y);ctx.lineTo(i*SLOT_W,SLOT_Y+SLOT_H);ctx.stroke();
+  }
+
+  // balls + trails
+  for(const b of balls){
+    for(let i=0;i<b.trail.length;i++){
+      const t=b.trail[i];
+      ctx.globalAlpha=(i/b.trail.length)*0.35;
+      ctx.fillStyle='#fff';
+      ctx.beginPath();ctx.arc(t.x,t.y,BALL_R*0.7,0,Math.PI*2);ctx.fill();
+    }
+    ctx.globalAlpha=1;
+    const g=ctx.createRadialGradient(b.x-3,b.y-3,1,b.x,b.y,BALL_R);
+    g.addColorStop(0,'#fff');g.addColorStop(1,'#e94560');
+    ctx.fillStyle=g;
+    ctx.beginPath();ctx.arc(b.x,b.y,BALL_R,0,Math.PI*2);ctx.fill();
+  }
+
+  // popups
+  ctx.font='bold 16px Arial';ctx.textAlign='center';
+  for(const p of popups){
+    ctx.globalAlpha=Math.min(1,p.life/30);
+    ctx.fillStyle=p.color;
+    ctx.fillText(p.text,p.x,p.y);
+  }
+  ctx.globalAlpha=1;
+
+  if(ballCount<=0&&balls.length===0){
+    ctx.fillStyle='rgba(0,0,0,.65)';ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='#e94560';ctx.font='bold 32px Arial';ctx.textAlign='center';
+    ctx.fillText('OUT OF BALLS',W/2,H/2-20);
+    ctx.fillStyle='#fff';ctx.font='20px Arial';
+    ctx.fillText(`Final Score: ${score}`,W/2,H/2+18);
+    ctx.fillText('Tap to play again',W/2,H/2+50);
+  }
+
+  document.getElementById('ui').textContent=`Score: ${score} | Balls: ${ballCount}`;
+}
+
+function restart(){
+  score=0;ballCount=10;balls=[];popups=[];
+}
+
+function loop(){
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+loop();
+</script></body></html>
