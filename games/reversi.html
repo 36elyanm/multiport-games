@@ -1,0 +1,269 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"><title>Reversi</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+body{background:#08080f}
+#wrap{padding:16px;text-align:center}
+#c{display:block;margin:0 auto;border-radius:10px;touch-action:none;max-width:100%;height:auto;background:#1b6e3a}
+#status{color:#fff;font-size:1.1rem;font-weight:700;margin:12px 0;min-height:1.4em}
+#score{display:flex;justify-content:center;gap:24px;color:#fff;font-weight:700;font-size:1rem;margin-bottom:8px}
+#score span.dot{display:inline-block;width:14px;height:14px;border-radius:50%;vertical-align:middle;margin-right:6px;box-shadow:0 0 6px rgba(0,0,0,.5)}
+.btn{padding:9px 26px;background:#e94560;border:none;border-radius:20px;color:#fff;cursor:pointer;font-size:1rem;font-weight:700;margin-top:14px}
+#stage{position:relative;display:inline-block;max-width:100%}
+#overlay{position:absolute;inset:0;background:rgba(8,8,15,.85);display:none;flex-direction:column;align-items:center;justify-content:center;border-radius:10px;z-index:5;backdrop-filter:blur(3px)}
+#overlay.show{display:flex}
+#overlay h2{color:#fff;font-size:1.8rem;margin:0 0 8px}
+#overlay p{color:rgba(255,255,255,.7);margin:0 0 18px}
+</style></head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Reversi</div>
+  <div class="game-frame">
+    <div id="wrap">
+      <div id="score"><span><span class="dot" style="background:#1a1a22;border:1px solid #555"></span><span id="scoreB">2</span> Black (you)</span><span><span class="dot" style="background:#f4f4f4"></span><span id="scoreW">2</span> White (CPU)</span></div>
+      <div id="status">Your turn — tap a highlighted square</div>
+      <div id="stage">
+        <canvas id="c" width="480" height="480"></canvas>
+        <div id="overlay">
+          <h2 id="ovTitle">You Win!</h2>
+          <p id="ovText">Final score</p>
+          <button class="btn" onclick="newGame()">Play Again</button>
+        </div>
+      </div>
+      <div><button class="btn" onclick="newGame()">New Game</button></div>
+    </div>
+  </div>
+  <div class="game-instructions">
+    You play <b>Black</b>, CPU plays <b>White</b>. Tap a highlighted square to place a disc — any opponent discs trapped in a straight line (horizontal, vertical, or diagonal) between your new disc and another of your discs get <b>flipped</b> to your color.
+    You must place where you can flip at least one disc; if you have no legal move your turn is skipped. The game ends when neither side can move — whoever has the most discs wins!
+  </div>
+</div>
+<script>
+const c=document.getElementById('c'),ctx=c.getContext('2d');
+const N=8,SQ=c.width/N;
+const EMPTY=0, BLACK=1, WHITE=2; // player=BLACK, cpu=WHITE
+const DIRS=[[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
+let board, turn, over, busy, legalMoves;
+
+function initBoard(){
+  const b=Array.from({length:N},()=>Array(N).fill(EMPTY));
+  b[3][3]=WHITE; b[3][4]=BLACK; b[4][3]=BLACK; b[4][4]=WHITE;
+  return b;
+}
+
+function newGame(){
+  board=initBoard();
+  turn=BLACK;
+  over=false; busy=false;
+  document.getElementById('overlay').classList.remove('show');
+  refreshLegal();
+  setStatus();
+  draw();
+}
+
+function inBounds(r,c2){return r>=0&&r<N&&c2>=0&&c2<N;}
+
+function flipsFor(b,r,col,color){
+  if(b[r][col]!==EMPTY) return [];
+  const opp = color===BLACK?WHITE:BLACK;
+  let allFlips=[];
+  for(const [dr,dc] of DIRS){
+    let line=[];
+    let nr=r+dr, nc=col+dc;
+    while(inBounds(nr,nc) && b[nr][nc]===opp){
+      line.push([nr,nc]);
+      nr+=dr; nc+=dc;
+    }
+    if(line.length && inBounds(nr,nc) && b[nr][nc]===color){
+      allFlips=allFlips.concat(line);
+    }
+  }
+  return allFlips;
+}
+
+function legalMovesFor(b,color){
+  let moves=[];
+  for(let r=0;r<N;r++)for(let col=0;col<N;col++){
+    const fl=flipsFor(b,r,col,color);
+    if(fl.length) moves.push({r,c:col,flips:fl});
+  }
+  return moves;
+}
+
+function refreshLegal(){
+  legalMoves = legalMovesFor(board, turn);
+}
+
+function setStatus(msg){
+  const el=document.getElementById('status');
+  if(msg){el.textContent=msg;return;}
+  el.textContent = turn===BLACK ? 'Your turn — tap a highlighted square' : 'CPU thinking…';
+}
+
+function counts(){
+  let b=0,w=0;
+  for(let r=0;r<N;r++)for(let col=0;col<N;col++){
+    if(board[r][col]===BLACK)b++;
+    else if(board[r][col]===WHITE)w++;
+  }
+  return {b,w};
+}
+
+function updateScore(){
+  const {b,w}=counts();
+  document.getElementById('scoreB').textContent=b;
+  document.getElementById('scoreW').textContent=w;
+}
+
+function draw(){
+  for(let r=0;r<N;r++){
+    for(let col=0;col<N;col++){
+      ctx.fillStyle = '#1b6e3a';
+      ctx.fillRect(col*SQ,r*SQ,SQ,SQ);
+      ctx.strokeStyle='rgba(0,0,0,.25)';
+      ctx.lineWidth=1;
+      ctx.strokeRect(col*SQ+0.5,r*SQ+0.5,SQ-1,SQ-1);
+    }
+  }
+  // legal move highlights
+  if(turn===BLACK && !over){
+    for(const m of legalMoves){
+      ctx.fillStyle='rgba(233,69,96,.35)';
+      ctx.beginPath();
+      ctx.arc(m.c*SQ+SQ/2, m.r*SQ+SQ/2, SQ*0.14,0,Math.PI*2);
+      ctx.fill();
+    }
+  }
+  for(let r=0;r<N;r++){
+    for(let col=0;col<N;col++){
+      if(board[r][col]!==EMPTY) drawDisc(r,col,board[r][col]);
+    }
+  }
+  updateScore();
+}
+
+function drawDisc(r,col,color){
+  const cx=col*SQ+SQ/2, cy=r*SQ+SQ/2, rad=SQ*0.38;
+  ctx.save();
+  ctx.shadowColor='rgba(0,0,0,.5)';
+  ctx.shadowBlur=5;
+  ctx.shadowOffsetY=2;
+  const grad=ctx.createRadialGradient(cx-rad*0.3,cy-rad*0.3,rad*0.1,cx,cy,rad);
+  if(color===BLACK){grad.addColorStop(0,'#3a3a44');grad.addColorStop(1,'#0d0d12');}
+  else {grad.addColorStop(0,'#ffffff');grad.addColorStop(1,'#c9c9d2');}
+  ctx.fillStyle=grad;
+  ctx.beginPath();
+  ctx.arc(cx,cy,rad,0,Math.PI*2);
+  ctx.fill();
+  ctx.lineWidth=1.5;
+  ctx.strokeStyle=color===BLACK?'#000':'#999';
+  ctx.stroke();
+  ctx.restore();
+}
+
+function squareFromEvent(e){
+  const rect=c.getBoundingClientRect();
+  let clientX,clientY;
+  if(e.touches && e.touches.length){clientX=e.touches[0].clientX;clientY=e.touches[0].clientY;}
+  else {clientX=e.clientX;clientY=e.clientY;}
+  const x=(clientX-rect.left)*c.width/rect.width;
+  const y=(clientY-rect.top)*c.height/rect.height;
+  const col=Math.floor(x/SQ), r=Math.floor(y/SQ);
+  if(col<0||col>=N||r<0||r>=N)return null;
+  return [r,col];
+}
+
+function handlePointer(e){
+  e.preventDefault();
+  if(over||busy||turn!==BLACK)return;
+  const sq=squareFromEvent(e);
+  if(!sq)return;
+  const [r,col]=sq;
+  const m=legalMoves.find(mm=>mm.r===r&&mm.c===col);
+  if(!m)return;
+  applyMove(m,BLACK);
+  draw();
+  advanceTurn();
+}
+
+function applyMove(move,color){
+  board[move.r][move.c]=color;
+  for(const [fr,fc] of move.flips) board[fr][fc]=color;
+}
+
+function advanceTurn(){
+  // After a move, check the other player; if they have no moves, check current player again; if neither, game over
+  const other = turn===BLACK?WHITE:BLACK;
+  const otherMoves = legalMovesFor(board, other);
+  if(otherMoves.length){
+    turn=other;
+    refreshLegal();
+    setStatus();
+    draw();
+    if(turn===WHITE && !over){
+      busy=true;
+      setTimeout(cpuMove,550);
+    }
+    return;
+  }
+  // other has no moves — check if current player still has moves
+  const myMoves = legalMovesFor(board, turn);
+  if(myMoves.length){
+    legalMoves=myMoves;
+    setStatus((turn===BLACK?'Your':"CPU's")+' turn again — opponent has no moves');
+    draw();
+    if(turn===WHITE && !over){
+      busy=true;
+      setTimeout(cpuMove,550);
+    }
+    return;
+  }
+  endGame();
+}
+
+function endGame(){
+  over=true;
+  busy=false;
+  draw();
+  const {b,w}=counts();
+  const ov=document.getElementById('overlay');
+  let title,text;
+  if(b>w){title='You Win! 🎉';}
+  else if(w>b){title='CPU Wins';}
+  else {title="It's a Tie!";}
+  text=`Final score — Black: ${b} · White: ${w}`;
+  document.getElementById('ovTitle').textContent=title;
+  document.getElementById('ovText').textContent=text;
+  ov.classList.add('show');
+  setStatus(title);
+}
+
+function cpuMove(){
+  if(over)return;
+  const moves=legalMovesFor(board,WHITE);
+  if(!moves.length){busy=false;advanceTurn();return;}
+  // Greedy: pick move that flips the most, with corner preference and slight randomness
+  const corners=[[0,0],[0,7],[7,0],[7,7]];
+  let scored=moves.map(m=>{
+    let score=m.flips.length*2;
+    if(corners.some(([cr,cc])=>cr===m.r&&cc===m.c)) score+=12;
+    // avoid squares adjacent to corners (risky) slightly
+    for(const [cr,cc] of corners){
+      if(Math.abs(cr-m.r)<=1 && Math.abs(cc-m.c)<=1 && !(cr===m.r&&cc===m.c)) score-=4;
+    }
+    score += Math.random()*3;
+    return {m,score};
+  });
+  scored.sort((a,b)=>b.score-a.score);
+  const choice = scored[0].m;
+  busy=true;
+  applyMove(choice,WHITE);
+  draw();
+  busy=false;
+  advanceTurn();
+}
+
+c.addEventListener('mousedown',handlePointer);
+c.addEventListener('touchstart',handlePointer,{passive:false});
+
+newGame();
+</script></body></html>

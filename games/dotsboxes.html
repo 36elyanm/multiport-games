@@ -1,0 +1,338 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"><title>Dots and Boxes</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+body{background:#08080f}
+#wrap{padding:16px;text-align:center}
+#c{display:block;margin:0 auto;border-radius:10px;touch-action:none;max-width:100%;height:auto;background:#16213e}
+#status{color:#fff;font-size:1.1rem;font-weight:700;margin:12px 0;min-height:1.4em}
+#score{display:flex;justify-content:center;gap:24px;color:#fff;font-weight:700;font-size:1rem;margin-bottom:8px}
+#score span.dot{display:inline-block;width:14px;height:14px;border-radius:4px;vertical-align:middle;margin-right:6px;box-shadow:0 0 6px rgba(0,0,0,.5)}
+.btn{padding:9px 26px;background:#e94560;border:none;border-radius:20px;color:#fff;cursor:pointer;font-size:1rem;font-weight:700;margin-top:14px}
+#stage{position:relative;display:inline-block;max-width:100%}
+#overlay{position:absolute;inset:0;background:rgba(8,8,15,.85);display:none;flex-direction:column;align-items:center;justify-content:center;border-radius:10px;z-index:5;backdrop-filter:blur(3px)}
+#overlay.show{display:flex}
+#overlay h2{color:#fff;font-size:1.8rem;margin:0 0 8px}
+#overlay p{color:rgba(255,255,255,.7);margin:0 0 18px}
+</style></head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Dots and Boxes</div>
+  <div class="game-frame">
+    <div id="wrap">
+      <div id="score"><span><span class="dot" style="background:#e94560"></span><span id="scoreP">0</span> You</span><span><span class="dot" style="background:#4cc9f0"></span><span id="scoreC">0</span> CPU</span></div>
+      <div id="status">Your turn — tap a line between two dots</div>
+      <div id="stage">
+        <canvas id="c" width="480" height="480"></canvas>
+        <div id="overlay">
+          <h2 id="ovTitle">You Win!</h2>
+          <p id="ovText">Final score</p>
+          <button class="btn" onclick="newGame()">Play Again</button>
+        </div>
+      </div>
+      <div><button class="btn" onclick="newGame()">New Game</button></div>
+    </div>
+  </div>
+  <div class="game-instructions">
+    Tap a gap between two adjacent dots to draw a line. Completing the fourth side of a box claims it for you (shown in your color) and you get to <b>go again</b>.
+    When all boxes are filled, whoever claimed the most boxes wins! The CPU plays a reasonable strategy — it avoids handing you free boxes when possible, and grabs boxes when it can.
+  </div>
+</div>
+<script>
+const c=document.getElementById('c'),ctx=c.getContext('2d');
+const GRID=5; // 5x5 dots => 4x4 boxes
+const DOTS=GRID;
+const BOXES=GRID-1;
+const PAD=40;
+const SIZE=(c.width-2*PAD)/(DOTS-1);
+const PLAYER=1, CPU=2;
+
+// hLines[r][c] : horizontal line above row r? Actually define:
+// hLines[row][col] = line between dot(row,col) and dot(row,col+1)  -- row:0..DOTS-1, col:0..DOTS-2
+// vLines[row][col] = line between dot(row,col) and dot(row+1,col)  -- row:0..DOTS-2, col:0..DOTS-1
+// boxes[row][col] owner (0 none) -- row,col: 0..BOXES-1
+
+let hLines, vLines, boxes, turn, over, busy, scoreP, scoreC;
+
+function newGame(){
+  hLines=Array.from({length:DOTS},()=>Array(DOTS-1).fill(0));
+  vLines=Array.from({length:DOTS-1},()=>Array(DOTS).fill(0));
+  boxes=Array.from({length:BOXES},()=>Array(BOXES).fill(0));
+  turn=PLAYER; over=false; busy=false; scoreP=0; scoreC=0;
+  document.getElementById('overlay').classList.remove('show');
+  updateScore();
+  setStatus();
+  draw();
+}
+
+function setStatus(msg){
+  const el=document.getElementById('status');
+  if(msg){el.textContent=msg;return;}
+  el.textContent = turn===PLAYER ? 'Your turn — tap a line between two dots' : 'CPU thinking…';
+}
+function updateScore(){
+  document.getElementById('scoreP').textContent=scoreP;
+  document.getElementById('scoreC').textContent=scoreC;
+}
+
+function dotXY(r,col){ return {x: PAD+col*SIZE, y: PAD+r*SIZE}; }
+
+function draw(){
+  ctx.clearRect(0,0,c.width,c.height);
+  ctx.fillStyle='#16213e';
+  ctx.fillRect(0,0,c.width,c.height);
+
+  // boxes fill
+  for(let r=0;r<BOXES;r++)for(let col=0;col<BOXES;col++){
+    if(boxes[r][col]){
+      const {x,y}=dotXY(r,col);
+      ctx.fillStyle = boxes[r][col]===PLAYER ? 'rgba(233,69,96,.35)' : 'rgba(76,201,240,.35)';
+      ctx.fillRect(x+4,y+4,SIZE-8,SIZE-8);
+      ctx.fillStyle = boxes[r][col]===PLAYER ? '#e94560' : '#4cc9f0';
+      ctx.font=`bold ${Math.floor(SIZE*0.34)}px Arial`;
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(boxes[r][col]===PLAYER?'★':'●', x+SIZE/2, y+SIZE/2);
+    }
+  }
+
+  // lines
+  for(let r=0;r<DOTS;r++)for(let col=0;col<DOTS-1;col++){
+    const a=dotXY(r,col), b=dotXY(r,col+1);
+    drawLine(a,b,hLines[r][col]);
+  }
+  for(let r=0;r<DOTS-1;r++)for(let col=0;col<DOTS;col++){
+    const a=dotXY(r,col), b=dotXY(r+1,col);
+    drawLine(a,b,vLines[r][col]);
+  }
+
+  // dots
+  for(let r=0;r<DOTS;r++)for(let col=0;col<DOTS;col++){
+    const {x,y}=dotXY(r,col);
+    ctx.fillStyle='#fff';
+    ctx.beginPath();
+    ctx.arc(x,y,5,0,Math.PI*2);
+    ctx.fill();
+  }
+}
+
+function drawLine(a,b,owner){
+  ctx.lineWidth = owner ? 6 : 3;
+  ctx.lineCap='round';
+  ctx.strokeStyle = owner===PLAYER ? '#e94560' : owner===CPU ? '#4cc9f0' : 'rgba(255,255,255,.18)';
+  ctx.beginPath();
+  ctx.moveTo(a.x,a.y);
+  ctx.lineTo(b.x,b.y);
+  ctx.stroke();
+}
+
+// Returns list of all available moves: {type:'h'|'v', r, c}
+function availableMoves(){
+  let moves=[];
+  for(let r=0;r<DOTS;r++)for(let col=0;col<DOTS-1;col++) if(!hLines[r][col]) moves.push({type:'h',r,c:col});
+  for(let r=0;r<DOTS-1;r++)for(let col=0;col<DOTS;col++) if(!vLines[r][col]) moves.push({type:'v',r,c:col});
+  return moves;
+}
+
+// count sides currently filled for box (r,c)
+function boxSides(r,c2){
+  let n=0;
+  if(hLines[r][c2]) n++;            // top
+  if(hLines[r+1][c2]) n++;          // bottom
+  if(vLines[r][c2]) n++;            // left
+  if(vLines[r][c2+1]) n++;          // right
+  return n;
+}
+
+// Apply a move; returns number of boxes completed by this move (and marks them with `owner`)
+function applyMove(move, owner){
+  if(move.type==='h') hLines[move.r][move.c]=owner;
+  else vLines[move.r][move.c]=owner;
+
+  let completed=0;
+  // check adjacent boxes
+  const checks=[];
+  if(move.type==='h'){
+    if(move.r>0) checks.push([move.r-1, move.c]);       // box above
+    if(move.r<BOXES) checks.push([move.r, move.c]);     // box below
+  } else {
+    if(move.c>0) checks.push([move.r, move.c-1]);       // box to left
+    if(move.c<BOXES) checks.push([move.r, move.c]);     // box to right
+  }
+  for(const [br,bc] of checks){
+    if(br>=0&&br<BOXES&&bc>=0&&bc<BOXES&&!boxes[br][bc]&&boxSides(br,bc)===4){
+      boxes[br][bc]=owner;
+      completed++;
+    }
+  }
+  return completed;
+}
+
+function totalBoxes(){return BOXES*BOXES;}
+function claimedBoxes(){
+  let n=0;
+  for(let r=0;r<BOXES;r++)for(let col=0;col<BOXES;col++) if(boxes[r][col]) n++;
+  return n;
+}
+
+function lineKey(m){return m.type+':'+m.r+','+m.c;}
+
+function squareFromEvent(e){
+  const rect=c.getBoundingClientRect();
+  let clientX,clientY;
+  if(e.touches && e.touches.length){clientX=e.touches[0].clientX;clientY=e.touches[0].clientY;}
+  else {clientX=e.clientX;clientY=e.clientY;}
+  const x=(clientX-rect.left)*c.width/rect.width;
+  const y=(clientY-rect.top)*c.height/rect.height;
+  return {x,y};
+}
+
+// Find nearest available line to a click point, within a tolerance
+function nearestLine(x,y){
+  let best=null,bestDist=Infinity;
+  const TOL=SIZE*0.42;
+  for(let r=0;r<DOTS;r++)for(let col=0;col<DOTS-1;col++){
+    if(hLines[r][col])continue;
+    const a=dotXY(r,col), b=dotXY(r,col+1);
+    const mx=(a.x+b.x)/2, my=(a.y+b.y)/2;
+    const d=Math.hypot(x-mx,y-my);
+    if(d<bestDist && d<TOL){bestDist=d;best={type:'h',r,c:col};}
+  }
+  for(let r=0;r<DOTS-1;r++)for(let col=0;col<DOTS;col++){
+    if(vLines[r][col])continue;
+    const a=dotXY(r,col), b=dotXY(r+1,col);
+    const mx=(a.x+b.x)/2, my=(a.y+b.y)/2;
+    const d=Math.hypot(x-mx,y-my);
+    if(d<bestDist && d<TOL){bestDist=d;best={type:'v',r,c:col};}
+  }
+  return best;
+}
+
+function handlePointer(e){
+  e.preventDefault();
+  if(over||busy||turn!==PLAYER)return;
+  const {x,y}=squareFromEvent(e);
+  const move=nearestLine(x,y);
+  if(!move)return;
+  busy=true;
+  const completed=applyMove(move,PLAYER);
+  scoreP+=completed;
+  updateScore();
+  draw();
+  if(checkEnd())return;
+  if(completed>0){
+    setStatus('You completed a box — go again!');
+    busy=false;
+  } else {
+    turn=CPU;
+    setStatus();
+    setTimeout(cpuMove,550);
+  }
+}
+
+function checkEnd(){
+  if(claimedBoxes()===totalBoxes()){
+    over=true;
+    busy=false;
+    draw();
+    const ov=document.getElementById('overlay');
+    let title,text;
+    if(scoreP>scoreC) title='You Win! 🎉';
+    else if(scoreC>scoreP) title='CPU Wins';
+    else title="It's a Tie!";
+    text=`Final score — You: ${scoreP} · CPU: ${scoreC}`;
+    document.getElementById('ovTitle').textContent=title;
+    document.getElementById('ovText').textContent=text;
+    ov.classList.add('show');
+    setStatus(title);
+    return true;
+  }
+  return false;
+}
+
+// CPU strategy:
+// 1. If any move completes a box, take the one that completes the most boxes (chain).
+// 2. Else, prefer a move that does NOT create a box with 3 sides (i.e. doesn't give opponent a free box).
+// 3. Else (forced to give one away), pick the move that gives away the fewest boxes / sets up smallest chain.
+function cpuMove(){
+  if(over)return;
+  busy=true;
+  const moves=availableMoves();
+  if(!moves.length){busy=false;return;}
+
+  // category A: completes >=1 box
+  let completing=[];
+  for(const m of moves){
+    const sim=simulateCompletions(m);
+    if(sim>0) completing.push({m,sim});
+  }
+  if(completing.length){
+    completing.sort((a,b)=>b.sim-a.sim);
+    const choice=completing[0].m;
+    const completed=applyMove(choice,CPU);
+    scoreC+=completed;
+    updateScore();
+    draw();
+    if(checkEnd())return;
+    setStatus('CPU completed a box — going again…');
+    setTimeout(cpuMove,650);
+    return;
+  }
+
+  // category B: safe moves (don't create a 3-sided box for opponent to claim)
+  let safe=[];
+  for(const m of moves){
+    if(!createsThreeSided(m)) safe.push(m);
+  }
+  let choice;
+  if(safe.length){
+    choice = safe[Math.floor(Math.random()*safe.length)];
+  } else {
+    // category C: forced — pick move minimizing boxes given away (heuristic: fewest 3-sided boxes created)
+    let scored=moves.map(m=>({m,bad:countThreeSidedCreated(m)}));
+    scored.sort((a,b)=>a.bad-b.bad);
+    const minBad=scored[0].bad;
+    const candidates=scored.filter(s=>s.bad===minBad);
+    choice=candidates[Math.floor(Math.random()*candidates.length)].m;
+  }
+  const completed=applyMove(choice,CPU);
+  scoreC+=completed;
+  updateScore();
+  draw();
+  if(checkEnd())return;
+  if(completed>0){
+    setStatus('CPU completed a box — going again…');
+    setTimeout(cpuMove,650);
+  } else {
+    turn=PLAYER;
+    busy=false;
+    setStatus();
+  }
+}
+
+// simulate how many boxes a move would complete without permanently applying
+function simulateCompletions(move){
+  const hSnap=hLines.map(r=>r.slice()), vSnap=vLines.map(r=>r.slice()), bSnap=boxes.map(r=>r.slice());
+  const n=applyMove(move,CPU);
+  hLines=hSnap; vLines=vSnap; boxes=bSnap;
+  return n;
+}
+
+// would this move result in any box reaching exactly 3 sides (i.e., giving opponent a free box)?
+function createsThreeSided(move){
+  return countThreeSidedCreated(move)>0;
+}
+function countThreeSidedCreated(move){
+  const hSnap=hLines.map(r=>r.slice()), vSnap=vLines.map(r=>r.slice());
+  if(move.type==='h') hLines[move.r][move.c]=CPU; else vLines[move.r][move.c]=CPU;
+  let count=0;
+  for(let r=0;r<BOXES;r++)for(let col=0;col<BOXES;col++){
+    if(!boxes[r][col] && boxSides(r,col)===3) count++;
+  }
+  hLines=hSnap; vLines=vSnap;
+  return count;
+}
+
+c.addEventListener('mousedown',handlePointer);
+c.addEventListener('touchstart',handlePointer,{passive:false});
+
+newGame();
+</script></body></html>

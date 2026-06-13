@@ -1,0 +1,254 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"><title>Mancala</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+body{background:#08080f}
+#wrap{padding:16px;text-align:center}
+#status{color:#fff;font-size:1.1rem;font-weight:700;margin:10px 0;min-height:1.4em}
+#board{display:inline-flex;align-items:stretch;gap:8px;background:#3a2a1a;border-radius:18px;padding:14px;max-width:100%;box-sizing:border-box}
+#board{overflow-x:auto}
+.store{width:54px;min-width:54px;border-radius:14px;background:#2a1d10;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:1.3rem;padding:6px}
+.store .lbl{font-size:.6rem;font-weight:600;color:#caa;margin-bottom:4px;letter-spacing:.5px;text-transform:uppercase}
+.rows{display:flex;flex-direction:column;gap:8px}
+.row{display:flex;gap:8px}
+.pit{width:54px;height:54px;border-radius:50%;background:#5a4226;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:1.15rem;cursor:pointer;border:2px solid transparent;transition:transform .12s,border-color .12s,background .12s;position:relative}
+.pit.mine{cursor:pointer}
+.pit.mine:hover{transform:translateY(-2px);border-color:#e94560}
+.pit.theirs{cursor:default}
+.pit.empty{opacity:.55}
+.pit .seeds{position:absolute;inset:0;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:1px;padding:6px}
+.seed{width:7px;height:7px;border-radius:50%;background:#ffd76b;box-shadow:0 0 3px rgba(0,0,0,.4)}
+.pit .num{position:relative;z-index:2;text-shadow:0 1px 3px rgba(0,0,0,.7)}
+.btn{padding:9px 26px;background:#e94560;border:none;border-radius:20px;color:#fff;cursor:pointer;font-size:1rem;font-weight:700;margin-top:14px}
+.btn:hover{transform:translateY(-1px)}
+#overlay{position:fixed;inset:0;background:rgba(8,8,15,.85);display:none;align-items:center;justify-content:center;z-index:50;backdrop-filter:blur(3px)}
+#overlay.show{display:flex}
+#overlay .box{background:#16213e;border-radius:16px;padding:28px 36px;text-align:center}
+#overlay h2{color:#fff;margin:0 0 8px;font-size:1.8rem}
+#overlay p{color:rgba(255,255,255,.7);margin:0 0 18px}
+.label-row{display:flex;justify-content:space-between;color:#caa;font-size:.7rem;font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding:0 4px}
+</style></head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Mancala</div>
+  <div class="game-frame">
+    <div id="wrap">
+      <div id="status">Your turn — pick a pit on your row</div>
+      <div id="board"></div>
+      <div><button class="btn" onclick="newGame()">New Game</button></div>
+    </div>
+  </div>
+  <div class="game-instructions">
+    You play the <b>bottom row</b> (pits 1-6, your store is on the right). Tap one of your non-empty pits to pick up its seeds and "sow" them one-by-one counter-clockwise into the following pits — including your own store, but skipping the opponent's store.
+    If your last seed lands in your own empty store-side pit (and that pit was empty before), you <b>capture</b> it plus the seeds directly across from it into your store. If your last seed lands in your store, you get <b>another turn</b>.
+    The round ends when one side's pits are all empty — the other player keeps their remaining seeds. Whoever has the most seeds in their store wins!
+  </div>
+</div>
+<div id="overlay"><div class="box">
+  <h2 id="ovTitle">You Win!</h2>
+  <p id="ovText">Final score</p>
+  <button class="btn" onclick="newGame()">Play Again</button>
+</div></div>
+<script>
+// Pit layout indices 0..13:
+// 0-5 : player's pits (left->right pits 1..6)
+// 6   : player's store
+// 7-12: cpu's pits (positioned right->left visually, indices 7=opposite pit6 ... 12=opposite pit1)
+// 13  : cpu's store
+// Sowing order (counter-clockwise): 0,1,2,3,4,5,6(store),7,8,9,10,11,12,13(store), back to 0...
+const PLAYER_STORE=6, CPU_STORE=13;
+let pits, turn, over, busy;
+
+function newGame(){
+  pits=Array(14).fill(4);
+  pits[PLAYER_STORE]=0; pits[CPU_STORE]=0;
+  turn='P'; over=false; busy=false;
+  document.getElementById('overlay').classList.remove('show');
+  setStatus();
+  render();
+}
+
+function setStatus(msg){
+  const el=document.getElementById('status');
+  if(msg){el.textContent=msg;return;}
+  el.textContent = turn==='P' ? 'Your turn — pick a pit on your row' : 'CPU thinking…';
+}
+
+function oppositeOf(i){ return 12-i; } // pit i (0..5 player, 7..12 cpu) is opposite 12-i
+
+function isPlayerPit(i){return i>=0&&i<=5;}
+function isCpuPit(i){return i>=7&&i<=12;}
+
+// Sow seeds from pit `start` for side `side` ('P' or 'C'). Returns {lastIndex, extraTurn, captured}
+function sow(start, side){
+  let n=pits[start];
+  pits[start]=0;
+  let i=start;
+  const ownStore = side==='P'?PLAYER_STORE:CPU_STORE;
+  const oppStore = side==='P'?CPU_STORE:PLAYER_STORE;
+  while(n>0){
+    i=(i+1)%14;
+    if(i===oppStore) continue; // skip opponent's store
+    pits[i]++;
+    n--;
+  }
+  let extraTurn=false, captured=false;
+  if(i===ownStore){
+    extraTurn=true;
+  } else {
+    // capture rule: last seed landed in an empty pit (now has 1) on the player's own side
+    const ownSide = side==='P' ? (i>=0&&i<=5) : (i>=7&&i<=12);
+    if(ownSide && pits[i]===1){
+      const opp=oppositeOf(i);
+      if(pits[opp]>0){
+        pits[ownStore]+= pits[i]+pits[opp];
+        pits[i]=0; pits[opp]=0;
+        captured=true;
+      }
+    }
+  }
+  return {lastIndex:i, extraTurn, captured};
+}
+
+function sideEmpty(side){
+  if(side==='P') return [0,1,2,3,4,5].every(i=>pits[i]===0);
+  return [7,8,9,10,11,12].every(i=>pits[i]===0);
+}
+
+function finalizeIfOver(){
+  if(sideEmpty('P')||sideEmpty('C')){
+    // sweep remaining seeds into respective store
+    let pSum=0,cSum=0;
+    for(let i=0;i<=5;i++){pSum+=pits[i];pits[i]=0;}
+    for(let i=7;i<=12;i++){cSum+=pits[i];pits[i]=0;}
+    pits[PLAYER_STORE]+=pSum;
+    pits[CPU_STORE]+=cSum;
+    over=true;
+    render();
+    const ov=document.getElementById('overlay');
+    let title, text;
+    if(pits[PLAYER_STORE]>pits[CPU_STORE]){title='You Win! 🎉';}
+    else if(pits[PLAYER_STORE]<pits[CPU_STORE]){title='CPU Wins';}
+    else {title="It's a Tie!";}
+    text=`Final score — You: ${pits[PLAYER_STORE]}  ·  CPU: ${pits[CPU_STORE]}`;
+    document.getElementById('ovTitle').textContent=title;
+    document.getElementById('ovText').textContent=text;
+    ov.classList.add('show');
+    setStatus(title);
+    return true;
+  }
+  return false;
+}
+
+function playerMove(pit){
+  if(over||busy||turn!=='P')return;
+  if(!isPlayerPit(pit)||pits[pit]===0)return;
+  busy=true;
+  const res=sow(pit,'P');
+  render();
+  if(finalizeIfOver()){busy=false;return;}
+  if(res.extraTurn){
+    setStatus('You scored — go again!');
+    busy=false;
+    render();
+    return;
+  }
+  turn='C';
+  setStatus();
+  render();
+  setTimeout(cpuMove,550);
+}
+
+function cpuMove(){
+  if(over)return;
+  busy=true;
+  const avail=[7,8,9,10,11,12].filter(i=>pits[i]>0);
+  if(avail.length===0){busy=false;turn='P';setStatus();render();return;}
+  // Evaluate each move: prefer captures, then extra turns, then general seed gain, with slight randomness
+  let best=null,bestScore=-Infinity;
+  for(const pit of avail){
+    const snapshot=pits.slice();
+    const res=sow(pit,'C');
+    let score = (pits[CPU_STORE]-snapshot[CPU_STORE])*3;
+    if(res.captured) score+=8;
+    if(res.extraTurn) score+=6;
+    score += Math.random()*3;
+    pits=snapshot;
+    if(score>bestScore){bestScore=score;best={pit,res};}
+  }
+  // Apply best move for real
+  const res=sow(best.pit,'C');
+  render();
+  if(finalizeIfOver()){busy=false;return;}
+  if(res.extraTurn){
+    setStatus('CPU scored — goes again…');
+    setTimeout(cpuMove,650);
+    return;
+  }
+  turn='P';
+  busy=false;
+  setStatus();
+  render();
+}
+
+function seedDots(n){
+  let html='<div class="seeds">';
+  const show=Math.min(n,12);
+  for(let i=0;i<show;i++) html+='<span class="seed"></span>';
+  html+='</div>';
+  return html;
+}
+
+function render(){
+  const b=document.getElementById('board');
+  b.innerHTML='';
+
+  const cpuStore=document.createElement('div');
+  cpuStore.className='store';
+  cpuStore.innerHTML=`<span class="lbl">CPU</span>${pits[CPU_STORE]}`;
+  b.appendChild(cpuStore);
+
+  const rowsWrap=document.createElement('div');
+  rowsWrap.className='rows';
+
+  const lblRow=document.createElement('div');
+  lblRow.className='label-row';
+  lblRow.innerHTML='<span>CPU pits →</span><span>← your pits</span>';
+  rowsWrap.appendChild(lblRow);
+
+  // top row: cpu pits 12..7 (so it visually mirrors / opposite alignment)
+  const topRow=document.createElement('div');
+  topRow.className='row';
+  for(let i=12;i>=7;i--){
+    topRow.appendChild(makePit(i,'theirs'));
+  }
+  rowsWrap.appendChild(topRow);
+
+  // bottom row: player pits 0..5
+  const botRow=document.createElement('div');
+  botRow.className='row';
+  for(let i=0;i<=5;i++){
+    botRow.appendChild(makePit(i,'mine'));
+  }
+  rowsWrap.appendChild(botRow);
+
+  b.appendChild(rowsWrap);
+
+  const pStore=document.createElement('div');
+  pStore.className='store';
+  pStore.innerHTML=`<span class="lbl">You</span>${pits[PLAYER_STORE]}`;
+  b.appendChild(pStore);
+}
+
+function makePit(i,kind){
+  const d=document.createElement('div');
+  const n=pits[i];
+  d.className='pit '+kind+(n===0?' empty':'');
+  d.innerHTML=seedDots(n)+`<span class="num">${n}</span>`;
+  if(kind==='mine'){
+    d.onclick=()=>playerMove(i);
+  }
+  return d;
+}
+
+newGame();
+</script></body></html>
