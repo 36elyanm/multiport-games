@@ -1,0 +1,261 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"><title>Home Run Derby</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>body{background:#08080f}#c{display:block;border-radius:8px;margin:0 auto;touch-action:none;cursor:pointer}#ui{color:#90caf9;text-align:center;padding:8px;font-size:1.05rem;font-weight:700}</style>
+</head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Home Run Derby</div>
+  <div class="game-frame" style="padding:10px">
+    <div id="ui">Inning 1/3 | Score: 0 | Outs: 0/3</div>
+    <canvas id="c" width="520" height="400"></canvas>
+  </div>
+  <div class="game-instructions">Watch the pitch come toward the plate and click / tap the canvas (or press Spacebar) at the right moment to swing! Perfect timing as the ball crosses the plate = Home Run. Slightly early/late = Double, Single or Foul. Way off = Miss (strike). Three strikes = an out, three outs ends your inning. Survive 3 innings and rack up the highest score!</div>
+</div>
+<script>
+const c=document.getElementById('c'),ctx=c.getContext('2d');
+const W=520,H=400;
+const PLATE_Y=320, PLATE_X=260;
+const PITCH_START_Y=80;
+
+let inning,score,outs,strikes,pitchesThisInning,state,pitch,msg,msgTimer,swung,swingAnim,combo,bestCombo,history;
+
+const MAX_INNINGS=3;
+
+function start(){
+  inning=1;score=0;outs=0;strikes=0;
+  combo=0;bestCombo=0;history=[];
+  state='ready';
+  pitch=null;swung=false;swingAnim=0;
+  msg='Get ready...';msgTimer=70;
+  setTimeout(throwPitch,1100);
+}
+
+function throwPitch(){
+  if(state==='over')return;
+  // Randomize speed and horizontal target offset (location)
+  const speed = 2.6 + Math.random()*2.0 + (inning-1)*0.4; // gets faster each inning
+  const targetX = PLATE_X + (Math.random()-0.5)*70; // location across plate
+  pitch={
+    x: PLATE_X + (Math.random()-0.5)*30,
+    y: PITCH_START_Y,
+    targetX, speed,
+    progress:0,
+    arrived:false
+  };
+  swung=false;
+  state='pitching';
+}
+
+function getSwingTiming(){
+  // returns distance in pixels from plate at moment of swing (0 = perfect)
+  return Math.abs(pitch.y - PLATE_Y);
+}
+
+function swing(){
+  if(state!=='pitching'||!pitch||swung) return;
+  swung=true;
+  swingAnim=14;
+  const dist = getSwingTiming();
+  const horizOff = Math.abs(pitch.x - PLATE_X);
+  let result;
+  if(dist<10 && horizOff<55){
+    result='HOME RUN';
+  } else if(dist<26 && horizOff<65){
+    result='Double';
+  } else if(dist<46 && horizOff<75){
+    result='Single';
+  } else if(dist<78){
+    result='Foul';
+  } else {
+    result='Miss';
+  }
+  resolveSwing(result);
+}
+
+function resolveSwing(result){
+  let pts=0;
+  if(result==='HOME RUN'){ pts=4; combo++; msg='💥 HOME RUN!'; }
+  else if(result==='Double'){ pts=2; combo++; msg='Double!'; }
+  else if(result==='Single'){ pts=1; combo++; msg='Single.'; }
+  else if(result==='Foul'){ pts=0; combo=0; msg='Foul ball — strike!'; strikes++; }
+  else { pts=0; combo=0; msg='Swing and a miss — strike!'; strikes++; }
+
+  if(combo>bestCombo) bestCombo=combo;
+  score+=pts;
+  history.push(result);
+  msgTimer=75;
+
+  if(strikes>=3){
+    outs++; strikes=0;
+    msg = (result==='Foul'||result==='Miss') ? `${msg}  →  Strikeout! Out #${outs}` : msg;
+    msgTimer=85;
+  }
+
+  state='result';
+  setTimeout(afterPitch, 950);
+}
+
+function noSwingResolve(){
+  // ball passed without swing
+  const horizOff=Math.abs(pitch.x-PLATE_X);
+  if(horizOff<60){
+    strikes++; combo=0; msg='Looking strike — should’ve swung!'; msgTimer=75;
+    if(strikes>=3){ outs++; strikes=0; msg='Strikeout looking! Out.'; msgTimer=85; }
+  } else {
+    msg='Ball — taken for a ball.'; msgTimer=60; combo=0;
+  }
+  state='result';
+  setTimeout(afterPitch,900);
+}
+
+function afterPitch(){
+  if(state==='over')return;
+  pitch=null;
+  if(outs>=3){
+    outs=0;
+    if(inning>=MAX_INNINGS){
+      state='over';
+      msg='Game over!';msgTimer=999;
+      return;
+    }
+    inning++;
+    msg=`Inning ${inning} — batter up!`;
+    msgTimer=80;
+    setTimeout(throwPitch,1300);
+  } else {
+    state='ready';
+    setTimeout(throwPitch,750);
+  }
+}
+
+function handleSwingInput(e){
+  if(e){ e.preventDefault(); }
+  if(state==='over'){ start(); return; }
+  swing();
+}
+c.addEventListener('mousedown',handleSwingInput);
+c.addEventListener('touchstart',handleSwingInput,{passive:false});
+document.addEventListener('keydown',e=>{
+  if(e.code==='Space'){ e.preventDefault(); handleSwingInput(); }
+});
+
+function drawField(){
+  // sky
+  const sky=ctx.createLinearGradient(0,0,0,260);
+  sky.addColorStop(0,'#1565c0');sky.addColorStop(1,'#42a5f5');
+  ctx.fillStyle=sky;ctx.fillRect(0,0,W,260);
+  // outfield grass
+  ctx.fillStyle='#2e7d32';ctx.fillRect(0,200,W,200);
+  // infield dirt arc
+  ctx.fillStyle='#a1887f';
+  ctx.beginPath();ctx.ellipse(PLATE_X,H+40,230,210,0,Math.PI,0,true);ctx.fill();
+  // infield grass diamond
+  ctx.fillStyle='#388e3c';
+  ctx.beginPath();ctx.ellipse(PLATE_X,H+10,150,150,0,Math.PI,0,true);ctx.fill();
+  // pitcher's mound
+  ctx.fillStyle='#a1887f';
+  ctx.beginPath();ctx.ellipse(PLATE_X,170,26,12,0,0,Math.PI*2);ctx.fill();
+  // home plate
+  ctx.fillStyle='#fff';
+  ctx.beginPath();
+  ctx.moveTo(PLATE_X-14,PLATE_Y);
+  ctx.lineTo(PLATE_X+14,PLATE_Y);
+  ctx.lineTo(PLATE_X+14,PLATE_Y+10);
+  ctx.lineTo(PLATE_X,PLATE_Y+20);
+  ctx.lineTo(PLATE_X-14,PLATE_Y+10);
+  ctx.closePath();ctx.fill();
+  ctx.strokeStyle='rgba(0,0,0,.3)';ctx.stroke();
+
+  // strike zone box
+  ctx.strokeStyle='rgba(255,255,255,.35)';ctx.lineWidth=2;ctx.setLineDash([5,4]);
+  ctx.strokeRect(PLATE_X-55,PLATE_Y-70,110,70);
+  ctx.setLineDash([]);
+}
+
+function drawBatter(){
+  const sw = swingAnim>0;
+  ctx.save();
+  ctx.translate(PLATE_X-60,PLATE_Y-35);
+  // body
+  ctx.fillStyle='#5d4037';
+  ctx.fillRect(-8,-20,16,40);
+  ctx.beginPath();ctx.arc(0,-28,9,0,Math.PI*2);ctx.fill();
+  // bat
+  ctx.strokeStyle='#8d6e63';ctx.lineWidth=5;ctx.lineCap='round';
+  const ang = sw ? -0.3+ (14-swingAnim)/14*1.9 : -1.1;
+  ctx.beginPath();
+  ctx.moveTo(4,-10);
+  ctx.lineTo(4+Math.cos(ang)*34, -10+Math.sin(ang)*34);
+  ctx.stroke();
+  ctx.restore();
+  if(swingAnim>0) swingAnim--;
+}
+
+function loop(){
+  drawField();
+  drawBatter();
+
+  // pitch animation
+  if(pitch && state==='pitching'){
+    pitch.progress += pitch.speed;
+    const t = Math.min(pitch.progress/(PLATE_Y-PITCH_START_Y),1);
+    pitch.y = PITCH_START_Y + t*(PLATE_Y-PITCH_START_Y);
+    pitch.x = (PLATE_X + (Math.random()-0.5)*30)*(1-t) + pitch.targetX*t;
+    const r = 5 + t*4;
+    // ball trail
+    ctx.fillStyle='rgba(255,255,255,.25)';
+    ctx.beginPath();ctx.arc(pitch.x,pitch.y-12,r*0.7,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#fff';
+    ctx.beginPath();ctx.arc(pitch.x,pitch.y,r,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle='#e53935';ctx.lineWidth=1;
+    ctx.beginPath();ctx.arc(pitch.x,pitch.y,r,0.3,2.0);ctx.stroke();
+
+    if(t>=1 && !pitch.arrived){
+      pitch.arrived=true;
+      if(!swung){ noSwingResolve(); }
+    }
+  }
+
+  // message
+  if(msgTimer>0){
+    msgTimer--;
+    ctx.fillStyle='rgba(255,255,255,.95)';ctx.font='bold 20px Arial';ctx.textAlign='center';
+    ctx.fillText(msg,W/2,46);
+  }
+
+  // combo indicator
+  if(combo>1){
+    ctx.fillStyle='rgba(255,213,79,.9)';ctx.font='bold 14px Arial';ctx.textAlign='center';
+    ctx.fillText(`🔥 Hit streak x${combo}`,W/2,68);
+  }
+
+  // HUD strip
+  ctx.fillStyle='rgba(0,0,0,.35)';ctx.fillRect(0,0,W,4);
+  ctx.fillStyle='rgba(255,255,255,.85)';ctx.font='bold 13px Arial';ctx.textAlign='left';
+  ctx.fillText(`Inning ${inning}/${MAX_INNINGS}`,12,20);
+  ctx.textAlign='center';
+  ctx.fillText(`Strikes: ${strikes}/3`,W/2-110,20);
+  ctx.fillText(`Outs: ${outs}/3`,W/2+110,20);
+  ctx.textAlign='right';
+  ctx.fillText(`Score: ${score}`,W-12,20);
+
+  if(state==='ready'&&!pitch){
+    ctx.fillStyle='rgba(255,255,255,.5)';ctx.font='12px Arial';ctx.textAlign='center';
+    ctx.fillText('Tap / click / Space to swing when the pitch crosses the plate',W/2,H-8);
+  }
+
+  if(state==='over'){
+    ctx.fillStyle='rgba(0,0,0,.6)';ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='#90caf9';ctx.font='bold 30px Arial';ctx.textAlign='center';
+    ctx.fillText(`Final Score: ${score}`,W/2,H/2-30);
+    ctx.fillStyle='#fff';ctx.font='16px Arial';
+    ctx.fillText(`Best hit streak: ${bestCombo}`,W/2,H/2+2);
+    ctx.fillText('Click / tap to play again',W/2,H/2+32);
+  }
+
+  document.getElementById('ui').textContent=`Inning ${inning}/${MAX_INNINGS} | Score: ${score} | Outs: ${outs}/3 | Strikes: ${strikes}/3`;
+  requestAnimationFrame(loop);
+}
+start();
+loop();
+</script></body></html>
