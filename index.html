@@ -52,11 +52,30 @@ if(sessionStorage.getItem('captcha_ok')||screen.width<200){
   <h1>Multiport<span>Games</span></h1>
   <input id="search-bar" type="text" placeholder="Search games…" oninput="filterGames()">
   <div style="display:flex;gap:8px;align-items:center;flex-shrink:0">
+    <div id="streak-badge"></div>
+    <button class="icon-btn" id="achievements-btn" title="Achievements" onclick="openAchievements()">🏆</button>
+    <button class="icon-btn" id="theme-btn" title="Theme" onclick="toggleThemePanel()">🎨</button>
     <a href="bug-report.html" class="auth-pill outline">🐛 Report Bug</a>
     <a href="admin.html" class="auth-pill outline" style="position:relative">Admin<span id="admin-badge" style="display:none;position:absolute;top:-6px;right:-6px;background:#e94560;color:#fff;font-size:.65rem;font-weight:800;line-height:1;min-width:16px;height:16px;border-radius:50%;align-items:center;justify-content:center;padding:2px;box-shadow:0 0 0 2px #0f0f1e"></span></a>
     <div id="auth-btns" style="display:flex;gap:8px;align-items:center"></div>
   </div>
 </header>
+
+<div id="theme-panel">
+  <h3>🎨 Accent Color</h3>
+  <div class="swatch-row" id="swatch-row"></div>
+</div>
+
+<div id="achievements-overlay">
+  <div id="achievements-modal">
+    <h2>🏆 Achievements</h2>
+    <div class="ach-sub" id="ach-sub"></div>
+    <div id="ach-list"></div>
+    <button id="achievements-close" onclick="closeAchievements()">Close</button>
+  </div>
+</div>
+
+<div id="featured-wrap"></div>
 
 <div class="categories">
   <button class="cat-btn active" onclick="filterCat('all',this)">All Games</button>
@@ -188,7 +207,7 @@ let currentCat = 'all';
 function renderGames(list) {
   const grid = document.getElementById('games-grid');
   grid.innerHTML = list.map(g => `
-    <a class="game-card" href="${g.url||('games/'+g.id+'.html')}" style="--c1:${g.c1};--c2:${g.c2}"${g.url?' target="_blank" rel="noopener noreferrer"':''}>
+    <a class="game-card" href="${g.url||('games/'+g.id+'.html')}" style="--c1:${g.c1};--c2:${g.c2}"${g.url?' target="_blank" rel="noopener noreferrer"':''} onclick="recordPlay('${g.id}')">
       <div class="thumb">${g.emoji}</div>
       <div class="info">
         <div class="name">${g.name}${g.url?' <span style="opacity:.5;font-size:.75em">↗</span>':''}</div>
@@ -237,6 +256,143 @@ function onTurnstileSuccess(token){
   gate.style.opacity='0';
   setTimeout(()=>gate.remove(),400);
 }
+
+// ── Theme Customizer ──────────────────────────
+const THEMES = [
+  { name:'Crimson', rgb:'233,69,96',  c2:'#ff8fa3' },
+  { name:'Ocean',   rgb:'33,150,243', c2:'#80d8ff' },
+  { name:'Emerald', rgb:'34,197,94',  c2:'#86efac' },
+  { name:'Violet',  rgb:'168,85,247', c2:'#d8b4fe' },
+  { name:'Sunset',  rgb:'247,147,30', c2:'#ffd180' },
+  { name:'Teal',    rgb:'20,184,166', c2:'#5eead4' },
+];
+function applyTheme(rgb, c2, save) {
+  document.documentElement.style.setProperty('--accent-rgb', rgb);
+  document.documentElement.style.setProperty('--accent2', c2);
+  if (save) {
+    localStorage.setItem('theme_accent', JSON.stringify({ rgb, c2 }));
+    localStorage.setItem('ach_theme', '1');
+  }
+}
+function renderSwatches() {
+  const saved = JSON.parse(localStorage.getItem('theme_accent') || 'null');
+  document.getElementById('swatch-row').innerHTML = THEMES.map(t => {
+    const active = saved ? saved.rgb === t.rgb : t.name === 'Crimson';
+    return `<div class="swatch${active ? ' active' : ''}" style="background:rgb(${t.rgb})" title="${t.name}" onclick="selectTheme('${t.rgb}','${t.c2}')"></div>`;
+  }).join('');
+}
+function selectTheme(rgb, c2) {
+  applyTheme(rgb, c2, true);
+  renderSwatches();
+}
+function toggleThemePanel() {
+  document.getElementById('theme-panel').classList.toggle('open');
+}
+document.addEventListener('click', e => {
+  const panel = document.getElementById('theme-panel');
+  if (panel.classList.contains('open') && !panel.contains(e.target) && e.target.id !== 'theme-btn') {
+    panel.classList.remove('open');
+  }
+});
+(function () {
+  const saved = JSON.parse(localStorage.getItem('theme_accent') || 'null');
+  if (saved) applyTheme(saved.rgb, saved.c2, false);
+})();
+renderSwatches();
+
+// ── Daily Challenge & Streak ─────────────────
+function todayKey() {
+  const d = new Date();
+  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+}
+function dayIndex(len) {
+  const d = new Date();
+  return (d.getFullYear() * 372 + d.getMonth() * 31 + d.getDate()) % len;
+}
+function renderFeatured() {
+  const game = GAMES[dayIndex(GAMES.length)];
+  document.getElementById('featured-wrap').innerHTML = `
+    <a class="featured-banner" href="${game.url || ('games/' + game.id + '.html')}" style="--fc1:${game.c1};--fc2:${game.c2}" onclick="markDailyPlayed('${game.id}')"${game.url ? ' target="_blank" rel="noopener noreferrer"' : ''}>
+      <div class="f-emoji">${game.emoji}</div>
+      <div class="f-info">
+        <div class="f-label">🌟 Game of the Day</div>
+        <div class="f-name">${game.name}</div>
+      </div>
+      <div class="f-cta">Play Now →</div>
+    </a>`;
+}
+function markDailyPlayed(id) {
+  localStorage.setItem('ach_daily_played', '1');
+  recordPlay(id);
+}
+function updateStreak() {
+  const today = todayKey();
+  const last = localStorage.getItem('last_visit_key');
+  let streak = parseInt(localStorage.getItem('visit_streak') || '0', 10);
+  if (last !== today) {
+    const y = new Date();
+    y.setDate(y.getDate() - 1);
+    const yKey = `${y.getFullYear()}-${y.getMonth()}-${y.getDate()}`;
+    streak = (last === yKey) ? streak + 1 : 1;
+    localStorage.setItem('visit_streak', streak);
+    localStorage.setItem('last_visit_key', today);
+  }
+  if (streak > 1) {
+    const badge = document.getElementById('streak-badge');
+    badge.textContent = '🔥 ' + streak + ' day streak';
+    badge.style.display = 'flex';
+  }
+}
+renderFeatured();
+updateStreak();
+
+// ── Achievements ──────────────────────────────
+const BADGES = [
+  { emoji:'🎮', title:'First Steps',   desc:'Play your first game',              check:s=>s.played.length>=1 },
+  { emoji:'🗺️', title:'Explorer',      desc:'Play 5 different games',            check:s=>s.played.length>=5 },
+  { emoji:'🎯', title:'Variety Pack',  desc:'Play 15 different games',           check:s=>s.played.length>=15 },
+  { emoji:'🏅', title:'Game Master',   desc:'Play 30 different games',           check:s=>s.played.length>=30 },
+  { emoji:'👑', title:'Centurion',     desc:`Play all ${GAMES.length} games`,    check:s=>s.played.length>=GAMES.length },
+  { emoji:'🔥', title:'Streak Starter', desc:'Visit 2 days in a row',            check:s=>s.streak>=2 },
+  { emoji:'🔥🔥', title:'On Fire',      desc:'Visit 5 days in a row',             check:s=>s.streak>=5 },
+  { emoji:'🔥🔥🔥', title:'Unstoppable', desc:'Visit 14 days in a row',           check:s=>s.streak>=14 },
+  { emoji:'🎨', title:'Stylish',       desc:'Customize your accent color',       check:s=>s.theme },
+  { emoji:'🌟', title:'Daily Champion', desc:'Play the Game of the Day',         check:s=>s.daily },
+];
+function recordPlay(id) {
+  const played = JSON.parse(localStorage.getItem('played_games') || '[]');
+  if (!played.includes(id)) {
+    played.push(id);
+    localStorage.setItem('played_games', JSON.stringify(played));
+  }
+}
+function getAchState() {
+  return {
+    played: JSON.parse(localStorage.getItem('played_games') || '[]'),
+    streak: parseInt(localStorage.getItem('visit_streak') || '0', 10),
+    theme: !!localStorage.getItem('ach_theme'),
+    daily: !!localStorage.getItem('ach_daily_played'),
+  };
+}
+function openAchievements() {
+  const state = getAchState();
+  const unlocked = BADGES.filter(b => b.check(state)).length;
+  document.getElementById('ach-sub').textContent = `${unlocked} / ${BADGES.length} unlocked`;
+  document.getElementById('ach-list').innerHTML = BADGES.map(b => {
+    const on = b.check(state);
+    return `<div class="ach-item${on ? ' unlocked' : ''}">
+      <div class="ach-emoji">${b.emoji}</div>
+      <div class="ach-text"><div class="ach-title">${b.title}</div><div class="ach-desc">${b.desc}</div></div>
+    </div>`;
+  }).join('');
+  document.getElementById('achievements-overlay').classList.add('open');
+}
+function closeAchievements() {
+  document.getElementById('achievements-overlay').classList.remove('open');
+}
+document.getElementById('achievements-overlay').addEventListener('click', e => {
+  if (e.target.id === 'achievements-overlay') closeAchievements();
+});
 
 fetch('/api/bug-count').then(r=>r.json()).then(d=>{
   const n=d.count||0;
