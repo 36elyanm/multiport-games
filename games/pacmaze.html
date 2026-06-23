@@ -128,9 +128,9 @@ function startLevel(resetScore){
   buildGrid();
   player={r:19, c:9, x:9, y:19, dir:{x:0,y:0}, animPhase:0};
   ghosts=[
-    {r:9, c:8, x:8, y:9, color:GHOST_COLORS[0], scared:false, dir:{x:1,y:0}, baseSpeed:0.045},
-    {r:9, c:9, x:9, y:9, color:GHOST_COLORS[1], scared:false, dir:{x:-1,y:0}, baseSpeed:0.042},
-    {r:9, c:10, x:10, y:9, color:GHOST_COLORS[2], scared:false, dir:{x:0,y:-1}, baseSpeed:0.040}
+    {r:9, c:8, x:8, y:9, homeX:8, homeY:9, homeDir:{x:1,y:0}, color:GHOST_COLORS[0], scared:false, dir:{x:1,y:0}, baseSpeed:0.045},
+    {r:9, c:9, x:9, y:9, homeX:9, homeY:9, homeDir:{x:-1,y:0}, color:GHOST_COLORS[1], scared:false, dir:{x:-1,y:0}, baseSpeed:0.042},
+    {r:9, c:10, x:10, y:9, homeX:10, homeY:9, homeDir:{x:0,y:-1}, color:GHOST_COLORS[2], scared:false, dir:{x:0,y:-1}, baseSpeed:0.040}
   ];
   dir={x:0,y:0}; nextDir={x:0,y:0};
   powerTimer=0;
@@ -181,7 +181,7 @@ c.addEventListener('touchend',e=>{
 let lastTime=0;
 function loop(){
   const now=performance.now();
-  const dt=now-lastTime;
+  const dt=Math.min(now-lastTime, 50); // cap to avoid huge jumps after tab is backgrounded
   lastTime=now;
   if(!paused && !over && !won) update(dt);
   draw();
@@ -208,7 +208,7 @@ function atCellCenter(entity){
 }
 
 function movePlayer(dt){
-  const speed=SPEED*dt*60;
+  const speed=SPEED*dt;
   // try turning at intersections when near center
   if(atCellCenter(player)){
     const cr=Math.round(player.y), cc=Math.round(player.x);
@@ -274,7 +274,7 @@ function moveGhosts(dt){
   const target={r:Math.round(player.y), c:wrapCol(Math.round(player.x))};
   for(const g of ghosts){
     const speedMul = g.scared ? 0.6 : 1;
-    const speed = g.baseSpeed*dt*60*speedMul*(1+ (level-1)*0.12);
+    const speed = g.baseSpeed*dt*0.06*speedMul*(1+ (level-1)*0.12);
     if(atCellCenter(g)){
       const cr=Math.round(g.y), cc=Math.round(g.x);
       g.x=cc; g.y=cr;
@@ -294,8 +294,8 @@ function checkCollisions(){
       if(g.scared){
         score+=200;
         updateHud();
-        // send ghost back to center
-        g.x=9; g.y=9; g.r=9; g.c=9; g.scared=false;
+        // send ghost back to its home cell
+        g.x=g.homeX; g.y=g.homeY; g.dir={...g.homeDir}; g.scared=false;
         setStatus('Ghost eaten! +200');
       } else {
         loseLife();
@@ -314,9 +314,7 @@ function loseLife(){
     setStatus('Caught! Lives remaining: '+lives);
     // reset positions
     player.x=9; player.y=19; player.r=19; player.c=9; player.dir={x:0,y:0};
-    ghosts[0].x=8; ghosts[0].y=9; ghosts[0].dir={x:1,y:0}; ghosts[0].scared=false;
-    ghosts[1].x=9; ghosts[1].y=9; ghosts[1].dir={x:-1,y:0}; ghosts[1].scared=false;
-    ghosts[2].x=10; ghosts[2].y=9; ghosts[2].dir={x:0,y:-1}; ghosts[2].scared=false;
+    ghosts.forEach(g=>{ g.x=g.homeX; g.y=g.homeY; g.dir={...g.homeDir}; g.scared=false; });
     powerTimer=0;
     nextDir={x:0,y:0};
   }
