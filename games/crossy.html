@@ -1,10 +1,10 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"><title>Crossy Road</title>
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"><title>Road Hopper</title>
 <link rel="stylesheet" href="../css/style.css">
 <style>body{background:#08080f}#c{display:block;border-radius:8px;touch-action:none}</style>
 </head><body>
 <div class="game-page">
   <a href="../index.html" class="back-btn">← Back</a>
-  <div class="game-title">Crossy Road</div>
+  <div class="game-title">Road Hopper</div>
   <div class="game-frame"><canvas id="c" width="480" height="520"></canvas></div>
   <div class="game-instructions"><b>Arrow keys</b> to hop. On mobile, <b>swipe</b> in any direction. Cross roads and rivers to score!</div>
 </div>
@@ -398,7 +398,7 @@ function loop(){
       const drow={type:i%3===0?'road':i%3===1?'river':'grass',index:i,vehicles:[]};
       drawRow(drow);
     }
-    drawOverlay('CROSSY ROAD','Cross roads and rivers safely!','Arrow keys or Swipe to start');
+    drawOverlay('ROAD HOPPER','Cross roads and rivers safely!','Arrow keys or Swipe to start');
     requestAnimationFrame(loop);return;
   }
 

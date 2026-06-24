@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"><title>Connect Four</title>
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"><title>Four in a Row</title>
 <link rel="stylesheet" href="../css/style.css">
 <style>
 body{background:#08080f}
@@ -13,7 +13,7 @@ body{background:#08080f}
 </style></head><body>
 <div class="game-page">
   <a href="../index.html" class="back-btn">← Back</a>
-  <div class="game-title">Connect Four</div>
+  <div class="game-title">Four in a Row</div>
   <div class="game-frame" style="padding:16px;text-align:center">
     <div id="mode">
       <button class="active" id="btn2p" onclick="setMode(false)">2 Players</button>
@@ -23,7 +23,7 @@ body{background:#08080f}
     <div id="board"></div>
     <button onclick="newGame()" style="margin-top:12px;padding:8px 24px;background:#e94560;border:none;border-radius:20px;color:#fff;cursor:pointer;font-size:1rem">New Game</button>
   </div>
-  <div class="game-instructions">Click a column to drop your piece. Connect 4 in a row, column, or diagonal!</div>
+  <div class="game-instructions">Click a column to drop your piece. Get 4 in a row, column, or diagonal!</div>
 </div>
 <script>
 const ROWS=6,COLS=7;

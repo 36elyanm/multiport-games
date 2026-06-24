@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"><title>Yahtzee</title>
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"><title>Dice Master</title>
 <link rel="stylesheet" href="../css/style.css">
 <style>
 body{background:#08080f}
@@ -22,7 +22,7 @@ table.score td.val.suggest{background:rgba(233,69,96,.25)}
 </style></head><body>
 <div class="game-page">
   <a href="../index.html" class="back-btn">← Back</a>
-  <div class="game-title">Yahtzee</div>
+  <div class="game-title">Dice Master</div>
   <div class="game-frame" style="padding:16px">
     <div id="table">
       <div id="status">Click "Roll" to start your turn (Round 1 of 13)</div>
@@ -51,7 +51,7 @@ const CATS=[
   {key:'fullHouse',label:'Full House',fn:d=>isFullHouse(d)?25:0},
   {key:'smallStraight',label:'Small Straight',fn:d=>isSmallStraight(d)?30:0},
   {key:'largeStraight',label:'Large Straight',fn:d=>isLargeStraight(d)?40:0},
-  {key:'yahtzee',label:'Yahtzee',fn:d=>hasN(d,5)?50:0},
+  {key:'yahtzee',label:'Five of a Kind',fn:d=>hasN(d,5)?50:0},
   {key:'chance',label:'Chance',fn:d=>total(d)}
 ];
 let dice,held,rollsLeft,scores,round,gameOver;
