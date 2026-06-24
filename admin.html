@@ -90,8 +90,9 @@ function doLogout(){
 async function loadReports(){
   try{
     const res=await fetch('/api/admin-reports?key='+encodeURIComponent(adminKey));
-    if(res.status===401){
-      const e=document.getElementById('login-err');e.textContent='Wrong password.';e.style.display='block';return;
+    if(res.status===401||res.status===429){
+      const data=await res.json().catch(()=>({}));
+      const e=document.getElementById('login-err');e.textContent=data.error||'Wrong password.';e.style.display='block';return;
     }
     const data=await res.json();
     allReports=data.reports||[];

@@ -22,3 +22,14 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
   auth TEXT NOT NULL,
   created_at INTEGER NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS admin_auth (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  password_hash TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS admin_login_attempts (
+  ip TEXT PRIMARY KEY,
+  attempts INTEGER NOT NULL DEFAULT 0,
+  locked_until INTEGER NOT NULL DEFAULT 0
+);

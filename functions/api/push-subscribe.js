@@ -1,8 +1,10 @@
+import { checkAdminAuth } from './_auth.js';
+
 export async function onRequestPost({ request, env }) {
   const headers = { 'Content-Type': 'application/json' };
   const key = new URL(request.url).searchParams.get('key');
-  const adminKey = env.ADMIN_KEY || 'multiportgames2025';
-  if (key !== adminKey) return Response.json({ error: 'Unauthorized' }, { status: 401, headers });
+  const auth = await checkAdminAuth(request, env, key);
+  if (!auth.ok) return Response.json({ error: auth.error }, { status: auth.status, headers });
 
   const sub = await request.json();
   if (!sub?.endpoint || !sub?.keys?.p256dh || !sub?.keys?.auth)
@@ -18,8 +20,8 @@ export async function onRequestPost({ request, env }) {
 export async function onRequestDelete({ request, env }) {
   const headers = { 'Content-Type': 'application/json' };
   const key = new URL(request.url).searchParams.get('key');
-  const adminKey = env.ADMIN_KEY || 'multiportgames2025';
-  if (key !== adminKey) return Response.json({ error: 'Unauthorized' }, { status: 401, headers });
+  const auth = await checkAdminAuth(request, env, key);
+  if (!auth.ok) return Response.json({ error: auth.error }, { status: auth.status, headers });
 
   const { endpoint } = await request.json();
   if (endpoint) await env.DB.prepare('DELETE FROM push_subscriptions WHERE endpoint=?1').bind(endpoint).run();
