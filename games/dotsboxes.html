@@ -39,7 +39,7 @@ body{background:#08080f}
 </div>
 <script>
 const c=document.getElementById('c'),ctx=c.getContext('2d');
-const GRID=5; // 5x5 dots => 4x4 boxes
+const GRID=4; // 4x4 dots => 3x3 boxes
 const DOTS=GRID;
 const BOXES=GRID-1;
 const PAD=40;
@@ -282,9 +282,14 @@ function cpuMove(){
   for(const m of moves){
     if(!createsThreeSided(m)) safe.push(m);
   }
+  // CPU occasionally slips up and plays a random move even when a safe one exists,
+  // so the game stays beatable for casual players instead of playing perfectly.
+  const MISTAKE_CHANCE=0.3;
   let choice;
-  if(safe.length){
+  if(safe.length && Math.random()>MISTAKE_CHANCE){
     choice = safe[Math.floor(Math.random()*safe.length)];
+  } else if(safe.length){
+    choice = moves[Math.floor(Math.random()*moves.length)];
   } else {
     // category C: forced — pick move minimizing boxes given away (heuristic: fewest 3-sided boxes created)
     let scored=moves.map(m=>({m,bad:countThreeSidedCreated(m)}));
