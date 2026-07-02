@@ -1,0 +1,93 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"><title>2048</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+body{background:#08080f}
+#board{display:grid;grid-template-columns:repeat(4,90px);gap:10px;background:#776e65;padding:10px;border-radius:10px;margin:0 auto}
+.tile{width:90px;height:90px;display:flex;align-items:center;justify-content:center;font-size:1.6rem;font-weight:900;border-radius:8px;transition:transform .1s;background:#cdc1b4;color:#776e65}
+#ui{text-align:center;padding:12px;font-size:1.1rem;color:#ffcc02;font-weight:700}
+.arrow-pad{display:grid;grid-template-columns:50px 50px 50px;gap:6px;justify-content:center;margin-top:10px}
+.arrow-pad button{width:50px;height:50px;font-size:1.4rem;background:#16213e;border:2px solid #ffcc02;border-radius:8px;color:#ffcc02;cursor:pointer}
+</style></head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">2048</div>
+  <div class="game-frame" style="padding:20px;text-align:center">
+    <div id="ui">Score: 0 | Best: 0</div>
+    <div id="board"></div>
+    <div class="arrow-pad" style="margin-top:12px">
+      <span></span><button onclick="slide('up')">▲</button><span></span>
+      <button onclick="slide('left')">◀</button><span></span><button onclick="slide('right')">▶</button>
+      <span></span><button onclick="slide('down')">▼</button><span></span>
+    </div>
+  </div>
+  <div class="game-instructions">Use <b>Arrow Keys</b> or buttons to slide tiles. Combine same numbers to reach 2048!</div>
+</div>
+<script>
+let grid,score,best=0;
+const COLORS={0:'#cdc1b4',2:'#eee4da',4:'#ede0c8',8:'#f2b179',16:'#f59563',32:'#f67c5f',64:'#f65e3b',128:'#edcf72',256:'#edcc61',512:'#edc850',1024:'#edc53f',2048:'#edc22e'};
+const TEXTC={0:'#776e65',2:'#776e65',4:'#776e65',8:'#f9f6f2',16:'#f9f6f2',32:'#f9f6f2',64:'#f9f6f2',128:'#f9f6f2',256:'#f9f6f2',512:'#f9f6f2',1024:'#f9f6f2',2048:'#f9f6f2'};
+
+function init(){grid=Array.from({length:4},()=>Array(4).fill(0));score=0;addRandom();addRandom();render();}
+function addRandom(){
+  const empty=[];
+  for(let r=0;r<4;r++)for(let c=0;c<4;c++)if(!grid[r][c])empty.push([r,c]);
+  if(!empty.length)return;
+  const [r,c]=empty[Math.floor(Math.random()*empty.length)];
+  grid[r][c]=Math.random()<.9?2:4;
+}
+
+function slideRow(row){
+  let a=row.filter(x=>x);
+  for(let i=0;i<a.length-1;i++)if(a[i]===a[i+1]){score+=a[i]*2;a[i]*=2;a.splice(i+1,1);}
+  while(a.length<4)a.push(0);
+  return a;
+}
+
+function slide(dir){
+  const prev=JSON.stringify(grid);
+  if(dir==='left')grid=grid.map(r=>slideRow(r));
+  if(dir==='right')grid=grid.map(r=>slideRow([...r].reverse()).reverse());
+  if(dir==='up'){
+    grid=grid[0].map((_,c)=>slideRow(grid.map(r=>r[c]))).map((col,c)=>col).reduce((acc,col,c)=>{col.forEach((v,r)=>{if(!acc[r])acc[r]=[];acc[r][c]=v;});return acc;},[]);
+  }
+  if(dir==='down'){
+    const cols=grid[0].map((_,c)=>slideRow(grid.map(r=>r[c]).reverse()).reverse());
+    grid=cols[0].map((_,r)=>cols.map(col=>col[r]));
+  }
+  if(JSON.stringify(grid)!==prev){addRandom();}
+  if(score>best)best=score;
+  render();
+  if(grid.some(row=>row.includes(2048)))setTimeout(()=>alert('🎉 You reached 2048!'),50);
+}
+
+document.addEventListener('keydown',e=>{
+  const map={ArrowLeft:'left',ArrowRight:'right',ArrowUp:'up',ArrowDown:'down'};
+  if(map[e.code]){e.preventDefault();slide(map[e.code]);}
+});
+
+let tx=0,ty=0;
+document.getElementById('board').addEventListener('touchstart',e=>{
+  tx=e.touches[0].clientX;ty=e.touches[0].clientY;
+},{passive:true});
+document.getElementById('board').addEventListener('touchend',e=>{
+  const dx=e.changedTouches[0].clientX-tx;
+  const dy=e.changedTouches[0].clientY-ty;
+  if(Math.abs(dx)<20&&Math.abs(dy)<20)return;
+  if(Math.abs(dx)>Math.abs(dy))slide(dx>0?'right':'left');
+  else slide(dy>0?'down':'up');
+},{passive:true});
+
+function render(){
+  const b=document.getElementById('board');b.innerHTML='';
+  grid.forEach(row=>row.forEach(v=>{
+    const d=document.createElement('div');d.className='tile';
+    d.style.background=COLORS[v]||'#3d3a37';
+    d.style.color=TEXTC[v]||'#f9f6f2';
+    d.style.fontSize=v>=1024?'1.2rem':v>=100?'1.4rem':'1.6rem';
+    if(v)d.textContent=v;
+    b.appendChild(d);
+  }));
+  document.getElementById('ui').textContent=`Score: ${score} | Best: ${best}`;
+}
+init();
+</script></body></html>

@@ -1,0 +1,263 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"><title>Anagram</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+body{background:#08080f}
+#an-wrap{display:flex;flex-direction:column;align-items:center;gap:16px;padding:14px 8px}
+#an-stats{display:flex;gap:22px;font-size:.9rem;color:rgba(255,255,255,.6);font-weight:700;flex-wrap:wrap;justify-content:center}
+#an-stats b{color:#fff}
+#an-category{font-size:.85rem;color:rgba(255,255,255,.5);font-weight:700;text-transform:uppercase;letter-spacing:1px}
+#answer-slots{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;min-height:54px}
+.slot{
+  width:44px;height:48px;border:2px solid #3a3a3c;border-radius:8px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.4rem;font-weight:800;color:#fff;background:#121213;text-transform:uppercase;cursor:pointer;
+}
+.slot.filled{border-color:#e94560;background:rgba(233,69,96,.15)}
+#letter-bank{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.letter-tile{
+  width:44px;height:48px;border:none;border-radius:8px;
+  background:#818384;color:#fff;font-size:1.4rem;font-weight:800;text-transform:uppercase;
+  cursor:pointer;transition:transform .1s,opacity .15s;-webkit-tap-highlight-color:transparent;
+}
+.letter-tile:active{transform:scale(.92)}
+.letter-tile.used{opacity:0;pointer-events:none}
+#an-msg{min-height:28px;font-weight:700;color:#fff;text-align:center;font-size:1.05rem}
+#an-btn-row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.an-btn{padding:10px 22px;background:#e94560;border:none;border-radius:20px;color:#fff;cursor:pointer;font-size:.95rem;font-weight:700}
+.an-btn:hover{background:#d63a52}
+.an-btn.secondary{background:rgba(255,255,255,.1)}
+.an-btn.secondary:hover{background:rgba(255,255,255,.18)}
+#progress{font-size:.8rem;color:rgba(255,255,255,.45);font-weight:600}
+@media(max-width:480px){
+  .slot,.letter-tile{width:36px;height:42px;font-size:1.15rem}
+}
+</style></head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Anagram</div>
+  <div class="game-frame" style="padding:18px">
+    <div id="an-wrap">
+      <div id="an-stats"><span>⭐ Score: <b id="an-score">0</b></span><span>⏱ <b id="an-timer">0s</b></span><span>💡 Hints: <b id="an-hints">0</b></span></div>
+      <div id="an-category">Category: ...</div>
+      <div id="answer-slots"></div>
+      <div id="letter-bank"></div>
+      <div id="an-msg"></div>
+      <div id="an-btn-row">
+        <button class="an-btn secondary" id="an-clear">Clear</button>
+        <button class="an-btn secondary" id="an-hint">Hint</button>
+        <button class="an-btn" id="an-skip">Skip / Next</button>
+      </div>
+      <div id="progress"></div>
+    </div>
+  </div>
+  <div class="game-instructions">
+    Unscramble the shuffled letters to form the hidden word. Click letters to add them to the answer (or click filled slots to remove them), or simply type on your keyboard. Words get longer and harder each round. Use <b>Hint</b> to reveal the next correct letter (costs points).
+  </div>
+</div>
+<script>
+const ROUNDS = [
+  // [word, category] grouped roughly by increasing difficulty/length
+  ['CAT','Animals'],['DOG','Animals'],['SUN','Nature'],['CUP','Objects'],
+  ['TREE','Nature'],['BOOK','Objects'],['FISH','Animals'],['MOON','Nature'],['CAKE','Food'],['BIRD','Animals'],
+  ['HOUSE','Places'],['CHAIR','Objects'],['GRAPE','Food'],['CLOUD','Nature'],['TIGER','Animals'],['BEACH','Places'],
+  ['GUITAR','Music'],['PLANET','Space'],['BRIDGE','Places'],['CASTLE','Places'],['DRAGON','Fantasy'],['PENCIL','Objects'],
+  ['ELEPHANT','Animals'],['MOUNTAIN','Nature'],['SANDWICH','Food'],['UMBRELLA','Objects'],['TELESCOPE','Space'],
+  ['BUTTERFLY','Animals'],['CHOCOLATE','Food'],['ADVENTURE','Concepts']
+];
+
+let order, roundIdx, word, category, slots, letters, slotAssign, score, hints, seconds, timer, roundOver;
+
+function setMsg(t, color){
+  const el = document.getElementById('an-msg');
+  el.textContent = t;
+  el.style.color = color || '#fff';
+}
+
+function shuffle(arr){
+  const a = [...arr];
+  for (let i=a.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+
+function scrambledLetters(w){
+  let attempt;
+  do {
+    attempt = shuffle(w.split(''));
+  } while (attempt.join('') === w && w.length > 1);
+  return attempt;
+}
+
+function buildRound(){
+  [word, category] = ROUNDS[order[roundIdx]];
+  letters = scrambledLetters(word);
+  slotAssign = Array(word.length).fill(null); // index into letters[] for each slot, or null
+  roundOver = false;
+  document.getElementById('an-category').textContent = 'Category: ' + category;
+  renderSlots();
+  renderBank();
+  setMsg('');
+  document.getElementById('progress').textContent = `Word ${roundIdx+1} of ${order.length} · Length: ${word.length}`;
+}
+
+function renderSlots(){
+  const wrap = document.getElementById('answer-slots');
+  wrap.innerHTML = '';
+  for (let i=0;i<word.length;i++){
+    const slot = document.createElement('div');
+    slot.className = 'slot' + (slotAssign[i]!==null ? ' filled' : '');
+    slot.textContent = slotAssign[i]!==null ? letters[slotAssign[i]] : '';
+    slot.addEventListener('click', () => removeFromSlot(i));
+    wrap.appendChild(slot);
+  }
+}
+
+function renderBank(){
+  const bank = document.getElementById('letter-bank');
+  bank.innerHTML = '';
+  letters.forEach((ch, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'letter-tile' + (slotAssign.includes(i) ? ' used' : '');
+    btn.textContent = ch;
+    btn.addEventListener('click', () => placeLetter(i));
+    btn.addEventListener('touchend', e => { e.preventDefault(); placeLetter(i); });
+    bank.appendChild(btn);
+  });
+}
+
+function placeLetter(letterIdx){
+  if (roundOver) return;
+  if (slotAssign.includes(letterIdx)) return;
+  const emptySlot = slotAssign.indexOf(null);
+  if (emptySlot === -1) return;
+  slotAssign[emptySlot] = letterIdx;
+  renderSlots();
+  renderBank();
+  checkComplete();
+}
+
+function removeFromSlot(slotIdx){
+  if (roundOver) return;
+  if (slotAssign[slotIdx] === null) return;
+  slotAssign[slotIdx] = null;
+  renderSlots();
+  renderBank();
+}
+
+function checkComplete(){
+  if (slotAssign.includes(null)) return;
+  const guess = slotAssign.map(i => letters[i]).join('');
+  if (guess === word){
+    roundOver = true;
+    const pts = Math.max(10, word.length * 10 - hintsThisRound*5);
+    score += pts;
+    document.getElementById('an-score').textContent = score;
+    setMsg(`✅ Correct! "${word}" (+${pts} pts)`, '#538d4e');
+    setTimeout(nextRound, 1300);
+  } else {
+    setMsg('Not quite — try again or clear.', '#e94560');
+  }
+}
+
+let hintsThisRound = 0;
+
+function clearSlots(){
+  if (roundOver) return;
+  slotAssign = slotAssign.map(()=>null);
+  renderSlots();
+  renderBank();
+  setMsg('');
+}
+
+function giveHint(){
+  if (roundOver) return;
+  // find first empty slot, fill with correct letter from bank
+  const emptySlot = slotAssign.indexOf(null);
+  if (emptySlot === -1) { setMsg('Fill in letters first, or clear to use a hint.', '#e94560'); return; }
+  const correctChar = word[emptySlot];
+  // find an unused letter tile matching that char
+  let foundIdx = -1;
+  for (let i=0;i<letters.length;i++){
+    if (letters[i] === correctChar && !slotAssign.includes(i)){ foundIdx = i; break; }
+  }
+  if (foundIdx === -1) return;
+  slotAssign[emptySlot] = foundIdx;
+  hints++;
+  hintsThisRound++;
+  document.getElementById('an-hints').textContent = hints;
+  renderSlots();
+  renderBank();
+  checkComplete();
+}
+
+function nextRound(){
+  roundIdx++;
+  hintsThisRound = 0;
+  if (roundIdx >= order.length){
+    endGame();
+    return;
+  }
+  buildRound();
+}
+
+function endGame(){
+  clearInterval(timer);
+  document.getElementById('answer-slots').innerHTML = '';
+  document.getElementById('letter-bank').innerHTML = '';
+  document.getElementById('an-category').textContent = '';
+  document.getElementById('progress').textContent = '';
+  setMsg(`🏁 Game complete! Final score: ${score} in ${seconds}s`, '#538d4e');
+  document.getElementById('an-skip').textContent = 'Play Again';
+  document.getElementById('an-skip').onclick = startGame;
+}
+
+function startTimer(){
+  clearInterval(timer);
+  seconds = 0;
+  document.getElementById('an-timer').textContent = '0s';
+  timer = setInterval(() => {
+    seconds++;
+    document.getElementById('an-timer').textContent = seconds + 's';
+  }, 1000);
+}
+
+function startGame(){
+  order = shuffle(ROUNDS.map((_,i)=>i)).slice(0, 12).sort((a,b)=>{
+    return ROUNDS[a][0].length - ROUNDS[b][0].length;
+  });
+  roundIdx = 0;
+  score = 0;
+  hints = 0;
+  hintsThisRound = 0;
+  document.getElementById('an-score').textContent = '0';
+  document.getElementById('an-hints').textContent = '0';
+  document.getElementById('an-skip').textContent = 'Skip / Next';
+  document.getElementById('an-skip').onclick = () => { hintsThisRound=0; nextRound(); };
+  startTimer();
+  buildRound();
+}
+
+document.getElementById('an-clear').addEventListener('click', clearSlots);
+document.getElementById('an-hint').addEventListener('click', giveHint);
+
+document.addEventListener('keydown', e => {
+  if (e.ctrlKey || e.metaKey || e.altKey || roundOver) return;
+  const k = e.key.toUpperCase();
+  if (k === 'BACKSPACE'){
+    const lastFilled = slotAssign.lastIndexOf(slotAssign.filter(x=>x!==null).pop());
+    for (let i=slotAssign.length-1;i>=0;i--){
+      if (slotAssign[i] !== null){ removeFromSlot(i); break; }
+    }
+  } else if (/^[A-Z]$/.test(k)){
+    // find an unused letter tile matching k
+    for (let i=0;i<letters.length;i++){
+      if (letters[i] === k && !slotAssign.includes(i)){ placeLetter(i); break; }
+    }
+  }
+});
+
+startGame();
+</script>
+</body></html>

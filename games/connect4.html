@@ -1,0 +1,74 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"><title>Four in a Row</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+body{background:#08080f}
+#board{display:inline-grid;grid-template-columns:repeat(7,60px);gap:6px;background:#1565c0;padding:12px;border-radius:14px}
+.cell{width:60px;height:60px;border-radius:50%;background:#0d2a5e;cursor:pointer;transition:background .15s}
+.cell.r{background:#f44336}.cell.y{background:#ffeb3b}
+#ui{color:#fff;text-align:center;padding:12px;font-size:1.1rem;font-weight:700}
+#mode{display:flex;gap:10px;justify-content:center;margin-bottom:8px}
+#mode button{padding:7px 18px;border-radius:20px;border:none;cursor:pointer;font-weight:600}
+#mode button.active{background:#e94560;color:#fff}
+#mode button:not(.active){background:#16213e;color:#aaa}
+</style></head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Four in a Row</div>
+  <div class="game-frame" style="padding:16px;text-align:center">
+    <div id="mode">
+      <button class="active" id="btn2p" onclick="setMode(false)">2 Players</button>
+      <button id="btnAI" onclick="setMode(true)">vs AI</button>
+    </div>
+    <div id="ui">🔴 Red's turn</div>
+    <div id="board"></div>
+    <button onclick="newGame()" style="margin-top:12px;padding:8px 24px;background:#e94560;border:none;border-radius:20px;color:#fff;cursor:pointer;font-size:1rem">New Game</button>
+  </div>
+  <div class="game-instructions">Click a column to drop your piece. Get 4 in a row, column, or diagonal!</div>
+</div>
+<script>
+const ROWS=6,COLS=7;
+let board,turn,over,vsAI=false;
+
+function setMode(ai){vsAI=ai;document.getElementById('btn2p').className=ai?'':'active';document.getElementById('btnAI').className=ai?'active':'';newGame();}
+function newGame(){board=Array.from({length:ROWS},()=>Array(COLS).fill(0));turn=1;over=false;render();}
+
+function drop(col){
+  if(over)return;
+  for(let r=ROWS-1;r>=0;r--){
+    if(!board[r][col]){board[r][col]=turn;if(checkWin(r,col)){over=true;render();document.getElementById('ui').textContent=(turn===1?'🔴 Red':'🟡 Yellow')+' wins! 🎉';return;}
+      if(board[0].every((c,i)=>board[0][i]))document.getElementById('ui').textContent="It's a draw!";
+      turn=turn===1?2:1;render();
+      if(vsAI&&turn===2&&!over)setTimeout(aiMove,400);
+      return;
+    }
+  }
+}
+
+function aiMove(){
+  // Try to win, then block, then random
+  for(const t of[2,1]){for(let col=0;col<COLS;col++){for(let r=ROWS-1;r>=0;r--){if(!board[r][col]){board[r][col]=t;const w=checkWin(r,col);board[r][col]=0;if(w){drop(col);return;}break;}}}}
+  // Prefer center
+  const pref=[3,2,4,1,5,0,6];for(const col of pref){if(board[0][col]===0){drop(col);return;}}
+}
+
+function checkWin(r,col){
+  const p=board[r][col];
+  const dirs=[[0,1],[1,0],[1,1],[1,-1]];
+  return dirs.some(([dr,dc])=>{
+    let cnt=1;
+    for(let d=1;d<4;d++){const nr=r+dr*d,nc=col+dc*d;if(nr>=0&&nr<ROWS&&nc>=0&&nc<COLS&&board[nr][nc]===p)cnt++;else break;}
+    for(let d=1;d<4;d++){const nr=r-dr*d,nc=col-dc*d;if(nr>=0&&nr<ROWS&&nc>=0&&nc<COLS&&board[nr][nc]===p)cnt++;else break;}
+    return cnt>=4;
+  });
+}
+
+function render(){
+  const b=document.getElementById('board');b.innerHTML='';
+  for(let r=0;r<ROWS;r++)for(let col=0;col<COLS;col++){
+    const d=document.createElement('div');d.className='cell'+(board[r][col]===1?' r':board[r][col]===2?' y':'');
+    d.onclick=()=>drop(col);b.appendChild(d);
+  }
+  if(!over)document.getElementById('ui').textContent=(turn===1?'🔴 Red':'🟡 Yellow')+"'s turn";
+}
+newGame();
+</script></body></html>

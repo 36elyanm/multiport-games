@@ -1,0 +1,75 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"><title>Ball Pit</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>body{background:#08080f}#c{display:block;border-radius:8px;margin:0 auto}#ui{color:#f48fb1;text-align:center;padding:8px;font-size:1.1rem;font-weight:700}</style>
+</head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Ball Pit</div>
+  <div class="game-frame" style="padding:10px">
+    <div id="ui">Click to spawn balls! Count: 0</div>
+    <canvas id="c" width="480" height="480"></canvas>
+  </div>
+  <div class="game-instructions">Click anywhere to add colorful balls! Watch them bounce and interact. Drag to shake!</div>
+</div>
+<script>
+const c=document.getElementById('c'),ctx=c.getContext('2d');
+let balls=[],frame=0,gravity={x:0,y:.4};
+
+function rnd(min,max){return min+Math.random()*(max-min);}
+
+function addBall(x,y){
+  if(balls.length>=200)return;
+  const hue=Math.random()*360;
+  balls.push({x,y,vx:(Math.random()-.5)*8,vy:(Math.random()-.5)*4-3,r:8+Math.random()*14,hue,bounce:.7});
+}
+
+c.addEventListener('click',e=>{const rect=c.getBoundingClientRect();addBall((e.clientX-rect.left)*480/rect.width,(e.clientY-rect.top)*480/rect.height);});
+c.addEventListener('touchstart',e=>{e.preventDefault();Array.from(e.touches).forEach(t=>{const rect=c.getBoundingClientRect();addBall((t.clientX-rect.left)*480/rect.width,(t.clientY-rect.top)*480/rect.height);});},{passive:false});
+
+// Tilt on mousemove
+c.addEventListener('mousemove',e=>{const rect=c.getBoundingClientRect();const cx=(e.clientX-rect.left)*480/rect.width;gravity.x=(cx-240)/240*.5;});
+
+function loop(){
+  ctx.fillStyle='rgba(26,26,46,.3)';ctx.fillRect(0,0,480,480);
+  // Walls
+  ctx.strokeStyle='rgba(233,69,96,.3)';ctx.lineWidth=3;ctx.strokeRect(1,1,478,478);
+
+  frame++;
+  if(frame%30===0&&balls.length<200){for(let i=0;i<3;i++)addBall(rnd(50,430),rnd(50,200));}
+
+  // Physics
+  balls.forEach(b=>{
+    b.vx+=gravity.x;b.vy+=gravity.y;
+    b.vx*=.995;b.vy*=.995;
+    b.x+=b.vx;b.y+=b.vy;
+    if(b.x-b.r<0){b.x=b.r;b.vx*=-b.bounce;}
+    if(b.x+b.r>480){b.x=480-b.r;b.vx*=-b.bounce;}
+    if(b.y-b.r<0){b.y=b.r;b.vy*=-b.bounce;}
+    if(b.y+b.r>480){b.y=480-b.r;b.vy*=-b.bounce;b.vx*=.98;}
+  });
+
+  // Collisions (simplified)
+  for(let i=0;i<balls.length;i++){for(let j=i+1;j<balls.length;j++){
+    const a=balls[i],b=balls[j];
+    const dx=b.x-a.x,dy=b.y-a.y;const dist=Math.hypot(dx,dy);
+    if(dist<a.r+b.r&&dist>0){
+      const nx=dx/dist,ny=dy/dist;const overlap=(a.r+b.r-dist)*.5;
+      a.x-=nx*overlap;a.y-=ny*overlap;b.x+=nx*overlap;b.y+=ny*overlap;
+      const dvx=a.vx-b.vx,dvy=a.vy-b.vy;const dot=dvx*nx+dvy*ny;
+      if(dot>0){a.vx-=dot*nx*.8;a.vy-=dot*ny*.8;b.vx+=dot*nx*.8;b.vy+=dot*ny*.8;}
+    }
+  }}
+
+  // Draw
+  balls.forEach(b=>{
+    const g=ctx.createRadialGradient(b.x-b.r*.3,b.y-b.r*.3,1,b.x,b.y,b.r);
+    g.addColorStop(0,`hsl(${b.hue},90%,75%)`);g.addColorStop(1,`hsl(${b.hue},70%,40%)`);
+    ctx.fillStyle=g;ctx.beginPath();ctx.arc(b.x,b.y,b.r,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,.35)';ctx.beginPath();ctx.arc(b.x-b.r*.3,b.y-b.r*.35,b.r*.3,0,Math.PI*2);ctx.fill();
+  });
+
+  document.getElementById('ui').textContent=`Balls: ${balls.length} | Click to add more!`;
+  requestAnimationFrame(loop);
+}
+loop();
+</script></body></html>

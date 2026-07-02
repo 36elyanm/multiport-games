@@ -1,0 +1,183 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Report a Bug – Multiport Games</title>
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="stylesheet" href="css/style.css">
+<style>
+body{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px}
+.card{width:100%;max-width:440px;background:rgba(255,255,255,0.07);backdrop-filter:blur(32px) saturate(180%);-webkit-backdrop-filter:blur(32px) saturate(180%);border:1px solid rgba(255,255,255,0.12);border-radius:24px;padding:36px 32px;box-shadow:0 24px 64px rgba(0,0,0,0.5),inset 0 1px 0 rgba(255,255,255,0.1)}
+.logo{text-align:center;font-size:1.1rem;font-weight:800;color:#fff;margin-bottom:24px}
+.logo span{background:linear-gradient(135deg,#e94560,#ff8fa3);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+h2{font-size:1.6rem;font-weight:800;color:#fff;text-align:center;margin-bottom:6px;letter-spacing:-.5px}
+.sub{color:rgba(255,255,255,.4);text-align:center;font-size:.88rem;margin-bottom:26px}
+.field{margin-bottom:16px}
+.field label{display:block;font-size:.78rem;font-weight:700;color:rgba(255,255,255,.5);margin-bottom:6px;text-transform:uppercase;letter-spacing:.8px}
+.field input,.field select,.field textarea{width:100%;padding:11px 14px;border-radius:12px;border:1px solid rgba(255,255,255,.13);background:rgba(255,255,255,.08);color:#fff;font-family:inherit;font-size:.92rem;outline:none;transition:all .18s;resize:vertical}
+.field textarea{min-height:100px}
+.field input::placeholder,.field textarea::placeholder{color:rgba(255,255,255,.28)}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:rgba(233,69,96,.55);background:rgba(255,255,255,.11);box-shadow:0 0 0 3px rgba(233,69,96,.14)}
+.field select option{background:#1a1a2e;color:#fff}
+.btn{width:100%;padding:13px;border:none;border-radius:12px;background:linear-gradient(135deg,#e94560,#ff6b8a);color:#fff;font-family:inherit;font-size:1rem;font-weight:700;cursor:pointer;margin-top:4px;transition:opacity .18s;letter-spacing:.2px}
+.btn:hover{opacity:.88}.btn:disabled{opacity:.5;cursor:default}
+.error{background:rgba(233,69,96,.15);border:1px solid rgba(233,69,96,.35);color:#ff8a9a;border-radius:10px;padding:10px 14px;font-size:.88rem;margin-bottom:14px;display:none}
+.success{background:rgba(126,200,80,.15);border:1px solid rgba(126,200,80,.35);color:#a8e67a;border-radius:10px;padding:10px 14px;font-size:.88rem;margin-bottom:14px;display:none}
+.back{display:block;text-align:center;margin-bottom:20px;color:rgba(255,255,255,.4);font-size:.85rem;text-decoration:none}
+.back:hover{color:#fff}
+</style>
+</head><body>
+<div style="width:100%;max-width:440px">
+  <a href="index.html" class="back">← Back to games</a>
+  <div class="card">
+    <div class="logo">Multiport<span>Games</span></div>
+    <h2>🐛 Report a Bug</h2>
+    <p class="sub">Found something broken? Let us know!</p>
+    <div class="error" id="err"></div>
+    <div class="success" id="ok"></div>
+    <div class="field">
+      <label>Game</label>
+      <select id="game">
+        <option value="General / Website">General / Website</option>
+        <option value="Dino Run">Dino Run</option>
+        <option value="Flappy Bird">Flappy Bird</option>
+        <option value="Snake">Snake</option>
+        <option value="Block Drop">Block Drop</option>
+        <option value="Breakout">Breakout</option>
+        <option value="Pong">Pong</option>
+        <option value="Minesweeper">Minesweeper</option>
+        <option value="2048">2048</option>
+        <option value="Memory Match">Memory Match</option>
+        <option value="Tic Tac Toe">Tic Tac Toe</option>
+        <option value="Dodge Blitz">Dodge Blitz</option>
+        <option value="Space Rocks">Space Rocks</option>
+        <option value="Pixel Platformer">Pixel Platformer</option>
+        <option value="Space Shooter">Space Shooter</option>
+        <option value="Top-Down Racer">Top-Down Racer</option>
+        <option value="High Jumper">High Jumper</option>
+        <option value="Fruit Catch">Fruit Catch</option>
+        <option value="Whack-a-Mole">Whack-a-Mole</option>
+        <option value="Type Rush">Type Rush</option>
+        <option value="Color Memory">Color Memory</option>
+        <option value="Reaction Test">Reaction Test</option>
+        <option value="Cookie Clicker">Cookie Clicker</option>
+        <option value="Maze Runner">Maze Runner</option>
+        <option value="Gravity Flip">Gravity Flip</option>
+        <option value="Pinball">Pinball</option>
+        <option value="Bubble Shooter">Bubble Shooter</option>
+        <option value="Slingshot">Slingshot</option>
+        <option value="Four in a Row">Four in a Row</option>
+        <option value="Word Jump">Word Jump</option>
+        <option value="Ball Bounce">Ball Bounce</option>
+        <option value="Color Flood">Color Flood</option>
+        <option value="Ice Breaker">Ice Breaker</option>
+        <option value="Stack Fall">Stack Fall</option>
+        <option value="Number Cross">Number Cross</option>
+        <option value="Moon Lander">Moon Lander</option>
+        <option value="Brick Road">Brick Road</option>
+        <option value="Sword Duel">Sword Duel</option>
+        <option value="Word Guess">Word Guess</option>
+        <option value="Word Strands">Word Strands</option>
+        <option value="Archery">Archery</option>
+        <option value="Lucky Slots">Lucky Slots</option>
+        <option value="Pixel Fishing">Pixel Fishing</option>
+        <option value="Hovercraft">Hovercraft</option>
+        <option value="Cannon Ball">Cannon Ball</option>
+        <option value="Mini Chess">Mini Chess</option>
+        <option value="Penalty Kick">Penalty Kick</option>
+        <option value="Jetpack Rider">Jetpack Rider</option>
+        <option value="Bird Fly">Bird Fly</option>
+        <option value="Number Guess">Number Guess</option>
+        <option value="Block Slide">Block Slide</option>
+        <option value="Ball Pit">Ball Pit</option>
+        <option value="Sneaky Sasquatch">Sneaky Sasquatch</option>
+        <option value="Knife Smash">Knife Smash</option>
+        <option value="Level 67">Level 67</option>
+        <option value="Meme Tash">Meme Tash</option>
+        <option value="Sky Race">Sky Race</option>
+        <option value="Flappy Dunk">Flappy Dunk</option>
+        <option value="Checkers">Checkers</option>
+        <option value="Naval Strike">Naval Strike</option>
+        <option value="Sudoku">Sudoku</option>
+        <option value="Air Hockey">Air Hockey</option>
+        <option value="Bowling">Bowling</option>
+        <option value="Geo Dash">Geo Dash</option>
+        <option value="Road Hopper">Road Hopper</option>
+        <option value="Candy Crush">Candy Crush</option>
+        <option value="Math Blast">Math Blast</option>
+        <option value="Spelling Bee">Spelling Bee</option>
+        <option value="World Flags">World Flags</option>
+        <option value="Times Tables">Times Tables</option>
+        <option value="Word Scramble">Word Scramble</option>
+        <option value="Hangman">Hangman</option>
+        <option value="Word Search">Word Search</option>
+        <option value="Word Ladder">Word Ladder</option>
+        <option value="Anagram">Anagram</option>
+        <option value="Trivia Quiz">Trivia Quiz</option>
+        <option value="15 Puzzle">15 Puzzle</option>
+        <option value="Solitaire">Solitaire</option>
+        <option value="Blackjack">Blackjack</option>
+        <option value="Video Poker">Video Poker</option>
+        <option value="Dominoes">Dominoes</option>
+        <option value="Dice Master">Dice Master</option>
+        <option value="Bingo">Bingo</option>
+        <option value="Mancala">Mancala</option>
+        <option value="Reversi">Reversi</option>
+        <option value="Dots and Boxes">Dots and Boxes</option>
+        <option value="Nim">Nim</option>
+        <option value="Rock Paper Scissors">Rock Paper Scissors</option>
+        <option value="Ghost Maze">Ghost Maze</option>
+        <option value="Galaxy Defender">Galaxy Defender</option>
+        <option value="Peg Drop">Peg Drop</option>
+        <option value="Key Tap">Key Tap</option>
+        <option value="Neon Cycle">Neon Cycle</option>
+        <option value="Tower Defense">Tower Defense</option>
+        <option value="Nonogram">Nonogram</option>
+        <option value="Mini Golf">Mini Golf</option>
+        <option value="Darts">Darts</option>
+        <option value="Basketball">Basketball</option>
+        <option value="Baseball">Baseball</option>
+        <option value="Curling">Curling</option>
+        <option value="Jigsaw Puzzle">Jigsaw Puzzle</option>
+        <option value="Other">Other</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>What went wrong?</label>
+      <textarea id="desc" placeholder="Describe the bug…"></textarea>
+    </div>
+    <div class="field">
+      <label>Your email <span style="opacity:.45;font-weight:400;text-transform:none">(optional)</span></label>
+      <input id="email" type="email" placeholder="so we can follow up">
+    </div>
+    <button class="btn" onclick="submit()">Send Report</button>
+  </div>
+</div>
+<script>
+// Pre-select game from query param e.g. bug-report.html?game=Snake
+const params=new URLSearchParams(location.search);
+const preset=params.get('game');
+if(preset){const o=[...document.getElementById('game').options].find(o=>o.value===preset);if(o)o.selected=true;}
+
+async function submit(){
+  const game=document.getElementById('game').value;
+  const desc=document.getElementById('desc').value.trim();
+  const email=document.getElementById('email').value.trim();
+  const err=document.getElementById('err'),ok=document.getElementById('ok');
+  err.style.display='none';ok.style.display='none';
+  if(desc.length<5){err.textContent='Please describe the bug in a bit more detail.';err.style.display='block';return;}
+  const btn=document.querySelector('.btn');btn.disabled=true;btn.textContent='Sending…';
+  try{
+    const res=await fetch('/api/bug-report',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({game,description:desc,email})});
+    const data=await res.json();
+    if(!res.ok){err.textContent=data.error||'Failed to send.';err.style.display='block';btn.disabled=false;btn.textContent='Send Report';return;}
+    ok.textContent='Thanks! Bug reported. We\'ll look into it 🔧';ok.style.display='block';
+    btn.textContent='Reported!';
+    document.getElementById('desc').value='';
+    document.getElementById('email').value='';
+  }catch{
+    err.textContent='Could not connect. Try again.';err.style.display='block';
+    btn.disabled=false;btn.textContent='Send Report';
+  }
+}
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.tagName!=='TEXTAREA')submit();});
+</script>
+</body></html>

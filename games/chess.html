@@ -1,0 +1,192 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"><title>Mini Chess</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+body{background:#08080f}
+#board{display:grid;grid-template-columns:repeat(8,56px);gap:0;border:3px solid #5d4037;border-radius:4px;overflow:hidden;margin:0 auto}
+.sq{width:56px;height:56px;display:flex;align-items:center;justify-content:center;font-size:2.1rem;cursor:pointer;user-select:none;transition:background .1s}
+.sq.light{background:#d7ccc8}.sq.dark{background:#6d4c41}
+.sq.sel{background:#ffff66!important}.sq.legal{background:#4caf5066!important}
+.sq.thinking{opacity:.7}
+#ui{color:#d7ccc8;text-align:center;padding:10px;font-size:1rem;font-weight:700}
+</style></head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Mini Chess</div>
+  <div class="game-frame" style="padding:14px">
+    <div id="ui">Your turn (White)</div>
+    <div id="board"></div>
+    <button onclick="initBoard()" style="margin-top:12px;padding:8px 20px;background:#e94560;border:none;border-radius:20px;color:#fff;cursor:pointer;font-family:inherit">New Game</button>
+  </div>
+  <div class="game-instructions">You are White, AI is Black. Click a piece to select, then click a square to move.</div>
+</div>
+<script>
+const PIECES={K:'♔',Q:'♕',R:'♖',B:'♗',N:'♘',P:'♙',k:'♚',q:'♛',r:'♜',b:'♝',n:'♞',p:'♟'};
+const VALS={P:100,N:320,B:330,R:500,Q:900,K:20000,p:-100,n:-320,b:-330,r:-500,q:-900,k:-20000};
+let board,selected,turn,legalMoves,thinking=false;
+
+function initBoard(){
+  board=[
+    ['r','n','b','q','k','b','n','r'],
+    ['p','p','p','p','p','p','p','p'],
+    [null,null,null,null,null,null,null,null],
+    [null,null,null,null,null,null,null,null],
+    [null,null,null,null,null,null,null,null],
+    [null,null,null,null,null,null,null,null],
+    ['P','P','P','P','P','P','P','P'],
+    ['R','N','B','Q','K','B','N','R'],
+  ];
+  selected=null;turn='w';legalMoves=[];thinking=false;render();
+  document.getElementById('ui').textContent='Your turn (White)';
+}
+
+function isWhite(p){return p&&p===p.toUpperCase();}
+function isBlack(p){return p&&p===p.toLowerCase();}
+function sameColor(a,b){return(isWhite(a)&&isWhite(b))||(isBlack(a)&&isBlack(b));}
+
+function getLegal(bd,r,c){
+  const p=bd[r][c];if(!p)return[];
+  const moves=[];
+  const add=(nr,nc)=>{if(nr>=0&&nr<8&&nc>=0&&nc<8&&!sameColor(p,bd[nr][nc])){moves.push([nr,nc]);return bd[nr][nc]===null;}return false;};
+  const slide=(dr,dc)=>{for(let i=1;i<8;i++)if(!add(r+dr*i,c+dc*i))break;};
+  const pt=p.toUpperCase();
+  if(pt==='P'){const dir=isWhite(p)?-1:1;const start=isWhite(p)?6:1;
+    if(bd[r+dir]?.[c]===null){moves.push([r+dir,c]);if(r===start&&bd[r+2*dir]?.[c]===null)moves.push([r+2*dir,c]);}
+    [-1,1].forEach(dc=>{const nb=bd[r+dir]?.[c+dc];if(nb&&!sameColor(p,nb))moves.push([r+dir,c+dc]);});}
+  if(pt==='R'){slide(1,0);slide(-1,0);slide(0,1);slide(0,-1);}
+  if(pt==='B'){slide(1,1);slide(1,-1);slide(-1,1);slide(-1,-1);}
+  if(pt==='Q'){slide(1,0);slide(-1,0);slide(0,1);slide(0,-1);slide(1,1);slide(1,-1);slide(-1,1);slide(-1,-1);}
+  if(pt==='N'){[[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]].forEach(([dr,dc])=>add(r+dr,c+dc));}
+  if(pt==='K'){[[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]].forEach(([dr,dc])=>add(r+dr,c+dc));}
+  return moves;
+}
+
+function getAllMoves(bd,color){
+  const moves=[];
+  for(let r=0;r<8;r++)for(let c=0;c<8;c++){
+    const p=bd[r][c];if(!p)continue;
+    if(color==='w'&&!isWhite(p))continue;
+    if(color==='b'&&!isBlack(p))continue;
+    getLegal(bd,r,c).forEach(([nr,nc])=>moves.push([r,c,nr,nc]));
+  }
+  return moves;
+}
+
+function applyMove(bd,r,c,nr,nc){
+  const nb=bd.map(row=>[...row]);
+  nb[nr][nc]=nb[r][c];nb[r][c]=null;
+  if(nb[nr][nc]==='P'&&nr===0)nb[nr][nc]='Q';
+  if(nb[nr][nc]==='p'&&nr===7)nb[nr][nc]='q';
+  return nb;
+}
+
+function hasKing(bd,white){
+  const k=white?'K':'k';
+  return bd.some(row=>row.includes(k));
+}
+
+// Piece-square tables (from black's perspective, rows 0-7)
+const PST={
+  P:[[0,0,0,0,0,0,0,0],[50,50,50,50,50,50,50,50],[10,10,20,30,30,20,10,10],
+     [5,5,10,25,25,10,5,5],[0,0,0,20,20,0,0,0],[5,-5,-10,0,0,-10,-5,5],
+     [5,10,10,-20,-20,10,10,5],[0,0,0,0,0,0,0,0]],
+  N:[[-50,-40,-30,-30,-30,-30,-40,-50],[-40,-20,0,0,0,0,-20,-40],[-30,0,10,15,15,10,0,-30],
+     [-30,5,15,20,20,15,5,-30],[-30,0,15,20,20,15,0,-30],[-30,5,10,15,15,10,5,-30],
+     [-40,-20,0,5,5,0,-20,-40],[-50,-40,-30,-30,-30,-30,-40,-50]],
+};
+
+function evalBoard(bd){
+  let s=0;
+  for(let r=0;r<8;r++)for(let c=0;c<8;c++){
+    const p=bd[r][c];if(!p)continue;
+    const v=VALS[p]||0;
+    const pt=p.toUpperCase();
+    let pos=0;
+    if(PST[pt]){
+      // white uses flipped table, black uses normal
+      pos=isWhite(p)?PST[pt][7-r][c]:PST[pt][r][c];
+      pos=isWhite(p)?pos:-pos;
+    }
+    s+=v+pos*.3;
+  }
+  return s;
+}
+
+function minimax(bd,depth,alpha,beta,maximizing){
+  if(!hasKing(bd,true))return-99999;
+  if(!hasKing(bd,false))return 99999;
+  if(depth===0)return evalBoard(bd);
+  const moves=getAllMoves(bd,maximizing?'w':'b');
+  if(!moves.length)return maximizing?-99999:99999;
+  if(maximizing){
+    let best=-Infinity;
+    for(const[r,c,nr,nc]of moves){
+      best=Math.max(best,minimax(applyMove(bd,r,c,nr,nc),depth-1,alpha,beta,false));
+      alpha=Math.max(alpha,best);if(beta<=alpha)break;
+    }
+    return best;
+  } else {
+    let best=Infinity;
+    for(const[r,c,nr,nc]of moves){
+      best=Math.min(best,minimax(applyMove(bd,r,c,nr,nc),depth-1,alpha,beta,true));
+      beta=Math.min(beta,best);if(beta<=alpha)break;
+    }
+    return best;
+  }
+}
+
+function makeAIMove(){
+  const moves=getAllMoves(board,'b');
+  if(!moves.length){document.getElementById('ui').textContent='Stalemate — draw!';return;}
+  let bestScore=Infinity,bestMove=null;
+  // Shuffle for variety among equal moves
+  moves.sort(()=>Math.random()-.5);
+  for(const[r,c,nr,nc]of moves){
+    const score=minimax(applyMove(board,r,c,nr,nc),2,-Infinity,Infinity,true);
+    if(score<bestScore){bestScore=score;bestMove=[r,c,nr,nc];}
+  }
+  if(bestMove){
+    const[r,c,nr,nc]=bestMove;
+    board[nr][nc]=board[r][c];board[r][c]=null;
+    if(board[nr][nc]==='p'&&nr===7)board[nr][nc]='q';
+  }
+  if(!hasKing(board,true)){render();document.getElementById('ui').textContent='AI wins! 🤖';turn=null;return;}
+  turn='w';thinking=false;render();
+  document.getElementById('ui').textContent='Your turn (White)';
+}
+
+function squareClick(r,c){
+  if(thinking||turn!=='w')return;
+  const p=board[r][c];
+  if(selected){
+    const lm=legalMoves.find(([lr,lc])=>lr===r&&lc===c);
+    if(lm){
+      board[r][c]=board[selected[0]][selected[1]];board[selected[0]][selected[1]]=null;
+      if(board[r][c]==='P'&&r===0)board[r][c]='Q';
+      selected=null;legalMoves=[];
+      if(!hasKing(board,false)){render();document.getElementById('ui').textContent='You win! 🎉';turn=null;return;}
+      turn='b';thinking=true;render();
+      document.getElementById('ui').textContent='AI is thinking…';
+      setTimeout(makeAIMove,320);
+    } else if(p&&isWhite(p)){selected=[r,c];legalMoves=getLegal(board,r,c);}
+    else{selected=null;legalMoves=[];}
+  } else {
+    if(p&&isWhite(p)){selected=[r,c];legalMoves=getLegal(board,r,c);}
+  }
+  render();
+}
+
+function render(){
+  const b=document.getElementById('board');b.innerHTML='';
+  for(let r=0;r<8;r++)for(let c=0;c<8;c++){
+    const d=document.createElement('div');
+    d.className='sq '+((r+c)%2===0?'light':'dark');
+    if(selected&&selected[0]===r&&selected[1]===c)d.classList.add('sel');
+    if(legalMoves.some(([lr,lc])=>lr===r&&lc===c))d.classList.add('legal');
+    if(thinking)d.classList.add('thinking');
+    if(board[r][c])d.textContent=PIECES[board[r][c]];
+    d.onclick=()=>squareClick(r,c);
+    b.appendChild(d);
+  }
+}
+initBoard();
+</script></body></html>

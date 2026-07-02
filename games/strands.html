@@ -1,0 +1,521 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Word Strands</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+#sw{display:flex;flex-direction:column;align-items:center;gap:10px;padding:10px 6px;width:100%}
+#theme-box{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);border-radius:14px;padding:10px 24px;text-align:center}
+#theme-clue{font-size:.75rem;color:rgba(255,255,255,.5);font-weight:600;letter-spacing:.8px;text-transform:uppercase;margin-bottom:2px}
+#theme-label{font-size:1.2rem;font-weight:800;color:#fff}
+#status-row{display:flex;gap:16px;font-size:.8rem;color:rgba(255,255,255,.5);font-weight:600;letter-spacing:.4px}
+#status-row span b{color:#fff}
+#grid-wrap{position:relative;touch-action:none;user-select:none;-webkit-user-select:none}
+#grid{display:grid;gap:5px}
+.cell{
+  width:54px;height:54px;border-radius:50%;
+  background:rgba(255,255,255,.1);border:2px solid rgba(255,255,255,.15);
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.1rem;font-weight:800;color:#fff;text-transform:uppercase;
+  transition:background .15s,border-color .15s,transform .08s;
+  user-select:none;-webkit-tap-highlight-color:transparent;cursor:pointer;
+}
+.cell.sel{background:rgba(100,180,255,.5);border-color:#64b4ff;transform:scale(1.1)}
+.cell.found-theme{background:#5b8dd9;border-color:#5b8dd9;color:#fff}
+.cell.found-spangram{background:#f0c432;border-color:#c8a200;color:#1a1100;font-weight:900}
+.cell.wrong-pulse{animation:wpulse .35s ease}
+@keyframes wpulse{0%,100%{background:rgba(255,255,255,.1)}50%{background:rgba(233,69,96,.55)}}
+.cell.hint-glow{animation:hglow .7s ease}
+@keyframes hglow{0%,100%{background:rgba(255,255,255,.1)}50%{background:rgba(240,196,50,.7)}}
+#sel-word{min-height:30px;font-size:1.1rem;font-weight:800;color:#fff;letter-spacing:3px;text-align:center}
+#msg{min-height:20px;font-size:.88rem;font-weight:700;text-align:center}
+#btn-row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.gbtn{padding:10px 22px;border:none;border-radius:50px;font-family:inherit;font-size:.88rem;font-weight:700;cursor:pointer;transition:opacity .15s,transform .1s;-webkit-tap-highlight-color:transparent}
+.gbtn:active{transform:scale(.95)}
+#submit-btn{background:#5b8dd9;color:#fff}
+#hint-btn{background:rgba(255,255,255,.12);color:rgba(255,255,255,.85);border:1px solid rgba(255,255,255,.2)}
+#next-btn{background:#e94560;color:#fff;display:none}
+#found-list{display:flex;flex-wrap:wrap;gap:7px;justify-content:center;max-width:360px}
+.fbadge{padding:5px 14px;border-radius:50px;font-size:.78rem;font-weight:800;color:#fff;letter-spacing:.3px;text-transform:uppercase}
+.fbadge-theme{background:#5b8dd9}
+.fbadge-spangram{background:#f0c432;color:#1a1100}
+#svg-lines{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+@media(max-width:400px){.cell{width:46px;height:46px;font-size:.9rem}#grid{gap:4px}}
+</style>
+</head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Word Strands</div>
+  <div class="game-frame" style="padding:14px">
+    <div id="sw">
+      <div id="theme-box">
+        <div id="theme-clue">Today's Theme</div>
+        <div id="theme-label">Loading…</div>
+      </div>
+      <div id="status-row">
+        <span>Found: <b id="found-ct">0</b>/<b id="total-ct">0</b></span>
+        <span>Hints left: <b id="hint-ct">3</b></span>
+      </div>
+      <div id="grid-wrap">
+        <svg id="svg-lines"></svg>
+        <div id="grid"></div>
+      </div>
+      <div id="sel-word"></div>
+      <div id="msg"></div>
+      <div id="btn-row">
+        <button id="submit-btn" class="gbtn">Submit</button>
+        <button id="hint-btn" class="gbtn">💡 Hint</button>
+        <button id="next-btn" class="gbtn">Next Puzzle →</button>
+      </div>
+      <div id="found-list"></div>
+    </div>
+  </div>
+  <div class="game-instructions">
+    Find all words that fit the theme — draw a connected path through letters (any direction, even diagonal).
+    Every letter on the board belongs to exactly one word.
+    The <span style="color:#f0c432;font-weight:700">✨ Spangram</span> touches two opposite sides of the board!
+    Drag to draw · Submit to check · 💡 Hint shows a letter from an unfound word.
+  </div>
+</div>
+<script>
+// 6 columns × 8 rows = 48 cells per puzzle
+// _grid: 48-char array row-major
+// paths: {WORD: [[r,c], ...]} — every cell in exactly one word, spangram touches opposite edges
+const PUZZLES = [
+  {
+    theme: '🦁 Wild Animals',
+    spangram: 'WILDLIFE',
+    words: ['EAGLE','TIGER','FROG','BEAR','DEER','WOLF','LION','SHARK','RAVEN'],
+    _grid: [
+      'W','E','A','G','L','E',  // row 0
+      'I','T','I','G','E','R',  // row 1
+      'L','F','R','O','G','B',  // row 2
+      'D','D','E','R','A','E',  // row 3
+      'L','L','E','R','W','O',  // row 4
+      'I','I','O','N','F','L',  // row 5
+      'F','S','H','A','R','K',  // row 6
+      'E','R','A','V','E','N',  // row 7
+    ],
+    paths: {
+      WILDLIFE: [[0,0],[1,0],[2,0],[3,0],[4,0],[5,0],[6,0],[7,0]],
+      EAGLE:    [[0,1],[0,2],[0,3],[0,4],[0,5]],
+      TIGER:    [[1,1],[1,2],[1,3],[1,4],[1,5]],
+      FROG:     [[2,1],[2,2],[2,3],[2,4]],
+      BEAR:     [[2,5],[3,5],[3,4],[3,3]],
+      DEER:     [[3,1],[3,2],[4,2],[4,3]],
+      WOLF:     [[4,4],[4,5],[5,5],[5,4]],
+      LION:     [[4,1],[5,1],[5,2],[5,3]],
+      SHARK:    [[6,1],[6,2],[6,3],[6,4],[6,5]],
+      RAVEN:    [[7,1],[7,2],[7,3],[7,4],[7,5]],
+    }
+  },
+  {
+    theme: '🏆 Sports',
+    spangram: 'CHAMPION',
+    words: ['GOLF','SWIM','RACE','KICK','JUMP','SERVE','SCORE','SHOOT','MATCH'],
+    _grid: [
+      'C','G','O','L','F','S',  // row 0
+      'H','R','A','C','E','W',  // row 1
+      'A','K','I','C','K','I',  // row 2
+      'M','J','U','M','P','M',  // row 3
+      'P','S','E','R','V','E',  // row 4
+      'I','S','C','O','R','E',  // row 5
+      'O','S','H','O','O','T',  // row 6
+      'N','M','A','T','C','H',  // row 7
+    ],
+    paths: {
+      CHAMPION: [[0,0],[1,0],[2,0],[3,0],[4,0],[5,0],[6,0],[7,0]],
+      GOLF:     [[0,1],[0,2],[0,3],[0,4]],
+      SWIM:     [[0,5],[1,5],[2,5],[3,5]],
+      RACE:     [[1,1],[1,2],[1,3],[1,4]],
+      KICK:     [[2,1],[2,2],[2,3],[2,4]],
+      JUMP:     [[3,1],[3,2],[3,3],[3,4]],
+      SERVE:    [[4,1],[4,2],[4,3],[4,4],[4,5]],
+      SCORE:    [[5,1],[5,2],[5,3],[5,4],[5,5]],
+      SHOOT:    [[6,1],[6,2],[6,3],[6,4],[6,5]],
+      MATCH:    [[7,1],[7,2],[7,3],[7,4],[7,5]],
+    }
+  },
+  {
+    theme: '🍳 In the Kitchen',
+    spangram: 'COOKBOOK',
+    words: ['FORK','CHEF','BOWL','SALT','OVEN','STOVE','PLATE','SPOON','LADLE'],
+    _grid: [
+      'C','F','O','R','K','C',  // row 0
+      'O','B','O','W','L','H',  // row 1
+      'O','S','A','L','T','E',  // row 2
+      'K','O','V','E','N','F',  // row 3
+      'B','S','T','O','V','E',  // row 4
+      'O','P','L','A','T','E',  // row 5
+      'O','S','P','O','O','N',  // row 6
+      'K','L','A','D','L','E',  // row 7
+    ],
+    paths: {
+      COOKBOOK: [[0,0],[1,0],[2,0],[3,0],[4,0],[5,0],[6,0],[7,0]],
+      FORK:     [[0,1],[0,2],[0,3],[0,4]],
+      CHEF:     [[0,5],[1,5],[2,5],[3,5]],
+      BOWL:     [[1,1],[1,2],[1,3],[1,4]],
+      SALT:     [[2,1],[2,2],[2,3],[2,4]],
+      OVEN:     [[3,1],[3,2],[3,3],[3,4]],
+      STOVE:    [[4,1],[4,2],[4,3],[4,4],[4,5]],
+      PLATE:    [[5,1],[5,2],[5,3],[5,4],[5,5]],
+      SPOON:    [[6,1],[6,2],[6,3],[6,4],[6,5]],
+      LADLE:    [[7,1],[7,2],[7,3],[7,4],[7,5]],
+    }
+  },
+  {
+    theme: '📚 At School',
+    spangram: 'STUDENTS',
+    words: ['MATH','BOOK','READ','DESK','EXAM','CHALK','RULER','PAPER','GRADE'],
+    _grid: [
+      'S','M','A','T','H','B',  // row 0
+      'T','R','E','A','D','O',  // row 1
+      'U','D','E','S','K','O',  // row 2
+      'D','E','X','A','M','K',  // row 3
+      'E','C','H','A','L','K',  // row 4
+      'N','R','U','L','E','R',  // row 5
+      'T','P','A','P','E','R',  // row 6
+      'S','G','R','A','D','E',  // row 7
+    ],
+    paths: {
+      STUDENTS: [[0,0],[1,0],[2,0],[3,0],[4,0],[5,0],[6,0],[7,0]],
+      MATH:     [[0,1],[0,2],[0,3],[0,4]],
+      BOOK:     [[0,5],[1,5],[2,5],[3,5]],
+      READ:     [[1,1],[1,2],[1,3],[1,4]],
+      DESK:     [[2,1],[2,2],[2,3],[2,4]],
+      EXAM:     [[3,1],[3,2],[3,3],[3,4]],
+      CHALK:    [[4,1],[4,2],[4,3],[4,4],[4,5]],
+      RULER:    [[5,1],[5,2],[5,3],[5,4],[5,5]],
+      PAPER:    [[6,1],[6,2],[6,3],[6,4],[6,5]],
+      GRADE:    [[7,1],[7,2],[7,3],[7,4],[7,5]],
+    }
+  },
+  {
+    theme: '🌊 Ocean Life',
+    spangram: 'SEAWATER',
+    words: ['FISH','PEARL','CRAB','KELP','REEF','WAVE','SHARK','CORAL','WHALE'],
+    _grid: [
+      'S','F','I','S','H','P',  // row 0
+      'E','C','R','A','B','E',  // row 1
+      'A','K','E','L','P','A',  // row 2
+      'W','R','E','E','F','R',  // row 3
+      'A','W','A','V','E','L',  // row 4
+      'T','S','H','A','R','K',  // row 5
+      'E','C','O','R','A','L',  // row 6
+      'R','W','H','A','L','E',  // row 7
+    ],
+    paths: {
+      SEAWATER: [[0,0],[1,0],[2,0],[3,0],[4,0],[5,0],[6,0],[7,0]],
+      FISH:     [[0,1],[0,2],[0,3],[0,4]],
+      PEARL:    [[0,5],[1,5],[2,5],[3,5],[4,5]],
+      CRAB:     [[1,1],[1,2],[1,3],[1,4]],
+      KELP:     [[2,1],[2,2],[2,3],[2,4]],
+      REEF:     [[3,1],[3,2],[3,3],[3,4]],
+      WAVE:     [[4,1],[4,2],[4,3],[4,4]],
+      SHARK:    [[5,1],[5,2],[5,3],[5,4],[5,5]],
+      CORAL:    [[6,1],[6,2],[6,3],[6,4],[6,5]],
+      WHALE:    [[7,1],[7,2],[7,3],[7,4],[7,5]],
+    }
+  },
+  {
+    theme: '🎵 Music',
+    spangram: 'SYMPHONY',
+    words: ['JAZZ','BEAT','BASS','DRUM','TUNE','CHORD','PIANO','TEMPO','VOICE'],
+    _grid: [
+      'S','J','A','Z','Z','B',  // row 0
+      'Y','B','E','A','T','A',  // row 1
+      'M','B','A','S','S','S',  // row 2
+      'P','D','R','U','M','S',  // row 3
+      'H','T','U','N','E','C',  // row 4  ← wait BASS starts at row 2
+      'O','C','H','O','R','D',  // row 5  hmm need to re-verify
+      'N','P','I','A','N','O',  // row 6
+      'Y','T','E','M','P','O',  // row 7... TEMPO at row 7 cols 1-5? T,E,M,P,O — but O is there
+    ],
+    // Let me redo: SYMPHONY(8) in col 0; JAZZ(4)+BEAT(4)+BASS(4)+DRUM(4)+TUNE(4) = 20 in cols 1-4 rows 0-4
+    // Plus BASS has col5 for first rows, CHORD(5)+PIANO(5)+TEMPO(5)+VOICE(5)=20 in rows 4-7 cols 1-5
+    // But 20+20=40, SYMPHONY=8, total=48 ✓
+    // Let me re-check row by row:
+    // Row 0: S J A Z Z B → SYMPHONY[S], JAZZ:(0,1-4), B start of BASS? No BASS is B,A,S,S
+    //   → BEAT starts at (0,5)? B(0,5)E(1,5)A(2,5)... hmm
+    // Let me redo this puzzle
+    _alt: true
+  },
+];
+
+// Build clean list (skip _alt)
+const PUZZLES_FINAL = PUZZLES.filter(p => !p._alt);
+
+// Add Music puzzle cleanly
+PUZZLES_FINAL.push({
+  theme: '🎵 Music',
+  spangram: 'SYMPHONY',
+  words: ['JAZZ','ROCK','BEAT','DRUM','TUNE','CHORD','PIANO','TEMPO','LYRIC'],
+  // SYMPHONY col0 (8). Remaining 40:
+  // JAZZ(4) ROCK(4) BEAT(4) DRUM(4) TUNE(4) = 20, rows 0-3 cols 1-4 + col5 for LYRIC start
+  // Actually: cols 1-4 rows 0-4 = 20 cells for short words
+  // cols 1-5 rows 4-7 = 5×4 = 20 cells for 4×5-letter words
+  // But we need 4 short + 4 long + spangram = rows
+  // JAZZ(4) ROCK(4) BEAT(4) DRUM(4) TUNE(4) = 20 in rows 0-4 cols 1-4, col 5 rows 0-4 = LYRIC(5)
+  // CHORD(5)+PIANO(5)+TEMPO(5) = 15 in rows 5-7 cols 1-5
+  // 20+5+15 = 40 ✓
+  _grid: [
+    'S','J','A','Z','Z','L',  // row 0: SYMPHONY[S], JAZZ:(0,1-4), LYRIC starts (0,5)
+    'Y','R','O','C','K','Y',  // row 1: SYMPHONY[Y], ROCK:(1,1-4), LYRIC cont (1,5)
+    'M','B','E','A','T','R',  // row 2: SYMPHONY[M], BEAT:(2,1-4), LYRIC cont (2,5)
+    'P','D','R','U','M','I',  // row 3: SYMPHONY[P], DRUM:(3,1-4), LYRIC cont (3,5)
+    'H','T','U','N','E','C',  // row 4: SYMPHONY[H], TUNE:(4,1-4), LYRIC ends (4,5)
+    'O','C','H','O','R','D',  // row 5: SYMPHONY[O], CHORD:(5,1-5)
+    'N','P','I','A','N','O',  // row 6: SYMPHONY[N], PIANO:(6,1-5)
+    'Y','T','E','M','P','O',  // row 7: SYMPHONY[Y], TEMPO:(7,1-5)
+  ],
+  paths: {
+    SYMPHONY: [[0,0],[1,0],[2,0],[3,0],[4,0],[5,0],[6,0],[7,0]],
+    JAZZ:     [[0,1],[0,2],[0,3],[0,4]],
+    LYRIC:    [[0,5],[1,5],[2,5],[3,5],[4,5]],
+    ROCK:     [[1,1],[1,2],[1,3],[1,4]],
+    BEAT:     [[2,1],[2,2],[2,3],[2,4]],
+    DRUM:     [[3,1],[3,2],[3,3],[3,4]],
+    TUNE:     [[4,1],[4,2],[4,3],[4,4]],
+    CHORD:    [[5,1],[5,2],[5,3],[5,4],[5,5]],
+    PIANO:    [[6,1],[6,2],[6,3],[6,4],[6,5]],
+    TEMPO:    [[7,1],[7,2],[7,3],[7,4],[7,5]],
+  }
+});
+
+const ROWS=8, COLS=6;
+let pIdx=0, puzzle, gridLetters, cellEls, selected, foundSet, hintsLeft, isDragging;
+
+function pathKey(cells){
+  return cells.map(([r,c])=>r*COLS+c).sort((a,b)=>a-b).join(',');
+}
+
+function loadPuzzle(idx){
+  puzzle = PUZZLES_FINAL[idx];
+  gridLetters = puzzle._grid;
+  selected = [];
+  foundSet = new Set();
+  hintsLeft = 3;
+  isDragging = false;
+
+  renderGrid();
+  document.getElementById('theme-label').textContent = puzzle.theme;
+  const total = Object.keys(puzzle.paths).length;
+  document.getElementById('found-ct').textContent = 0;
+  document.getElementById('total-ct').textContent = total;
+  document.getElementById('found-list').innerHTML = '';
+  document.getElementById('sel-word').textContent = '';
+  document.getElementById('msg').textContent = '';
+  document.getElementById('hint-ct').textContent = hintsLeft;
+  document.getElementById('next-btn').style.display = 'none';
+  drawLines();
+}
+
+function renderGrid(){
+  const gridEl = document.getElementById('grid');
+  gridEl.style.gridTemplateColumns = `repeat(${COLS},54px)`;
+  gridEl.innerHTML = '';
+  cellEls = [];
+  for(let r=0; r<ROWS; r++){
+    cellEls[r] = [];
+    for(let c=0; c<COLS; c++){
+      const el = document.createElement('div');
+      el.className = 'cell';
+      el.textContent = gridLetters[r*COLS+c];
+      el.dataset.r = r; el.dataset.c = c;
+      el.addEventListener('mousedown', e => { e.preventDefault(); startSel(r,c); });
+      el.addEventListener('mouseenter', () => { if(isDragging) addSel(r,c); });
+      el.addEventListener('mouseup', () => { isDragging = false; });
+      gridEl.appendChild(el);
+      cellEls[r][c] = el;
+    }
+  }
+
+  const wrap = document.getElementById('grid-wrap');
+  wrap.ontouchstart = e => {
+    e.preventDefault();
+    const el = elFromTouch(e.touches[0]);
+    if(el) startSel(+el.dataset.r, +el.dataset.c);
+  };
+  wrap.ontouchmove = e => {
+    e.preventDefault();
+    if(!isDragging) return;
+    const el = elFromTouch(e.touches[0]);
+    if(el) addSel(+el.dataset.r, +el.dataset.c);
+  };
+  wrap.ontouchend = e => { e.preventDefault(); isDragging = false; };
+
+  adjustCellSize();
+}
+
+function elFromTouch(t){
+  const el = document.elementFromPoint(t.clientX, t.clientY);
+  return (el && el.classList.contains('cell')) ? el : null;
+}
+
+function isCellFound(r,c){
+  const cn = cellEls[r][c].className;
+  return cn.includes('found-theme') || cn.includes('found-spangram');
+}
+
+function startSel(r,c){
+  if(isCellFound(r,c)) return;
+  isDragging = true;
+  clearSel();
+  pushSel(r,c);
+}
+
+function addSel(r,c){
+  if(isCellFound(r,c)) return;
+  if(selected.some(([sr,sc]) => sr===r && sc===c)) {
+    // Allow backtrack to previous cell
+    if(selected.length >= 2) {
+      const [pr,pc] = selected[selected.length-2];
+      if(pr===r && pc===c) {
+        const [or,oc] = selected.pop();
+        cellEls[or][oc].classList.remove('sel');
+        updateDisplay(); drawLines();
+      }
+    }
+    return;
+  }
+  if(selected.length > 0) {
+    const [lr,lc] = selected[selected.length-1];
+    if(Math.abs(r-lr) > 1 || Math.abs(c-lc) > 1) return;
+  }
+  pushSel(r,c);
+}
+
+function pushSel(r,c){
+  selected.push([r,c]);
+  cellEls[r][c].classList.add('sel');
+  updateDisplay(); drawLines();
+}
+
+function clearSel(){
+  selected.forEach(([r,c]) => cellEls[r][c].classList.remove('sel'));
+  selected = [];
+  updateDisplay(); drawLines();
+}
+
+function updateDisplay(){
+  document.getElementById('sel-word').textContent =
+    selected.map(([r,c]) => gridLetters[r*COLS+c]).join('');
+}
+
+function submitSel(){
+  if(selected.length < 2) { clearSel(); return; }
+  const sk = pathKey(selected);
+  let matched = null;
+  for(const [word, path] of Object.entries(puzzle.paths)){
+    if(foundSet.has(word)) continue;
+    if(pathKey(path) === sk) { matched = word; break; }
+  }
+
+  if(matched){
+    const isSpan = matched === puzzle.spangram;
+    const cls = isSpan ? 'found-spangram' : 'found-theme';
+    puzzle.paths[matched].forEach(([r,c]) => {
+      cellEls[r][c].classList.remove('sel');
+      cellEls[r][c].className = 'cell ' + cls;
+    });
+    foundSet.add(matched);
+    selected = [];
+    drawLines(); updateDisplay();
+
+    const badge = document.createElement('div');
+    badge.className = 'fbadge ' + (isSpan ? 'fbadge-spangram' : 'fbadge-theme');
+    badge.textContent = (isSpan ? '✨ ' : '') + matched;
+    document.getElementById('found-list').appendChild(badge);
+
+    const fc = foundSet.size;
+    document.getElementById('found-ct').textContent = fc;
+    setMsg(isSpan ? '✨ Spangram found!' : '✅ ' + matched, isSpan ? '#f0c432' : '#a8e67a');
+    setTimeout(() => setMsg(''), 1500);
+
+    if(fc >= Object.keys(puzzle.paths).length){
+      setTimeout(() => {
+        setMsg('🎉 Puzzle complete!', '#fff');
+        document.getElementById('next-btn').style.display = 'inline-block';
+      }, 500);
+    }
+  } else {
+    selected.forEach(([r,c]) => {
+      const el = cellEls[r][c];
+      el.classList.remove('sel');
+      el.classList.add('wrong-pulse');
+      setTimeout(() => el.classList.remove('wrong-pulse'), 400);
+    });
+    setMsg('Not a theme word', '#e94560');
+    setTimeout(() => setMsg(''), 1400);
+    selected = [];
+    drawLines(); updateDisplay();
+  }
+}
+
+function hintClick(){
+  if(hintsLeft <= 0){ setMsg('No hints left!', '#e94560'); return; }
+  for(const [word, path] of Object.entries(puzzle.paths)){
+    if(foundSet.has(word)) continue;
+    const [r,c] = path[Math.floor(Math.random() * path.length)];
+    const el = cellEls[r][c];
+    el.classList.add('hint-glow');
+    setTimeout(() => el.classList.remove('hint-glow'), 750);
+    hintsLeft--;
+    document.getElementById('hint-ct').textContent = hintsLeft;
+    setMsg('Hint: look for that letter!', '#f0c432');
+    setTimeout(() => setMsg(''), 2000);
+    return;
+  }
+}
+
+function setMsg(txt, color='#fff'){
+  const m = document.getElementById('msg');
+  m.textContent = txt;
+  m.style.color = color;
+}
+
+function drawLines(){
+  const svg = document.getElementById('svg-lines');
+  svg.innerHTML = '';
+  if(selected.length < 2) return;
+  const wRect = document.getElementById('grid-wrap').getBoundingClientRect();
+  const pts = selected.map(([r,c]) => {
+    const er = cellEls[r][c].getBoundingClientRect();
+    return `${er.left - wRect.left + er.width/2},${er.top - wRect.top + er.height/2}`;
+  });
+  const pl = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+  pl.setAttribute('points', pts.join(' '));
+  pl.setAttribute('fill', 'none');
+  pl.setAttribute('stroke', 'rgba(100,180,255,.75)');
+  pl.setAttribute('stroke-width', '4');
+  pl.setAttribute('stroke-linecap', 'round');
+  pl.setAttribute('stroke-linejoin', 'round');
+  svg.appendChild(pl);
+}
+
+function adjustCellSize(){
+  const avail = Math.min(
+    (document.getElementById('grid-wrap').parentElement || document.body).clientWidth - 28, 360
+  );
+  const sz = Math.max(38, Math.min(54, Math.floor((avail - (COLS-1)*5) / COLS)));
+  document.querySelectorAll('.cell').forEach(el => {
+    el.style.width = sz + 'px'; el.style.height = sz + 'px';
+    el.style.fontSize = (sz * 0.35) + 'px';
+    el.style.borderRadius = (sz / 2) + 'px';
+  });
+  document.getElementById('grid').style.gridTemplateColumns = `repeat(${COLS},${sz}px)`;
+}
+
+document.getElementById('submit-btn').addEventListener('click', () => submitSel());
+document.getElementById('hint-btn').addEventListener('click', () => hintClick());
+document.getElementById('next-btn').addEventListener('click', () => {
+  pIdx = (pIdx + 1) % PUZZLES_FINAL.length;
+  loadPuzzle(pIdx);
+});
+document.addEventListener('mouseup', () => { isDragging = false; });
+document.addEventListener('keydown', e => {
+  if(e.key === 'Enter') submitSel();
+  if(e.key === 'Escape') clearSel();
+});
+window.addEventListener('resize', () => { adjustCellSize(); drawLines(); });
+
+loadPuzzle(0);
+</script>
+</body></html>

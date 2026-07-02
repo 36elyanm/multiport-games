@@ -1,0 +1,215 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Admin – Multiport Games</title>
+<link rel="stylesheet" href="css/style.css">
+<style>
+body{padding:24px;min-height:100vh}
+#login{display:flex;align-items:center;justify-content:center;min-height:80vh}
+.login-card{width:100%;max-width:360px;background:rgba(255,255,255,0.07);backdrop-filter:blur(32px);border:1px solid rgba(255,255,255,.12);border-radius:24px;padding:36px 32px;box-shadow:0 24px 64px rgba(0,0,0,.5)}
+.login-card h2{font-size:1.5rem;font-weight:800;color:#fff;text-align:center;margin-bottom:20px}
+.login-card input{width:100%;padding:11px 14px;border-radius:12px;border:1px solid rgba(255,255,255,.13);background:rgba(255,255,255,.08);color:#fff;font-family:inherit;font-size:.95rem;outline:none;margin-bottom:12px}
+.login-card input:focus{border-color:rgba(233,69,96,.55);box-shadow:0 0 0 3px rgba(233,69,96,.14)}
+.btn{width:100%;padding:12px;border:none;border-radius:12px;background:linear-gradient(135deg,#e94560,#ff6b8a);color:#fff;font-family:inherit;font-size:.95rem;font-weight:700;cursor:pointer;transition:opacity .18s}
+.btn:hover{opacity:.88}
+#dashboard{display:none}
+.dash-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px}
+.dash-header h1{font-size:1.6rem;font-weight:800;color:#fff}
+.dash-header h1 span{background:linear-gradient(135deg,#e94560,#ff8fa3);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px}
+.filter-btn{padding:6px 16px;border-radius:50px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.07);color:rgba(255,255,255,.65);font-family:inherit;font-size:.82rem;font-weight:600;cursor:pointer;transition:all .18s}
+.filter-btn.active{background:rgba(233,69,96,.22);border-color:rgba(233,69,96,.45);color:#fff}
+.report{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:16px 20px;margin-bottom:12px;transition:all .18s}
+.report.fixed-r{opacity:.45;border-color:rgba(255,255,255,.05)}
+.report-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.game-tag{background:rgba(233,69,96,.2);border:1px solid rgba(233,69,96,.35);color:#ff8fa3;border-radius:50px;padding:3px 12px;font-size:.75rem;font-weight:700;white-space:nowrap}
+.report-date{color:rgba(255,255,255,.3);font-size:.75rem;white-space:nowrap}
+.report-desc{color:rgba(255,255,255,.85);font-size:.9rem;margin:10px 0 6px;line-height:1.55}
+.report-email{color:rgba(255,255,255,.35);font-size:.78rem}
+.fix-btn{padding:5px 14px;border-radius:50px;border:none;font-family:inherit;font-size:.78rem;font-weight:700;cursor:pointer;transition:all .18s;white-space:nowrap}
+.fix-btn.open{background:rgba(126,200,80,.18);border:1px solid rgba(126,200,80,.4);color:#a8e67a}
+.fix-btn.open:hover{background:rgba(126,200,80,.3)}
+.fix-btn.done{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);color:rgba(255,255,255,.4)}
+.empty{text-align:center;color:rgba(255,255,255,.3);padding:48px 0;font-size:.95rem}
+.stats{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px}
+.stat{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.09);border-radius:14px;padding:14px 20px;flex:1;min-width:100px}
+.stat-n{font-size:1.8rem;font-weight:800;color:#fff}
+.stat-l{font-size:.75rem;color:rgba(255,255,255,.4);font-weight:600;text-transform:uppercase;letter-spacing:.6px}
+.logout{padding:7px 16px;border-radius:50px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.07);color:rgba(255,255,255,.7);font-family:inherit;font-size:.82rem;font-weight:600;cursor:pointer;transition:all .18s}
+.logout:hover{color:#fff;background:rgba(255,255,255,.12)}
+</style>
+</head><body>
+
+<div id="login">
+  <div style="width:100%;max-width:360px">
+    <a href="index.html" style="display:inline-block;margin-bottom:14px;color:rgba(255,255,255,.4);font-size:.85rem;text-decoration:none" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,.4)'">← Back to Games</a>
+    <div class="login-card">
+      <h2>🔐 Admin Login</h2>
+      <input id="pwd" type="password" placeholder="Admin password" onkeydown="if(event.key==='Enter')doLogin()">
+      <div id="login-err" style="color:#ff8a9a;font-size:.85rem;margin-bottom:10px;display:none"></div>
+      <button class="btn" onclick="doLogin()">Sign In</button>
+    </div>
+  </div>
+</div>
+
+<div id="dashboard">
+  <div class="dash-header">
+    <h1>Bug <span>Reports</span></h1>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <button class="logout" id="notif-btn" onclick="enablePush()">🔔 Enable Notifications</button>
+      <button class="logout" onclick="doLogout()">Log out</button>
+      <a href="index.html" style="text-decoration:none"><button class="logout">← Site</button></a>
+    </div>
+  </div>
+
+  <div class="stats" id="stats"></div>
+
+  <div class="filters">
+    <button class="filter-btn active" onclick="setFilter('all',this)">All</button>
+    <button class="filter-btn" onclick="setFilter('open',this)">Open</button>
+    <button class="filter-btn" onclick="setFilter('fixed',this)">Fixed</button>
+  </div>
+
+  <div id="reports-list"></div>
+</div>
+
+<script>
+let adminKey='', allReports=[], currentFilter='all';
+
+function doLogin(){
+  adminKey=document.getElementById('pwd').value;
+  if(!adminKey){return;}
+  loadReports();
+}
+
+function doLogout(){
+  adminKey='';allReports=[];
+  document.getElementById('login').style.display='flex';
+  document.getElementById('dashboard').style.display='none';
+  document.getElementById('pwd').value='';
+}
+
+async function loadReports(){
+  try{
+    const res=await fetch('/api/admin-reports?key='+encodeURIComponent(adminKey));
+    if(res.status===401||res.status===429){
+      const data=await res.json().catch(()=>({}));
+      const e=document.getElementById('login-err');e.textContent=data.error||'Wrong password.';e.style.display='block';return;
+    }
+    const data=await res.json();
+    allReports=data.reports||[];
+    document.getElementById('login').style.display='none';
+    document.getElementById('dashboard').style.display='block';
+    renderStats();renderReports();
+    if(navigator.clearAppBadge)navigator.clearAppBadge().catch(()=>{});
+  }catch{
+    const e=document.getElementById('login-err');e.textContent='Could not connect.';e.style.display='block';
+  }
+}
+
+function renderStats(){
+  const open=allReports.filter(r=>!r.fixed).length;
+  const fixed=allReports.filter(r=>r.fixed).length;
+  document.getElementById('stats').innerHTML=`
+    <div class="stat"><div class="stat-n">${allReports.length}</div><div class="stat-l">Total</div></div>
+    <div class="stat"><div class="stat-n" style="color:#ff8a9a">${open}</div><div class="stat-l">Open</div></div>
+    <div class="stat"><div class="stat-n" style="color:#a8e67a">${fixed}</div><div class="stat-l">Fixed</div></div>
+  `;
+}
+
+function setFilter(f,btn){
+  currentFilter=f;
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderReports();
+}
+
+function renderReports(){
+  const list=allReports.filter(r=>
+    currentFilter==='all'||(currentFilter==='open'&&!r.fixed)||(currentFilter==='fixed'&&r.fixed));
+  const el=document.getElementById('reports-list');
+  if(!list.length){el.innerHTML='<div class="empty">No reports here 🎉</div>';return;}
+  el.innerHTML=list.map(r=>`
+    <div class="report ${r.fixed?'fixed-r':''}" id="rep-${r.id}">
+      <div class="report-top">
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <span class="game-tag">${esc(r.game)}</span>
+          <span class="report-date">${new Date(r.created_at).toLocaleString()}</span>
+        </div>
+        <button class="fix-btn ${r.fixed?'done':'open'}" onclick="toggleFixed(${r.id},${r.fixed?0:1})">
+          ${r.fixed?'✓ Fixed':'Mark Fixed'}
+        </button>
+      </div>
+      <div class="report-desc">${esc(r.description)}</div>
+      ${r.email?`<div class="report-email">📧 ${esc(r.email)}</div>`:''}
+    </div>`).join('');
+}
+
+async function toggleFixed(id,fixed){
+  await fetch('/api/admin-reports?key='+encodeURIComponent(adminKey),{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({id,fixed})
+  });
+  const r=allReports.find(r=>r.id===id);
+  if(r){r.fixed=fixed;}
+  renderStats();renderReports();
+}
+
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+const VAPID_PUBLIC_KEY='BGNnyBgkg6r5WxLnndb3eW1mvuexetSFh9gi3X6cQS2PpbIIm7yVhZxJbnaCrXWNxrtqCvFsm3GJA64ajP3NteM';
+
+function urlBase64ToUint8Array(b64){
+  const pad='='.repeat((4-b64.length%4)%4);
+  const base64=(b64+pad).replace(/-/g,'+').replace(/_/g,'/');
+  const raw=atob(base64);
+  const arr=new Uint8Array(raw.length);
+  for(let i=0;i<raw.length;i++)arr[i]=raw.charCodeAt(i);
+  return arr;
+}
+
+async function enablePush(){
+  if(!('serviceWorker' in navigator)||!('PushManager' in window)){
+    alert('Push notifications need this site installed to your Home Screen.\n\nOn iPad/iPhone: tap the Share button → "Add to Home Screen", then open Multiport Games from the home screen icon and tap this button again.');
+    return;
+  }
+  try{
+    const reg=await navigator.serviceWorker.register('/sw.js');
+    const perm=await Notification.requestPermission();
+    if(perm!=='granted'){alert('Notifications were not allowed. You can enable them later in Settings.');return;}
+
+    let sub=await reg.pushManager.getSubscription();
+    if(!sub){
+      sub=await reg.pushManager.subscribe({
+        userVisibleOnly:true,
+        applicationServerKey:urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+      });
+    }
+
+    await fetch('/api/push-subscribe?key='+encodeURIComponent(adminKey),{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(sub)
+    });
+
+    const btn=document.getElementById('notif-btn');
+    btn.textContent='🔔 Notifications On';
+    btn.style.color='#a8e67a';
+    btn.style.borderColor='rgba(126,200,80,.4)';
+    alert("You're all set! You'll get a notification here whenever someone reports a bug.");
+  }catch(err){
+    alert('Could not enable notifications: '+(err && err.message ? err.message : err));
+  }
+}
+
+if('serviceWorker' in navigator && 'PushManager' in window){
+  navigator.serviceWorker.getRegistration('/sw.js').then(async reg=>{
+    if(!reg)return;
+    const sub=await reg.pushManager.getSubscription();
+    if(sub && Notification.permission==='granted'){
+      const btn=document.getElementById('notif-btn');
+      btn.textContent='🔔 Notifications On';
+      btn.style.color='#a8e67a';
+      btn.style.borderColor='rgba(126,200,80,.4)';
+    }
+  }).catch(()=>{});
+}
+</script>
+</body></html>

@@ -1,0 +1,340 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"><title>Curling</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>body{background:#08080f}#c{display:block;border-radius:8px;margin:0 auto;touch-action:none;cursor:crosshair}#ui{color:#80deea;text-align:center;padding:8px;font-size:1.05rem;font-weight:700}</style>
+</head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Curling</div>
+  <div class="game-frame" style="padding:10px">
+    <div id="ui">End 1/4 | You: 0  CPU: 0 | Stones left: 4</div>
+    <canvas id="c" width="420" height="520"></canvas>
+  </div>
+  <div class="game-instructions">Drag down from your stone (at the bottom) and release to throw — drag distance sets power, drag angle sets curl/direction. Slide your stone as close to the center of the house (the target circles) as possible. You and the CPU alternate throws; after all stones are thrown, the player(s) with stones closest to the center score points for that end. Most points after 4 ends wins!</div>
+</div>
+<script>
+const c=document.getElementById('c'),ctx=c.getContext('2d');
+const W=420,H=520;
+const HOUSE={x:W/2,y:120};
+const HOUSE_RINGS=[{r:70,c:'#1976d2'},{r:50,c:'#fff'},{r:30,c:'#e53935'},{r:10,c:'#fff'}];
+const HOG_LINE_Y=420; // throw line - stones must pass this
+const BACK_LINE_Y=40;
+const STONE_R=14;
+const FRICTION=0.9915;
+const STOP_SPEED=0.045;
+const STONES_PER_END=4; // each side throws 4 stones per end (8 total)
+const TOTAL_ENDS=4;
+
+let stones, throwOrder, throwIdx, end, scores, state, drag, dragOrigin, msg, msgTimer, turn, stonesThisEnd, current=null;
+
+function start(){
+  scores=[0,0]; // [player, cpu]
+  end=1;
+  setupEnd();
+}
+
+function setupEnd(){
+  stones=[];
+  stonesThisEnd=0;
+  // alternate who goes first each end (player starts end 1)
+  turn = (end%2===1) ? 'player' : 'cpu';
+  state='aim';
+  drag=null; msg=`End ${end} — ${turn==='player'?'Your throw':"CPU's throw"}`; msgTimer=80;
+  spawnStoneForTurn();
+}
+
+function spawnStoneForTurn(){
+  const startX = W/2;
+  const startY = H-50;
+  current = {x:startX,y:startY,vx:0,vy:0,who:turn,moving:false,settled:false};
+}
+
+function getPos(e){
+  const r=c.getBoundingClientRect();
+  const t=e.touches?e.touches[0]:e;
+  return {x:(t.clientX-r.left)*W/r.width,y:(t.clientY-r.top)*H/r.height};
+}
+
+function pointerDown(e){
+  e.preventDefault();
+  if(state==='endover'){ proceedAfterEnd(); return; }
+  if(state==='gameover'){ start(); return; }
+  if(state!=='aim'||turn!=='player'||!current||current.moving) return;
+  const p=getPos(e);
+  if(Math.hypot(p.x-current.x,p.y-current.y)<60){ drag=p; dragOrigin={x:current.x,y:current.y}; }
+}
+function pointerMove(e){ if(!drag) return; e.preventDefault(); drag=getPos(e); }
+function pointerUp(e){
+  if(!drag) return;
+  e.preventDefault();
+  // throw direction: opposite of drag (pull back, release forward)
+  const dx=dragOrigin.x-drag.x, dy=dragOrigin.y-drag.y;
+  const dist=Math.hypot(dx,dy);
+  if(dist>8){
+    const power=Math.min(dist,140)/140;
+    const speed=2+power*9;
+    const ang=Math.atan2(dy,dx);
+    // curl: slight sideways drift based on horizontal component of aim (simulate sweeping/turn)
+    current.vx=Math.cos(ang)*speed;
+    current.vy=Math.sin(ang)*speed;
+    current.curl=(Math.cos(ang))*0.018; // subtle curve
+    current.moving=true;
+    state='rolling';
+  }
+  drag=null;
+}
+c.addEventListener('mousedown',pointerDown);
+c.addEventListener('mousemove',pointerMove);
+window.addEventListener('mouseup',pointerUp);
+c.addEventListener('touchstart',pointerDown,{passive:false});
+c.addEventListener('touchmove',pointerMove,{passive:false});
+c.addEventListener('touchend',pointerUp,{passive:false});
+
+function physicsStep(){
+  current.x += current.vx;
+  current.y += current.vy;
+  // gentle curl effect: rotate velocity slightly
+  if(current.curl){
+    const ang=Math.atan2(current.vy,current.vx)+current.curl;
+    const spd=Math.hypot(current.vx,current.vy);
+    current.vx=Math.cos(ang)*spd;
+    current.vy=Math.sin(ang)*spd;
+  }
+  current.vx*=FRICTION;
+  current.vy*=FRICTION;
+
+  // collisions with settled stones
+  for(const s of stones){
+    const d=Math.hypot(current.x-s.x,current.y-s.y);
+    if(d < STONE_R*2 && d>0.01){
+      const nx=(current.x-s.x)/d, ny=(current.y-s.y)/d;
+      const overlap=STONE_R*2-d;
+      current.x += nx*overlap*0.5;
+      current.y += ny*overlap*0.5;
+      // simple elastic-ish transfer
+      const speed=Math.hypot(current.vx,current.vy);
+      s.vx += nx*speed*0.5;
+      s.vy += ny*speed*0.5;
+      s.moving=true;
+      current.vx -= nx*speed*0.5;
+      current.vy -= ny*speed*0.5;
+    }
+  }
+
+  // walls (side rails)
+  if(current.x<STONE_R){ current.x=STONE_R; current.vx*=-0.6; }
+  if(current.x>W-STONE_R){ current.x=W-STONE_R; current.vx*=-0.6; }
+
+  const speed=Math.hypot(current.vx,current.vy);
+  if(speed<STOP_SPEED || current.y<BACK_LINE_Y-30){
+    current.vx=0;current.vy=0;current.moving=false;
+    finalizeThrow();
+  }
+}
+
+function finalizeThrow(){
+  // Did it pass the hog line? (must travel far enough up the sheet)
+  const traveled = (H-50) - current.y;
+  if(traveled < (H-50-HOG_LINE_Y) || current.y < BACK_LINE_Y-20){
+    msg = current.y<BACK_LINE_Y-20 ? 'Stone slid out the back!' : 'Hog line violation — stone removed!';
+    msgTimer=85;
+    // remove stone (don't add to stones list)
+  } else {
+    stones.push({x:current.x,y:current.y,who:current.who,vx:0,vy:0,moving:false});
+    msg = current.who==='player' ? 'Your stone is in play.' : "CPU's stone is in play.";
+    msgTimer=60;
+  }
+  current=null;
+  stonesThisEnd++;
+
+  if(stonesThisEnd>=STONES_PER_END*2){
+    setTimeout(scoreEnd,700);
+    state='scoring';
+  } else {
+    turn = turn==='player' ? 'cpu':'player';
+    setTimeout(()=>{
+      spawnStoneForTurn();
+      state='aim';
+      if(turn==='cpu'){ setTimeout(cpuThrow,700); }
+    },650);
+  }
+}
+
+function cpuThrow(){
+  if(!current||turn!=='cpu'||current.moving) return;
+  // CPU aims roughly at house center with some randomness & varying power
+  const targetX=HOUSE.x + (Math.random()-0.5)*50;
+  const targetY=HOUSE.y + (Math.random()-0.5)*40;
+  const dx=current.x-targetX, dy=current.y-targetY;
+  const dist=Math.hypot(dx,dy);
+  const power=Math.min(0.55+Math.random()*0.4,1);
+  const speed=2+power*9;
+  const ang=Math.atan2(dy,dx);
+  current.vx=Math.cos(ang)*speed*(dist/300);
+  current.vy=Math.sin(ang)*speed*(dist/300);
+  // normalize roughly toward house
+  const norm=Math.hypot(current.vx,current.vy)||1;
+  const targetSpeed=4.2+Math.random()*3.2;
+  current.vx = current.vx/norm*targetSpeed;
+  current.vy = current.vy/norm*targetSpeed;
+  current.curl=(Math.random()-0.5)*0.03;
+  current.moving=true;
+  state='rolling';
+}
+
+function dist2house(s){ return Math.hypot(s.x-HOUSE.x,s.y-HOUSE.y); }
+
+function scoreEnd(){
+  // Determine which side has the stone closest to center; that side scores 1 point
+  // for each of their stones closer than the opponent's closest stone.
+  if(stones.length===0){
+    msg='No stones in the house — no score this end.';
+    msgTimer=110;
+  } else {
+    const sorted=[...stones].sort((a,b)=>dist2house(a)-dist2house(b));
+    const winner=sorted[0].who;
+    let pts=0;
+    for(const s of sorted){
+      if(s.who===winner) pts++; else break;
+    }
+    if(winner==='player'){ scores[0]+=pts; msg=`You score ${pts} point${pts>1?'s':''}!`; }
+    else { scores[1]+=pts; msg=`CPU scores ${pts} point${pts>1?'s':''}.`; }
+    msgTimer=130;
+  }
+  state='endover';
+}
+
+function proceedAfterEnd(){
+  if(end>=TOTAL_ENDS){
+    state='gameover';
+    msg = scores[0]>scores[1] ? 'You win the match!' : scores[0]<scores[1] ? 'CPU wins the match.' : "It's a tie!";
+    msgTimer=999;
+    return;
+  }
+  end++;
+  setupEnd();
+}
+
+function drawSheet(){
+  // ice
+  const g=ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,'#cfe8f3');g.addColorStop(1,'#e8f6fb');
+  ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  // ice texture lines
+  ctx.strokeStyle='rgba(120,170,200,.18)';ctx.lineWidth=1;
+  for(let y=0;y<H;y+=14){ ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke(); }
+
+  // center line
+  ctx.strokeStyle='rgba(33,33,33,.25)';ctx.lineWidth=2;
+  ctx.beginPath();ctx.moveTo(W/2,0);ctx.lineTo(W/2,H);ctx.stroke();
+
+  // house rings
+  HOUSE_RINGS.forEach(ring=>{
+    ctx.fillStyle=ring.c;
+    ctx.beginPath();ctx.arc(HOUSE.x,HOUSE.y,ring.r,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle='rgba(33,33,33,.25)';ctx.lineWidth=1;ctx.stroke();
+  });
+  ctx.fillStyle='#1976d2';ctx.beginPath();ctx.arc(HOUSE.x,HOUSE.y,3,0,Math.PI*2);ctx.fill();
+
+  // hog line
+  ctx.strokeStyle='#e53935';ctx.lineWidth=3;
+  ctx.beginPath();ctx.moveTo(20,HOG_LINE_Y);ctx.lineTo(W-20,HOG_LINE_Y);ctx.stroke();
+  ctx.fillStyle='rgba(229,57,53,.7)';ctx.font='11px Arial';ctx.textAlign='center';
+  ctx.fillText('HOG LINE',W/2,HOG_LINE_Y+16);
+
+  // back line
+  ctx.strokeStyle='rgba(33,33,33,.4)';ctx.lineWidth=2;
+  ctx.beginPath();ctx.moveTo(20,BACK_LINE_Y);ctx.lineTo(W-20,BACK_LINE_Y);ctx.stroke();
+
+  // side rails
+  ctx.fillStyle='#37474f';
+  ctx.fillRect(0,0,8,H);ctx.fillRect(W-8,0,8,H);
+}
+
+function drawStone(s,highlight){
+  ctx.save();
+  ctx.translate(s.x,s.y);
+  ctx.fillStyle = s.who==='player' ? '#e53935' : '#1565c0';
+  ctx.beginPath();ctx.ellipse(0,2,STONE_R,STONE_R*0.85,0,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle = s.who==='player' ? '#ef5350' : '#42a5f5';
+  ctx.beginPath();ctx.ellipse(0,-2,STONE_R*0.78,STONE_R*0.62,0,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='rgba(255,255,255,.7)';
+  ctx.beginPath();ctx.arc(0,-2,3.5,0,Math.PI*2);ctx.fill();
+  if(highlight){
+    ctx.strokeStyle='rgba(255,235,59,.9)';ctx.lineWidth=2;
+    ctx.beginPath();ctx.ellipse(0,2,STONE_R+4,STONE_R*0.85+4,0,0,Math.PI*2);ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function loop(){
+  drawSheet();
+
+  // settled stones
+  stones.forEach(s=>drawStone(s,false));
+
+  // current stone
+  if(current){
+    if(state==='rolling'&&current.moving){ physicsStep(); }
+    drawStone(current, turn==='player'&&state==='aim');
+  }
+
+  // aim visuals
+  if(drag&&dragOrigin&&state==='aim'&&turn==='player'){
+    const dx=dragOrigin.x-drag.x, dy=dragOrigin.y-drag.y;
+    const dist=Math.min(Math.hypot(dx,dy),140);
+    const ang=Math.atan2(dy,dx);
+    ctx.strokeStyle='rgba(233,69,96,.8)';ctx.lineWidth=3;ctx.setLineDash([6,5]);
+    ctx.beginPath();ctx.moveTo(current.x,current.y);
+    ctx.lineTo(current.x+Math.cos(ang)*dist*2.2,current.y+Math.sin(ang)*dist*2.2);
+    ctx.stroke();ctx.setLineDash([]);
+    const pct=dist/140;
+    ctx.fillStyle='rgba(0,0,0,.15)';ctx.fillRect(W/2-60,H-26,120,12);
+    ctx.fillStyle=pct>0.8?'#e94560':pct>0.4?'#ffb300':'#43a047';
+    ctx.fillRect(W/2-60,H-26,120*pct,12);
+    ctx.strokeStyle='rgba(0,0,0,.3)';ctx.strokeRect(W/2-60,H-26,120,12);
+  } else if(state==='aim'&&turn==='player'){
+    ctx.fillStyle='rgba(33,33,33,.5)';ctx.font='12px Arial';ctx.textAlign='center';
+    ctx.fillText('Drag down from your stone, release to throw',W/2,H-8);
+  }
+
+  // turn / stones indicator
+  ctx.fillStyle='rgba(33,33,33,.75)';ctx.font='bold 13px Arial';ctx.textAlign='left';
+  ctx.fillText(turn==='player'?'Your throw (red)':'CPU throw (blue)',12,20);
+  ctx.textAlign='right';
+  ctx.fillText(`Stone ${stonesThisEnd+1}/${STONES_PER_END*2}`,W-12,20);
+
+  // message
+  if(msgTimer>0){
+    msgTimer--;
+    ctx.fillStyle='rgba(20,30,60,.9)';ctx.font='bold 16px Arial';ctx.textAlign='center';
+    ctx.fillText(msg,W/2,42);
+  }
+
+  if(state==='endover'){
+    ctx.fillStyle='rgba(0,0,0,.5)';ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='#80deea';ctx.font='bold 24px Arial';ctx.textAlign='center';
+    ctx.fillText(`End ${end} complete`,W/2,H/2-50);
+    ctx.fillStyle='#fff';ctx.font='17px Arial';
+    ctx.fillText(msg,W/2,H/2-18);
+    ctx.fillText(`Score — You: ${scores[0]}   CPU: ${scores[1]}`,W/2,H/2+12);
+    ctx.fillText(end<TOTAL_ENDS?'Click / tap for next end':'Click / tap for final result',W/2,H/2+44);
+  }
+
+  if(state==='gameover'){
+    ctx.fillStyle='rgba(0,0,0,.6)';ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='#80deea';ctx.font='bold 26px Arial';ctx.textAlign='center';
+    ctx.fillText('Match Complete',W/2,H/2-50);
+    ctx.fillStyle='#fff';ctx.font='18px Arial';
+    ctx.fillText(`Final Score — You: ${scores[0]}   CPU: ${scores[1]}`,W/2,H/2-14);
+    ctx.font='bold 20px Arial';ctx.fillStyle='#ffd54f';
+    ctx.fillText(msg,W/2,H/2+18);
+    ctx.fillStyle='#fff';ctx.font='14px Arial';
+    ctx.fillText('Click / tap to play again',W/2,H/2+50);
+  }
+
+  document.getElementById('ui').textContent=`End ${end}/${TOTAL_ENDS} | You: ${scores[0]}  CPU: ${scores[1]} | Stone ${Math.min(stonesThisEnd+1,STONES_PER_END*2)}/${STONES_PER_END*2}`;
+  requestAnimationFrame(loop);
+}
+start();
+loop();
+</script></body></html>

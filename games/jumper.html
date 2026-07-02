@@ -1,0 +1,103 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"><title>High Jumper</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>body{background:#08080f}#c{display:block;border-radius:8px}#ui{color:#4dd0e1;font-size:1.1rem;font-weight:700;text-align:center;padding:8px}</style>
+</head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">High Jumper</div>
+  <div class="game-frame">
+    <div id="ui">Height: 0m | Best: 0m</div>
+    <canvas id="c" width="400" height="560"></canvas>
+  </div>
+  <div class="game-instructions"><b>←→ or A/D</b> move sideways. Jump on platforms to go higher. Don't fall!</div>
+</div>
+<script>
+const c=document.getElementById('c'),ctx=c.getContext('2d');
+let player,platforms,score,best=0,state,cameraY,keys={};
+
+function makePlat(y){
+  const w=60+Math.random()*50;
+  const x=Math.random()*(c.width-w);
+  const moving=score>300&&Math.random()<.3;
+  return{x,y,w,h:12,vx:moving?1.5:0,dir:1,spring:false};
+}
+
+function start(){
+  player={x:180,y:400,w:28,h:32,vx:0,vy:-12,jumping:true};
+  platforms=[];score=0;state='play';cameraY=0;
+  platforms.push({x:160,y:480,w:80,h:12,vx:0,dir:1});
+  for(let i=1;i<20;i++)platforms.push(makePlat(480-i*60));
+}
+
+document.addEventListener('keydown',e=>{keys[e.code]=true;if(state!=='play'&&e.code==='Space')start();});
+document.addEventListener('keyup',e=>keys[e.code]=false);
+c.addEventListener('click',()=>{if(state!=='play')start();});
+
+let tX=null;
+c.addEventListener('touchmove',e=>{const rect=c.getBoundingClientRect();tX=(e.touches[0].clientX-rect.left)*c.width/rect.width;},{passive:true});
+
+function loop(){
+  if(state!=='play'){
+    ctx.fillStyle='#006064';ctx.fillRect(0,0,c.width,c.height);
+    ctx.fillStyle='#4dd0e1';ctx.font='bold 34px Arial';ctx.textAlign='center';ctx.fillText('FELL DOWN!',200,230);
+    ctx.fillStyle='#fff';ctx.font='18px Arial';ctx.fillText(`Height: ${score}m  Best: ${best}m`,200,270);ctx.fillText('Click/Space to retry',200,306);
+    requestAnimationFrame(loop);return;
+  }
+
+  if(tX!==null)player.vx=(tX-player.x-player.w/2)*.15;
+  if(keys['ArrowLeft']||keys['KeyA'])player.vx=-4.5;
+  else if(keys['ArrowRight']||keys['KeyD'])player.vx=4.5;
+  else if(tX===null)player.vx*=.8;
+
+  player.vy+=0.4;
+  player.x+=player.vx;player.y+=player.vy;
+
+  // Wrap horizontally
+  if(player.x+player.w<0)player.x=c.width;
+  if(player.x>c.width)player.x=-player.w;
+
+  // Platform collision (only when falling)
+  if(player.vy>0){
+    for(const p of platforms){
+      const py=p.y-cameraY;
+      if(player.x+player.w>p.x&&player.x<p.x+p.w&&player.y+player.h>py&&player.y+player.h<py+p.h+player.vy+2){
+        player.y=py-player.h;player.vy=p.spring?-18:-12;break;
+      }
+    }
+  }
+
+  // Scroll camera up
+  const screenY=player.y-cameraY;
+  if(screenY<c.height/3){const diff=c.height/3-screenY;cameraY-=diff;score=Math.max(score,Math.floor(-cameraY/10));if(score>best)best=score;}
+
+  // Add platforms as we scroll
+  const topPlatY=platforms.reduce((mn,p)=>Math.min(mn,p.y),Infinity);
+  if(topPlatY-cameraY>0)platforms.push(makePlat(topPlatY-70));
+
+  platforms=platforms.filter(p=>p.y-cameraY<c.height+40);
+  platforms.forEach(p=>{if(p.vx){p.x+=p.vx*p.dir;if(p.x<=0||p.x+p.w>=c.width)p.dir*=-1;}});
+
+  if(player.y-cameraY>c.height+30)state='over';
+
+  // Draw sky
+  const grad=ctx.createLinearGradient(0,0,0,c.height);
+  grad.addColorStop(0,'#006064');grad.addColorStop(1,'#004d51');
+  ctx.fillStyle=grad;ctx.fillRect(0,0,c.width,c.height);
+
+  platforms.forEach(p=>{
+    const py=p.y-cameraY;
+    ctx.fillStyle=p.spring?'#ff5252':'#26c6da';
+    ctx.beginPath();ctx.roundRect(p.x,py,p.w,p.h,5);ctx.fill();
+    if(p.spring){ctx.fillStyle='#ff0000';ctx.fillRect(p.x+p.w/2-4,py-10,8,10);}
+  });
+
+  // Player
+  ctx.fillStyle='#4dd0e1';ctx.fillRect(player.x,player.y-cameraY,player.w,player.h);
+  ctx.fillStyle='#fff';ctx.fillRect(player.x+16,player.y-cameraY+8,6,7);
+  ctx.fillRect(player.x+6,player.y-cameraY+8,6,7);
+
+  document.getElementById('ui').textContent=`Height: ${score}m | Best: ${best}m`;
+  requestAnimationFrame(loop);
+}
+start();loop();
+</script></body></html>

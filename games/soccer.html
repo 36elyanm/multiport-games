@@ -1,0 +1,105 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"><title>Penalty Kick</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>body{background:#08080f}#c{display:block;border-radius:8px;margin:0 auto}#ui{color:#a5d6a7;text-align:center;padding:8px;font-size:1.1rem;font-weight:700}</style>
+</head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Penalty Kick</div>
+  <div class="game-frame" style="padding:10px">
+    <div id="ui">Click to aim & kick! 5 shots</div>
+    <canvas id="c" width="480" height="400"></canvas>
+  </div>
+  <div class="game-instructions">Click where you want to kick. The goalkeeper will guess! 5 shots per round.</div>
+</div>
+<script>
+const c=document.getElementById('c'),ctx=c.getContext('2d');
+const GW=220,GH=130,GX=(480-GW)/2,GY=60;
+let score,shots,state,ball,gk,aiming,aimX,aimY,frame;
+
+function start(){score=0;shots=5;state='aim';ball={x:240,y:340,r:14};gk={x:240,y:GY+GH/2,vx:0};aiming=true;frame=0;render();}
+
+c.addEventListener('click',e=>{
+  if(state==='over'){start();return;}
+  if(state!=='aim')return;
+  const rect=c.getBoundingClientRect();
+  aimX=(e.clientX-rect.left)*480/rect.width;aimY=(e.clientY-rect.top)*400/rect.height;
+  kick();
+});
+c.addEventListener('touchstart',e=>{
+  e.preventDefault();
+  if(state==='over'){start();return;}
+  if(state!=='aim')return;
+  const rect=c.getBoundingClientRect();
+  aimX=(e.touches[0].clientX-rect.left)*480/rect.width;aimY=(e.touches[0].clientY-rect.top)*400/rect.height;
+  kick();
+},{passive:false});
+
+function kick(){
+  state='kick';
+  const dx=aimX-ball.x,dy=aimY-ball.y;const dist=Math.hypot(dx,dy);
+  ball.vx=dx/dist*12;ball.vy=dy/dist*12;
+  // GK guess
+  const gkTarget=Math.random()<.5?GX+GW*.2+Math.random()*GW*.6:aimX+(Math.random()-.5)*80;
+  gk.vx=(gkTarget-gk.x)/15;
+  let t=0;
+  const interval=setInterval(()=>{
+    t++;ball.x+=ball.vx;ball.y+=ball.vy;ball.vy+=.3;
+    gk.x+=gk.vx;gk.x=Math.max(GX,Math.min(GX+GW-30,gk.x));
+    render();
+    const inGoal=ball.x>GX&&ball.x<GX+GW&&ball.y>GY&&ball.y<GY+GH;
+    const gkCatch=Math.abs(ball.x-(gk.x+15))<30&&Math.abs(ball.y-(gk.y+15))<30;
+    if(t>30||inGoal||gkCatch||ball.y<GY-30){
+      clearInterval(interval);
+      if(inGoal&&!gkCatch)score++;
+      shots--;
+      if(shots<=0){state='over';}else{
+        setTimeout(()=>{state='aim';ball={x:240,y:340,r:14};render();
+          document.getElementById('ui').textContent=`Score: ${score} | Shots left: ${shots}`;},800);
+      }
+      render();
+    }
+  },30);
+}
+
+function render(){
+  // Grass
+  const g=ctx.createLinearGradient(0,0,0,400);
+  g.addColorStop(0,'#1b5e20');g.addColorStop(1,'#2e7d32');
+  ctx.fillStyle=g;ctx.fillRect(0,0,480,400);
+  // Stripes
+  for(let i=0;i<8;i++){ctx.fillStyle=i%2===0?'rgba(0,0,0,.05)':'rgba(255,255,255,.03)';ctx.fillRect(i*60,0,60,400);}
+  // Goal post
+  ctx.strokeStyle='#fff';ctx.lineWidth=5;
+  ctx.strokeRect(GX,GY,GW,GH);
+  ctx.fillStyle='rgba(255,255,255,.1)';ctx.fillRect(GX,GY,GW,GH);
+  // Net lines
+  ctx.strokeStyle='rgba(255,255,255,.15)';ctx.lineWidth=1;
+  for(let x=GX;x<GX+GW;x+=20){ctx.beginPath();ctx.moveTo(x,GY);ctx.lineTo(x,GY+GH);ctx.stroke();}
+  for(let y=GY;y<GY+GH;y+=20){ctx.beginPath();ctx.moveTo(GX,y);ctx.lineTo(GX+GW,y);ctx.stroke();}
+  // GK
+  ctx.fillStyle='#ff9800';
+  ctx.beginPath();ctx.roundRect(gk.x,gk.y,30,60,6);ctx.fill();
+  ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(gk.x+15,gk.y-12,14,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#333';ctx.beginPath();ctx.arc(gk.x+17,gk.y-14,4,0,Math.PI*2);ctx.fill();
+  // Penalty spot
+  ctx.fillStyle='rgba(255,255,255,.5)';ctx.beginPath();ctx.arc(240,340,4,0,Math.PI*2);ctx.fill();
+  // Ball
+  ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(ball.x,ball.y,ball.r,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#333';ctx.font='bold 16px Arial';ctx.textAlign='center';ctx.fillText('⚽',ball.x,ball.y+6);
+
+  if(state==='aim'){ctx.strokeStyle='rgba(255,255,0,.3)';ctx.setLineDash([5,8]);ctx.lineWidth=1.5;
+    const mx=cursor.x,my=cursor.y;ctx.beginPath();ctx.moveTo(ball.x,ball.y);ctx.lineTo(mx,my);ctx.stroke();ctx.setLineDash([]);}
+
+  if(state==='over'){
+    ctx.fillStyle='rgba(0,0,0,.6)';ctx.fillRect(0,0,480,400);
+    ctx.fillStyle='#a5d6a7';ctx.font='bold 32px Arial';ctx.textAlign='center';ctx.fillText(`${score}/5 Goals!`,240,180);
+    const msg=score>=4?'⚽ Amazing!':score>=2?'👍 Good try!':'😬 Train more!';
+    ctx.fillStyle='#fff';ctx.font='22px Arial';ctx.fillText(msg,240,220);ctx.fillText('Click to retry',240,260);
+  }
+  document.getElementById('ui').textContent=`Score: ${score} | Shots left: ${shots}`;
+}
+const cursor={x:240,y:200};
+c.addEventListener('mousemove',e=>{const r=c.getBoundingClientRect();cursor.x=(e.clientX-r.left)*480/r.width;cursor.y=(e.clientY-r.top)*400/r.height;render();});
+start();
+
+</script></body></html>

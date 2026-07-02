@@ -1,0 +1,101 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"><title>Snake</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>body{background:#08080f}#c{display:block;border-radius:8px}
+#ui{color:#28a745;font-size:1.1rem;font-weight:700;text-align:center;padding:8px}
+.arrow-pad{display:grid;grid-template-columns:40px 40px 40px;gap:4px;justify-content:center;margin-top:10px}
+.arrow-pad button{width:40px;height:40px;font-size:1.2rem;background:#16213e;border:2px solid #28a745;border-radius:8px;color:#28a745;cursor:pointer}
+</style></head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Snake</div>
+  <div class="game-frame">
+    <div id="ui">Score: 0 | Hi: 0</div>
+    <canvas id="c" width="400" height="400"></canvas>
+  </div>
+  <div class="arrow-pad">
+    <span></span><button onclick="setDir(0,-1)">▲</button><span></span>
+    <button onclick="setDir(-1,0)">◀</button><span></span><button onclick="setDir(1,0)">▶</button>
+    <span></span><button onclick="setDir(0,1)">▼</button><span></span>
+  </div>
+  <div class="game-instructions">Use <b>Arrow Keys</b> or on-screen buttons to steer. Eat the food to grow. Don't hit the walls or yourself.</div>
+</div>
+<script>
+const c=document.getElementById('c'),ctx=c.getContext('2d');
+const SZ=20,COLS=20,ROWS=20;
+let snake,dir,nextDir,food,score,hi=0,alive,interval;
+
+function rand(n){return Math.floor(Math.random()*n);}
+function placeFood(){
+  do{food={x:rand(COLS),y:rand(ROWS)};}
+  while(snake.some(s=>s.x===food.x&&s.y===food.y));
+}
+
+function start(){
+  snake=[{x:10,y:10},{x:9,y:10},{x:8,y:10}];
+  dir={x:1,y:0};nextDir={x:1,y:0};score=0;alive=true;
+  placeFood();
+  clearInterval(interval);
+  interval=setInterval(step,280);
+}
+
+function setDir(dx,dy){
+  if(dx===-dir.x&&dy===-dir.y)return;
+  nextDir={x:dx,y:dy};
+}
+
+document.addEventListener('keydown',e=>{
+  const map={ArrowUp:[0,-1],ArrowDown:[0,1],ArrowLeft:[-1,0],ArrowRight:[1,0]};
+  if(map[e.code]){e.preventDefault();setDir(...map[e.code]);}
+  if(!alive&&e.code==='Space')start();
+});
+let stx=0,sty=0;
+c.addEventListener('touchstart',e=>{stx=e.touches[0].clientX;sty=e.touches[0].clientY;if(!alive)start();},{passive:true});
+c.addEventListener('touchend',e=>{
+  const dx=e.changedTouches[0].clientX-stx,dy=e.changedTouches[0].clientY-sty;
+  if(Math.abs(dx)<15&&Math.abs(dy)<15)return;
+  if(Math.abs(dx)>Math.abs(dy))setDir(dx>0?1:-1,0);
+  else setDir(0,dy>0?1:-1);
+},{passive:true});
+
+function step(){
+  dir=nextDir;
+  const head={x:snake[0].x+dir.x,y:snake[0].y+dir.y};
+  if(head.x<0||head.x>=COLS||head.y<0||head.y>=ROWS||snake.some(s=>s.x===head.x&&s.y===head.y)){
+    alive=false;clearInterval(interval);draw();return;
+  }
+  snake.unshift(head);
+  if(head.x===food.x&&head.y===food.y){score++;if(score>hi)hi=score;placeFood();}
+  else snake.pop();
+  draw();
+}
+
+function draw(){
+  ctx.fillStyle='#0d1f0d';ctx.fillRect(0,0,c.width,c.height);
+  // Grid
+  ctx.strokeStyle='#1a3a1a';ctx.lineWidth=.5;
+  for(let i=0;i<=COLS;i++){ctx.beginPath();ctx.moveTo(i*SZ,0);ctx.lineTo(i*SZ,c.height);ctx.stroke();}
+  for(let j=0;j<=ROWS;j++){ctx.beginPath();ctx.moveTo(0,j*SZ);ctx.lineTo(c.width,j*SZ);ctx.stroke();}
+
+  // Food
+  ctx.fillStyle='#ff4444';
+  ctx.beginPath();ctx.arc(food.x*SZ+SZ/2,food.y*SZ+SZ/2,SZ/2-2,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#ff8888';ctx.beginPath();ctx.arc(food.x*SZ+SZ/2-3,food.y*SZ+SZ/2-3,4,0,Math.PI*2);ctx.fill();
+
+  // Snake
+  snake.forEach((s,i)=>{
+    const t=i/snake.length;
+    ctx.fillStyle=i===0?'#28a745':`hsl(${120-t*40},70%,${45-t*15}%)`;
+    ctx.beginPath();ctx.roundRect(s.x*SZ+1,s.y*SZ+1,SZ-2,SZ-2,4);ctx.fill();
+  });
+
+  if(!alive){
+    ctx.fillStyle='rgba(0,0,0,.6)';ctx.fillRect(0,0,c.width,c.height);
+    ctx.fillStyle='#ff4444';ctx.font='bold 36px Arial';ctx.textAlign='center';ctx.fillText('GAME OVER',200,180);
+    ctx.fillStyle='#fff';ctx.font='20px Arial';ctx.fillText(`Score: ${score}`,200,220);
+    ctx.fillText('Space to restart',200,255);
+  }
+  document.getElementById('ui').textContent=`Score: ${score} | Hi: ${hi}`;
+}
+
+start();
+</script></body></html>

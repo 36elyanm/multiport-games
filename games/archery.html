@@ -1,0 +1,96 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"><title>Archery</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>body{background:#08080f}#c{display:block;border-radius:8px;margin:0 auto}#ui{color:#c8e6c9;text-align:center;padding:8px;font-size:1.1rem;font-weight:700}</style>
+</head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Archery</div>
+  <div class="game-frame" style="padding:10px">
+    <div id="ui">Score: 0 | Arrows: 10</div>
+    <canvas id="c" width="520" height="400"></canvas>
+  </div>
+  <div class="game-instructions">Hold click/space to draw the bow (longer = more power). Release to shoot. Hit the bullseye!</div>
+</div>
+<script>
+const c=document.getElementById('c'),ctx=c.getContext('2d');
+const TARGET_X=420,TARGET_Y=200;
+let arrows,score,arrowsLeft,power,drawing,state,wind,arrowInFlight,frame;
+
+function start(){arrows=[];score=0;arrowsLeft=10;power=0;drawing=false;state='aim';wind=(Math.random()-.5)*2;arrowInFlight=null;frame=0;}
+
+document.addEventListener('keydown',e=>{if(e.code==='Space'){e.preventDefault();if(!drawing){drawing=true;power=0;}if(state!=='aim')start();}});
+document.addEventListener('keyup',e=>{if(e.code==='Space'&&drawing)shoot();});
+c.addEventListener('mousedown',()=>{if(state!=='aim'){start();return;}drawing=true;power=0;});
+document.addEventListener('mouseup',()=>{if(drawing)shoot();});
+c.addEventListener('touchstart',e=>{e.preventDefault();if(state!=='aim'){start();return;}drawing=true;power=0;},{passive:false});
+c.addEventListener('touchend',()=>{if(drawing)shoot();},{passive:true});
+
+function shoot(){
+  drawing=false;
+  if(arrowsLeft<=0)return;
+  const spd=(power/100)*18+4;
+  arrowInFlight={x:60,y:200,vx:spd,vy:-spd*.2,trail:[]};
+  arrowsLeft--;power=0;
+}
+
+function loop(){
+  // BG
+  const sky=ctx.createLinearGradient(0,0,0,400);sky.addColorStop(0,'#1b5e20');sky.addColorStop(.6,'#2e7d32');sky.addColorStop(1,'#33691e');
+  ctx.fillStyle=sky;ctx.fillRect(0,0,520,400);
+  // Clouds
+  ctx.fillStyle='rgba(255,255,255,.15)';[[100,60,50],[300,40,40],[420,80,35]].forEach(([x,y,r])=>{ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();});
+  // Wind indicator
+  ctx.fillStyle='rgba(255,255,255,.6)';ctx.font='13px Arial';ctx.textAlign='left';
+  ctx.fillText(`Wind: ${wind>0?'→':'←'} ${Math.abs(wind).toFixed(1)}`,10,20);
+
+  frame++;if(drawing&&power<100)power+=2;
+
+  // Target
+  const rings=[{r:50,c:'#f44336'},{r:40,c:'#fff'},{r:30,c:'#f44336'},{r:20,c:'#fff'},{r:10,c:'#f44336'}];
+  rings.forEach(ring=>{ctx.fillStyle=ring.c;ctx.beginPath();ctx.arc(TARGET_X,TARGET_Y+Math.sin(frame*.02)*30,ring.r,0,Math.PI*2);ctx.fill();});
+  ctx.fillStyle='#ffeb3b';ctx.beginPath();ctx.arc(TARGET_X,TARGET_Y+Math.sin(frame*.02)*30,5,0,Math.PI*2);ctx.fill();
+
+  // Stuck arrows
+  arrows.forEach(a=>{
+    ctx.strokeStyle='#8d6e63';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(a.x-20,a.y-4);ctx.stroke();
+    ctx.fillStyle='#ff8a65';ctx.beginPath();ctx.moveTo(a.x,a.y-4);ctx.lineTo(a.x-6,a.y);ctx.lineTo(a.x,a.y+4);ctx.fill();
+  });
+
+  // Flying arrow
+  if(arrowInFlight){
+    arrowInFlight.x+=arrowInFlight.vx;arrowInFlight.vy+=0.2;arrowInFlight.vx+=wind*.02;
+    arrowInFlight.y+=arrowInFlight.vy;
+    arrowInFlight.trail.push({x:arrowInFlight.x,y:arrowInFlight.y});if(arrowInFlight.trail.length>8)arrowInFlight.trail.shift();
+    arrowInFlight.trail.forEach((pt,i)=>{ctx.fillStyle=`rgba(255,200,100,${i/arrowInFlight.trail.length*.4})`;ctx.beginPath();ctx.arc(pt.x,pt.y,2,0,Math.PI*2);ctx.fill();});
+
+    const targetY=TARGET_Y+Math.sin(frame*.02)*30;
+    const dist=Math.hypot(arrowInFlight.x-TARGET_X,arrowInFlight.y-targetY);
+    if(dist<50||(arrowInFlight.x>TARGET_X-5&&arrowInFlight.x<TARGET_X+5)){
+      const pts=dist<10?100:dist<20?80:dist<30?50:dist<40?20:5;
+      score+=pts;arrows.push({x:arrowInFlight.x,y:arrowInFlight.y});arrowInFlight=null;
+      if(arrowsLeft===0)setTimeout(()=>state='over',800);
+    } else if(arrowInFlight.y>410||arrowInFlight.x>540){
+      arrows.push({x:arrowInFlight.x,y:arrowInFlight.y});arrowInFlight=null;
+      if(arrowsLeft===0)setTimeout(()=>state='over',800);
+    }
+    if(arrowInFlight){ctx.strokeStyle='#5d4037';ctx.lineWidth=2;const ang=Math.atan2(arrowInFlight.vy,arrowInFlight.vx);ctx.save();ctx.translate(arrowInFlight.x,arrowInFlight.y);ctx.rotate(ang);ctx.beginPath();ctx.moveTo(-20,0);ctx.lineTo(8,0);ctx.stroke();ctx.fillStyle='#ff8a65';ctx.beginPath();ctx.moveTo(8,-4);ctx.lineTo(16,0);ctx.lineTo(8,4);ctx.fill();ctx.restore();}
+  }
+
+  // Bow & archer
+  ctx.fillStyle='#5d4037';ctx.fillRect(40,170,10,60);
+  ctx.strokeStyle='#8d6e63';ctx.lineWidth=3;ctx.beginPath();ctx.arc(45,200,30,-.8,.8);ctx.stroke();
+  // Draw indicator
+  if(drawing){ctx.fillStyle='rgba(255,235,59,.6)';ctx.fillRect(20,380,power*2,14);ctx.fillStyle='rgba(255,235,59,.8)';ctx.font='11px Arial';ctx.textAlign='left';ctx.fillText('POWER',22,373);}
+
+  if(state==='over'){
+    ctx.fillStyle='rgba(0,0,0,.6)';ctx.fillRect(0,0,520,400);
+    ctx.fillStyle='#c8e6c9';ctx.font='bold 32px Arial';ctx.textAlign='center';ctx.fillText(`Score: ${score}`,260,180);
+    const rtg=score>=800?'🏹 Master!':score>=500?'⭐ Great!':score>=200?'👍 Good!':'🎯 Keep practicing';
+    ctx.fillStyle='#fff';ctx.font='20px Arial';ctx.fillText(rtg,260,220);ctx.fillText('Click to retry',260,260);
+  }
+
+  document.getElementById('ui').textContent=`Score: ${score} | Arrows: ${arrowsLeft}`;
+  requestAnimationFrame(loop);
+}
+start();loop();
+</script></body></html>

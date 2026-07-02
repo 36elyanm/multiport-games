@@ -1,0 +1,374 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"><title>Nonogram</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>body{background:#08080f}#c{display:block;border-radius:8px;touch-action:none}#ui{color:#e94560;font-size:1.05rem;font-weight:700;text-align:center;padding:8px}
+.ng-bar{display:flex;justify-content:center;gap:10px;padding:8px 16px;flex-wrap:wrap}
+.ng-bar button{padding:10px 18px;background:rgba(233,69,96,.12);border:1px solid rgba(233,69,96,.35);border-radius:12px;color:#fff;font-size:.95rem;font-weight:700;cursor:pointer;touch-action:manipulation}
+.ng-bar button:active{background:rgba(233,69,96,.3)}
+.ng-bar button.sel{background:rgba(233,69,96,.4);border-color:#e94560}
+</style>
+</head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Nonogram</div>
+  <div class="game-frame">
+    <div id="ui">Puzzle: 5×5 | Mode: Fill</div>
+    <canvas id="c" width="640" height="640"></canvas>
+  </div>
+  <div class="ng-bar">
+    <button id="modeFill" class="sel" onclick="setMode('fill')">🖌️ Fill</button>
+    <button id="modeMark" onclick="setMode('mark')">✖️ Mark</button>
+    <button onclick="newPuzzle()">🔀 New Puzzle</button>
+  </div>
+  <div class="game-instructions">Use the row/column number clues to figure out which cells should be filled — each number is a run of consecutive filled cells, in order, with at least one gap between runs. <b>Fill mode</b>: click/tap to fill a cell (click again to clear). <b>Mark mode</b>: click/tap to place an ✖ on cells you know are empty (helps you track your logic). Right-click (or long-press on touch) toggles a quick ✖. Complete the picture to win — "New Puzzle" cycles through 5×5, 10×10 and 15×15 grids.</div>
+</div>
+<script>
+const c=document.getElementById('c'),ctx=c.getContext('2d');
+const W=c.width,H=c.height;
+
+// Puzzle solutions (1 = filled). Hand-crafted simple pictures.
+const PUZZLES = {
+  5: [
+    // Heart
+    [
+      [0,1,0,1,0],
+      [1,1,1,1,1],
+      [1,1,1,1,1],
+      [0,1,1,1,0],
+      [0,0,1,0,0]
+    ],
+    // Smiley
+    [
+      [0,1,0,1,0],
+      [0,1,0,1,0],
+      [0,0,0,0,0],
+      [1,0,0,0,1],
+      [0,1,1,1,0]
+    ],
+    // Arrow
+    [
+      [0,0,1,0,0],
+      [0,1,1,1,0],
+      [1,1,1,1,1],
+      [0,0,1,0,0],
+      [0,0,1,0,0]
+    ]
+  ],
+  10: [
+    // Boat
+    genFromStrings([
+      "0001111000",
+      "0011111100",
+      "0111111110",
+      "1111111111",
+      "0001111000",
+      "0001111000",
+      "0001111000",
+      "0011111100",
+      "0000110000",
+      "0000000000"
+    ]),
+    // House
+    genFromStrings([
+      "0000110000",
+      "0001111000",
+      "0011111100",
+      "0111111110",
+      "1111111111",
+      "1100000011",
+      "1101111011",
+      "1101111011",
+      "1101111011",
+      "1111111111"
+    ]),
+    // Star
+    genFromStrings([
+      "0000110000",
+      "0000110000",
+      "0001111000",
+      "1111111111",
+      "0111111110",
+      "0011111100",
+      "0011001100",
+      "0110000110",
+      "0110000110",
+      "1100000011"
+    ])
+  ],
+  15: [
+    // Cat face
+    genFromStrings([
+      "100000000000001",
+      "110000000000011",
+      "111000000000111",
+      "011100000001110",
+      "001111111111100",
+      "001100000011100",
+      "001101100110100",
+      "001101100110100",
+      "001100000011100",
+      "001100100011100",
+      "001100000011100",
+      "001110011101100",
+      "000111111110000",
+      "000011111100000",
+      "000001111000000"
+    ]),
+    // Tree
+    genFromStrings([
+      "000000100000000",
+      "000001110000000",
+      "000011111000000",
+      "000111111100000",
+      "001111111110000",
+      "000011111000000",
+      "000111111100000",
+      "001111111110000",
+      "011111111111000",
+      "000011111000000",
+      "000011111000000",
+      "000011111000000",
+      "001111111110000",
+      "111111111111111",
+      "000000000000000"
+    ]),
+    // Diamond ring
+    genFromStrings([
+      "000000111000000",
+      "000001111100000",
+      "000011111110000",
+      "000111111111000",
+      "001111111111100",
+      "011111111111110",
+      "001111111111100",
+      "000111111111000",
+      "000011111110000",
+      "000001111100000",
+      "000000111000000",
+      "000001111100000",
+      "000011000110000",
+      "000110000011000",
+      "000011000110000"
+    ])
+  ]
+};
+
+function genFromStrings(rows){
+  return rows.map(r=>r.split('').map(Number));
+}
+
+const SIZES=[5,10,15];
+let sizeIdx=0;
+let SIZE, solution, playerGrid, clueRows, clueCols, mode, state, cellSize, gridOriginX, gridOriginY, labelW, labelH;
+
+function computeClues(line){
+  const clues=[];
+  let run=0;
+  for(const v of line){
+    if(v===1)run++;
+    else { if(run>0)clues.push(run); run=0; }
+  }
+  if(run>0)clues.push(run);
+  return clues.length?clues:[0];
+}
+
+function buildClues(){
+  clueRows=solution.map(row=>computeClues(row));
+  clueCols=[];
+  for(let col=0;col<SIZE;col++){
+    const colVals=solution.map(row=>row[col]);
+    clueCols.push(computeClues(colVals));
+  }
+}
+
+function layout(){
+  // reserve space for clues proportionally
+  const maxRowClueLen=Math.max(...clueRows.map(r=>r.length));
+  const maxColClueLen=Math.max(...clueCols.map(r=>r.length));
+  labelW=Math.max(60,maxRowClueLen*22);
+  labelH=Math.max(50,maxColClueLen*20);
+  const availW=W-labelW-10, availH=H-labelH-10;
+  cellSize=Math.floor(Math.min(availW,availH)/SIZE);
+  gridOriginX=labelW;
+  gridOriginY=labelH;
+}
+
+function newPuzzleAtSize(idx){
+  sizeIdx=idx;
+  SIZE=SIZES[sizeIdx];
+  const variants=PUZZLES[SIZE];
+  solution=variants[Math.floor(Math.random()*variants.length)];
+  playerGrid=Array.from({length:SIZE},()=>new Array(SIZE).fill(0)); // 0=empty,1=filled,2=marked
+  buildClues();
+  layout();
+  mode='fill';
+  state='play';
+  updateModeButtons();
+}
+
+function newPuzzle(){
+  newPuzzleAtSize((sizeIdx+1)%SIZES.length);
+}
+
+function setMode(m){
+  mode=m;
+  updateModeButtons();
+}
+function updateModeButtons(){
+  document.getElementById('modeFill').classList.toggle('sel',mode==='fill');
+  document.getElementById('modeMark').classList.toggle('sel',mode==='mark');
+}
+
+function cellFromPointer(e){
+  const rect=c.getBoundingClientRect();
+  const px=((e.touches?e.touches[0].clientX:e.clientX)-rect.left)*W/rect.width;
+  const py=((e.touches?e.touches[0].clientY:e.clientY)-rect.top)*H/rect.height;
+  const col=Math.floor((px-gridOriginX)/cellSize);
+  const row=Math.floor((py-gridOriginY)/cellSize);
+  if(col<0||col>=SIZE||row<0||row>=SIZE)return null;
+  return {row,col};
+}
+
+function applyToggle(row,col,useMark){
+  if(state!=='play')return;
+  const cur=playerGrid[row][col];
+  if(useMark){
+    playerGrid[row][col]=(cur===2)?0:2;
+  } else {
+    playerGrid[row][col]=(cur===1)?0:1;
+  }
+  checkWin();
+}
+
+c.addEventListener('mousedown',e=>{
+  if(state==='win'){newPuzzle();return;}
+  const cell=cellFromPointer(e);
+  if(!cell)return;
+  applyToggle(cell.row,cell.col, e.button===2 || mode==='mark');
+});
+c.addEventListener('contextmenu',e=>{e.preventDefault();});
+
+let touchTimer=null, touchCell=null;
+c.addEventListener('touchstart',e=>{
+  e.preventDefault();
+  if(state==='win'){newPuzzle();return;}
+  const cell=cellFromPointer(e);
+  if(!cell)return;
+  touchCell=cell;
+  touchTimer=setTimeout(()=>{
+    if(touchCell){applyToggle(touchCell.row,touchCell.col,true);touchCell=null;}
+  },480);
+},{passive:false});
+c.addEventListener('touchend',e=>{
+  e.preventDefault();
+  if(touchTimer){clearTimeout(touchTimer);touchTimer=null;}
+  if(touchCell){
+    applyToggle(touchCell.row,touchCell.col, mode==='mark');
+    touchCell=null;
+  }
+},{passive:false});
+c.addEventListener('touchmove',e=>{
+  e.preventDefault();
+  touchCell=null;
+  if(touchTimer){clearTimeout(touchTimer);touchTimer=null;}
+},{passive:false});
+
+function lineMatches(line,solLine){
+  // a line "matches" the solved state if filled cells exactly equal solution filled cells
+  for(let i=0;i<line.length;i++){
+    const filled=line[i]===1;
+    if(filled!==(solLine[i]===1))return false;
+  }
+  return true;
+}
+
+function checkWin(){
+  for(let r=0;r<SIZE;r++){
+    if(!lineMatches(playerGrid[r],solution[r]))return;
+  }
+  state='win';
+}
+
+function drawClueText(text,x,y){
+  ctx.fillText(text,x,y);
+}
+
+function draw(){
+  ctx.fillStyle='#08080f';ctx.fillRect(0,0,W,H);
+
+  const gw=cellSize*SIZE, gh=cellSize*SIZE;
+
+  // background grid panel
+  ctx.fillStyle='rgba(255,255,255,.04)';
+  ctx.fillRect(gridOriginX,gridOriginY,gw,gh);
+
+  // cells
+  for(let r=0;r<SIZE;r++){
+    for(let col=0;col<SIZE;col++){
+      const x=gridOriginX+col*cellSize, y=gridOriginY+r*cellSize;
+      const v=playerGrid[r][col];
+      if(v===1){
+        ctx.fillStyle='#e94560';
+        ctx.fillRect(x+1,y+1,cellSize-2,cellSize-2);
+      } else {
+        ctx.fillStyle=((r+col)%2===0)?'rgba(255,255,255,.03)':'rgba(255,255,255,.06)';
+        ctx.fillRect(x+1,y+1,cellSize-2,cellSize-2);
+      }
+      if(v===2){
+        ctx.strokeStyle='rgba(255,255,255,.5)';
+        ctx.lineWidth=2;
+        const pad=cellSize*0.28;
+        ctx.beginPath();
+        ctx.moveTo(x+pad,y+pad);ctx.lineTo(x+cellSize-pad,y+cellSize-pad);
+        ctx.moveTo(x+cellSize-pad,y+pad);ctx.lineTo(x+pad,y+cellSize-pad);
+        ctx.stroke();
+      }
+    }
+  }
+
+  // grid lines: thicker every 5
+  for(let i=0;i<=SIZE;i++){
+    ctx.strokeStyle=(i%5===0)?'rgba(255,255,255,.35)':'rgba(255,255,255,.12)';
+    ctx.lineWidth=(i%5===0)?2:1;
+    ctx.beginPath();ctx.moveTo(gridOriginX+i*cellSize,gridOriginY);ctx.lineTo(gridOriginX+i*cellSize,gridOriginY+gh);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(gridOriginX,gridOriginY+i*cellSize);ctx.lineTo(gridOriginX+gw,gridOriginY+i*cellSize);ctx.stroke();
+  }
+
+  // row clues
+  ctx.fillStyle='#fff';
+  ctx.font=`${Math.max(11,Math.min(16,cellSize*0.42))}px Arial`;
+  ctx.textAlign='right';ctx.textBaseline='middle';
+  for(let r=0;r<SIZE;r++){
+    const text=clueRows[r].join(' ');
+    drawClueText(text,gridOriginX-8,gridOriginY+r*cellSize+cellSize/2);
+  }
+
+  // col clues (stacked vertically above grid)
+  ctx.textAlign='center';
+  for(let col=0;col<SIZE;col++){
+    const clues=clueCols[col];
+    for(let i=0;i<clues.length;i++){
+      const yy=gridOriginY-8-(clues.length-1-i)*16;
+      ctx.fillText(clues[i],gridOriginX+col*cellSize+cellSize/2,yy);
+    }
+  }
+
+  if(state==='win'){
+    ctx.fillStyle='rgba(0,0,0,.66)';ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='#69f0ae';ctx.font='bold 32px Arial';ctx.textAlign='center';ctx.textBaseline='alphabetic';
+    ctx.fillText('SOLVED!',W/2,H/2-16);
+    ctx.fillStyle='#fff';ctx.font='18px Arial';
+    ctx.fillText(`${SIZE}×${SIZE} puzzle complete`,W/2,H/2+14);
+    ctx.fillText('Tap / click for a new puzzle',W/2,H/2+44);
+  }
+
+  document.getElementById('ui').textContent=`Puzzle: ${SIZE}×${SIZE} | Mode: ${mode==='fill'?'Fill':'Mark'}`;
+}
+
+function loop(){
+  draw();
+  requestAnimationFrame(loop);
+}
+
+newPuzzleAtSize(0);
+loop();
+</script></body></html>

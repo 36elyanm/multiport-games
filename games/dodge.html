@@ -1,0 +1,87 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"><title>Dodge Blitz</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>body{background:#08080f}#c{display:block;border-radius:8px}#ui{color:#ffb74d;font-size:1.1rem;font-weight:700;text-align:center;padding:8px}</style>
+</head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Dodge Blitz</div>
+  <div class="game-frame">
+    <div id="ui">Score: 0</div>
+    <canvas id="c" width="480" height="520"></canvas>
+  </div>
+  <div class="game-instructions">Move with <b>Arrow Keys</b> or <b>WASD</b>. Dodge the falling red bolts as long as possible!</div>
+</div>
+<script>
+const c=document.getElementById('c'),ctx=c.getContext('2d');
+let player,bolts,score,alive,keys={},frame;
+
+function start(){player={x:220,y:460,w:40,h:40,speed:6};bolts=[];score=0;alive=true;frame=0;}
+
+document.addEventListener('keydown',e=>keys[e.code]=true);
+document.addEventListener('keyup',e=>keys[e.code]=false);
+
+let touchX=null;
+c.addEventListener('touchmove',e=>{
+  e.preventDefault();
+  const rect=c.getBoundingClientRect();
+  touchX=(e.touches[0].clientX-rect.left)*c.width/rect.width;
+},{passive:false});
+c.addEventListener('touchstart',e=>{
+  if(!alive)start();
+  const rect=c.getBoundingClientRect();
+  touchX=(e.touches[0].clientX-rect.left)*c.width/rect.width;
+},{passive:true});
+
+c.addEventListener('click',()=>{if(!alive)start();});
+
+function loop(){
+  ctx.fillStyle='#0a0a1a';ctx.fillRect(0,0,c.width,c.height);
+
+  if(!alive){
+    ctx.fillStyle='rgba(0,0,0,.65)';ctx.fillRect(0,0,c.width,c.height);
+    ctx.fillStyle='#ff6b35';ctx.font='bold 36px Arial';ctx.textAlign='center';ctx.fillText('GAME OVER',240,230);
+    ctx.fillStyle='#fff';ctx.font='20px Arial';ctx.fillText(`Score: ${score}`,240,270);ctx.fillText('Click / Tap to restart',240,305);
+    requestAnimationFrame(loop);return;
+  }
+
+  frame++;score++;
+  const spd=1+score/600;
+
+  // Move player
+  if(touchX!==null)player.x+=(touchX-player.x-player.w/2)*0.15;
+  if(keys['ArrowLeft']||keys['KeyA'])player.x-=player.speed;
+  if(keys['ArrowRight']||keys['KeyD'])player.x+=player.speed;
+  if(keys['ArrowUp']||keys['KeyW'])player.y-=player.speed;
+  if(keys['ArrowDown']||keys['KeyS'])player.y+=player.speed;
+  player.x=Math.max(0,Math.min(c.width-player.w,player.x));
+  player.y=Math.max(0,Math.min(c.height-player.h,player.y));
+
+  // Spawn bolts
+  if(frame%Math.round(Math.max(20,60-score/200))===0)
+    bolts.push({x:Math.random()*(c.width-20)+10,y:-20,w:16,h:30,speed:spd+Math.random()*3});
+
+  bolts=bolts.filter(b=>b.y<c.height+30);
+  bolts.forEach(b=>{
+    b.y+=b.speed;
+    // Draw bolt
+    ctx.fillStyle='#ff4444';
+    ctx.beginPath();ctx.moveTo(b.x,b.y);ctx.lineTo(b.x-b.w/2,b.y+b.h*.6);
+    ctx.lineTo(b.x-2,b.y+b.h*.6);ctx.lineTo(b.x-b.w*.3,b.y+b.h);
+    ctx.lineTo(b.x+b.w*.1,b.y+b.h*.45);ctx.lineTo(b.x+4,b.y+b.h*.45);
+    ctx.lineTo(b.x+b.w/2,b.y);ctx.closePath();ctx.fill();
+    ctx.shadowBlur=10;ctx.shadowColor='#ff8800';ctx.fill();ctx.shadowBlur=0;
+    if(player.x<b.x+b.w/2&&player.x+player.w>b.x-b.w/2&&player.y<b.y+b.h&&player.y+player.h>b.y)alive=false;
+  });
+
+  // Player ship
+  ctx.fillStyle='#ffb74d';
+  ctx.beginPath();ctx.moveTo(player.x+player.w/2,player.y);ctx.lineTo(player.x,player.y+player.h);ctx.lineTo(player.x+player.w/2,player.y+player.h*.7);ctx.lineTo(player.x+player.w,player.y+player.h);ctx.closePath();ctx.fill();
+  // Flame
+  ctx.fillStyle='#ff6b35';
+  ctx.beginPath();ctx.moveTo(player.x+player.w/2-8,player.y+player.h);ctx.lineTo(player.x+player.w/2,player.y+player.h+14+(Math.random()*8));ctx.lineTo(player.x+player.w/2+8,player.y+player.h);ctx.fill();
+
+  document.getElementById('ui').textContent=`Score: ${score}`;
+  requestAnimationFrame(loop);
+}
+start();loop();
+</script></body></html>

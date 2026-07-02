@@ -1,0 +1,74 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"><title>Word Jump</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+body{background:#08080f}
+#game-area{max-width:520px;margin:0 auto;padding:20px;text-align:center}
+#word{font-size:2.4rem;font-weight:900;letter-spacing:6px;color:#64b5f6;margin:14px 0;min-height:60px}
+#scrambled{font-size:1.6rem;letter-spacing:4px;color:#aaa;margin-bottom:14px;min-height:40px}
+#input{padding:12px 18px;font-size:1.2rem;border-radius:8px;border:2px solid #1565c0;background:#0d1a2e;color:#fff;outline:none;width:220px;text-align:center}
+#input:focus{border-color:#64b5f6}
+#submit{padding:12px 20px;background:#1565c0;border:none;border-radius:8px;color:#fff;font-size:1rem;cursor:pointer;margin-left:8px}
+#hint{color:#ff7043;font-size:.95rem;margin:8px 0;min-height:22px}
+#timer-bar{height:8px;background:#e94560;margin:8px 0;border-radius:4px;transition:width 1s linear}
+#ui{color:#64b5f6;font-size:1rem;font-weight:700;margin-bottom:6px}
+.letter-btn{display:inline-block;width:44px;height:44px;background:#16213e;border:2px solid #1565c0;border-radius:8px;font-size:1.4rem;font-weight:900;color:#64b5f6;cursor:pointer;margin:3px;line-height:40px;user-select:none;transition:background .1s}
+.letter-btn:hover{background:#1e3a5f}
+.letter-btn.used{opacity:.3;pointer-events:none}
+#build{font-size:1.6rem;letter-spacing:4px;min-height:44px;color:#fff;font-weight:700;margin:8px 0}
+</style></head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Word Jump</div>
+  <div class="game-frame">
+    <div id="game-area">
+      <div id="ui">Score: 0 | Level: 1</div>
+      <div id="timer-bar" style="width:100%"></div>
+      <p style="color:#aaa;font-size:.9rem">Unscramble the word!</p>
+      <div id="scrambled"></div>
+      <div id="build">_</div>
+      <div id="letters"></div>
+      <div id="hint"></div>
+      <button onclick="skipWord()" style="margin-top:10px;padding:7px 16px;background:#37474f;border:none;border-radius:20px;color:#aaa;cursor:pointer;font-size:.9rem">Skip (-5pts)</button>
+    </div>
+  </div>
+  <div class="game-instructions">Click letters to build the word. Unscramble before time runs out!</div>
+</div>
+<script>
+const WORDS=['apple','brain','cloud','dance','eagle','flame','ghost','happy','image','juice','kneel','light','magic','night','ocean','piano','queen','river','solar','tiger','under','voice','water','xenon','yacht','zebra','beach','clock','dream','earth','frost','grape','honey','ideal','jewel','karma','laser','mango','noble','olive','pearl','quiet','razor','sugar','toast','ultra','venom','witch','xenon','young'];
+let word,scrambled,built,usedIdx,score,level,timer,timeLeft;
+
+function newWord(){
+  word=WORDS[Math.floor(Math.random()*WORDS.length)].toUpperCase();
+  scrambled=word.split('').sort(()=>Math.random()-.5).join('');
+  while(scrambled===word)scrambled=word.split('').sort(()=>Math.random()-.5).join('');
+  built='';usedIdx=new Set();timeLeft=15+word.length;
+  clearInterval(timer);timer=setInterval(()=>{
+    timeLeft--;
+    document.getElementById('timer-bar').style.width=(timeLeft/(15+word.length)*100)+'%';
+    if(timeLeft<=0){clearInterval(timer);score=Math.max(0,score-5);showHint();setTimeout(newWord,1200);}
+  },1000);
+  render();
+}
+
+function clickLetter(i){
+  if(usedIdx.has(i))return;
+  usedIdx.add(i);built+=scrambled[i];
+  if(built===word){clearInterval(timer);score+=10+level*2;level++;document.getElementById('hint').textContent='✅ Correct!';setTimeout(newWord,700);}
+  else if(word.startsWith(built)){}
+  else{setTimeout(()=>{built=built.slice(0,-1);usedIdx.delete(i);render();},300);}
+  render();
+}
+
+function skipWord(){score=Math.max(0,score-5);clearInterval(timer);newWord();}
+function showHint(){document.getElementById('hint').textContent='Answer: '+word;}
+
+function render(){
+  document.getElementById('ui').textContent=`Score: ${score} | Level: ${level}`;
+  document.getElementById('scrambled').textContent=scrambled;
+  document.getElementById('build').textContent=built||'_';
+  document.getElementById('hint').textContent='';
+  document.getElementById('letters').innerHTML=scrambled.split('').map((l,i)=>`<span class="letter-btn${usedIdx.has(i)?' used':''}" onclick="clickLetter(${i})">${l}</span>`).join('');
+}
+
+score=0;level=1;newWord();
+</script></body></html>

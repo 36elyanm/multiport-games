@@ -1,0 +1,56 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"><title>Color Flood</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+body{background:#08080f}
+#grid{display:inline-grid;gap:1px;background:#111}
+.cell{width:26px;height:26px;border-radius:2px}
+#palette{display:flex;gap:10px;justify-content:center;margin:10px 0}
+.pal-btn{width:44px;height:44px;border-radius:10px;border:3px solid transparent;cursor:pointer;transition:transform .1s}
+.pal-btn:hover{transform:scale(1.15)}.pal-btn.active{border-color:#fff}
+#ui{color:#f48fb1;text-align:center;padding:8px;font-size:1.1rem;font-weight:700}
+</style></head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Color Flood</div>
+  <div class="game-frame" style="padding:16px;text-align:center">
+    <div id="ui">Moves: 0 / 25</div>
+    <div id="grid"></div>
+    <div id="palette"></div>
+    <button onclick="newGame()" style="margin-top:8px;padding:8px 20px;background:#e94560;border:none;border-radius:20px;color:#fff;cursor:pointer">New Game</button>
+  </div>
+  <div class="game-instructions">Pick a color to flood from the top-left. Fill the entire board in 25 moves!</div>
+</div>
+<script>
+const N=14,COLORS=['#f44336','#2196f3','#4caf50','#ff9800','#9c27b0','#ffeb3b'];
+const MAX=25;
+let grid,moves,flooded;
+
+function newGame(){
+  grid=Array.from({length:N},()=>Array.from({length:N},()=>COLORS[Math.floor(Math.random()*COLORS.length)]));
+  moves=0;renderGrid();renderPalette();updateUI();
+}
+
+function flood(color){
+  if(moves>=MAX)return;
+  const old=grid[0][0];if(color===old)return;
+  moves++;
+  const visited=new Set();const stack=[[0,0]];
+  while(stack.length){const[r,c]=stack.pop();const k=`${r},${c}`;if(visited.has(k)||grid[r][c]!==old)continue;visited.add(k);grid[r][c]=color;
+    [[0,1],[0,-1],[1,0],[-1,0]].forEach(([dr,dc])=>{const nr=r+dr,nc=c+dc;if(nr>=0&&nr<N&&nc>=0&&nc<N)stack.push([nr,nc]);});}
+  renderGrid();updateUI();
+  if(grid.every(row=>row.every(c=>c===color)))setTimeout(()=>alert(`🎉 Won in ${moves} moves!`),50);
+  else if(moves>=MAX)setTimeout(()=>alert('Out of moves! Try again.'),50);
+}
+
+function renderGrid(){
+  const g=document.getElementById('grid');g.style.gridTemplateColumns=`repeat(${N},26px)`;g.innerHTML='';
+  grid.forEach(row=>row.forEach(color=>{const d=document.createElement('div');d.className='cell';d.style.background=color;g.appendChild(d);}));
+}
+
+function renderPalette(){
+  document.getElementById('palette').innerHTML=COLORS.map((c,i)=>`<div class="pal-btn" style="background:${c}" onclick="flood('${c}')"></div>`).join('');
+}
+
+function updateUI(){document.getElementById('ui').textContent=`Moves: ${moves} / ${MAX}`;}
+newGame();
+</script></body></html>

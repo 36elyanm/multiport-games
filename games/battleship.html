@@ -1,0 +1,325 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"><title>Naval Strike</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+body{background:#08080f}
+#wrap{padding:18px;text-align:center}
+#status{color:#fff;font-size:1.1rem;font-weight:700;margin-bottom:14px;min-height:1.4em;letter-spacing:.2px}
+#boards{display:flex;flex-wrap:wrap;gap:28px;justify-content:center;align-items:flex-start}
+.board-col{display:flex;flex-direction:column;align-items:center;gap:8px}
+.board-label{color:#fff;font-weight:700;font-size:1rem;letter-spacing:.3px}
+.board-label .sub{display:block;color:rgba(255,255,255,.5);font-weight:500;font-size:.78rem;margin-top:2px}
+.board{display:inline-grid;grid-template-columns:repeat(10,30px);grid-template-rows:repeat(10,30px);gap:2px;background:#16213e;padding:8px;border-radius:10px;touch-action:manipulation}
+.cell{width:30px;height:30px;border-radius:4px;background:#0d2a5e;display:flex;align-items:center;justify-content:center;font-size:.95rem;position:relative;transition:background .12s;box-sizing:border-box}
+.cpu .cell{cursor:pointer}
+.cpu .cell:hover{background:#1a3d7a}
+.cell.ship{background:#2c4a7a}
+.cell.ship.sunk{background:#5a3030}
+.cell.miss{background:#22304a}
+.cell.miss::after{content:'';width:9px;height:9px;border-radius:50%;background:#9fb3d1}
+.cell.hit{background:#7a1d2c}
+.cell.hit::after{content:'✸';color:#ffd166;font-size:1rem;font-weight:900}
+.cell.sunkmark::after{content:'☠';color:#ffb3b3;font-size:.95rem}
+.cell.cpu-disabled{cursor:default}
+#legend{display:flex;flex-wrap:wrap;gap:14px;justify-content:center;margin:14px 0;color:rgba(255,255,255,.65);font-size:.8rem}
+#legend span{display:inline-flex;align-items:center;gap:6px}
+.swatch{width:16px;height:16px;border-radius:3px;display:inline-block}
+.btn{padding:9px 26px;background:#e94560;border:none;border-radius:20px;color:#fff;cursor:pointer;font-size:1rem;font-weight:700;transition:transform .12s,box-shadow .12s}
+.btn:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(233,69,96,.4)}
+#stage{position:relative}
+#overlay{position:absolute;inset:-10px;background:rgba(8,8,15,.86);display:none;flex-direction:column;align-items:center;justify-content:center;border-radius:14px;z-index:5;backdrop-filter:blur(3px)}
+#overlay.show{display:flex}
+#overlay h2{color:#fff;font-size:2rem;margin:0 0 8px;letter-spacing:-.5px}
+#overlay p{color:rgba(255,255,255,.7);margin:0 0 18px;font-size:1rem;text-align:center;max-width:320px}
+@media (max-width:560px){
+  .board{grid-template-columns:repeat(10,26px);grid-template-rows:repeat(10,26px)}
+  .cell{width:26px;height:26px;font-size:.8rem}
+  #boards{gap:18px}
+}
+</style></head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Naval Strike</div>
+  <div class="game-frame">
+    <div id="wrap">
+      <div id="status">Fire when ready, Captain — click a cell on the enemy waters.</div>
+      <div id="stage">
+        <div id="boards">
+          <div class="board-col">
+            <div class="board-label">Enemy Waters <span class="sub">click to fire</span></div>
+            <div class="board cpu" id="cpuBoard"></div>
+          </div>
+          <div class="board-col">
+            <div class="board-label">Your Fleet <span class="sub">CPU is hunting you</span></div>
+            <div class="board" id="playerBoard"></div>
+          </div>
+        </div>
+        <div id="overlay">
+          <h2 id="ovTitle">Victory!</h2>
+          <p id="ovText">You sank the entire enemy fleet.</p>
+          <button class="btn" onclick="newGame()">Play Again</button>
+        </div>
+      </div>
+      <div id="legend">
+        <span><i class="swatch" style="background:#0d2a5e"></i>Water</span>
+        <span><i class="swatch" style="background:#2c4a7a"></i>Your ship</span>
+        <span><i class="swatch" style="background:#7a1d2c"></i>Hit</span>
+        <span><i class="swatch" style="background:#22304a"></i>Miss</span>
+        <span><i class="swatch" style="background:#5a3030"></i>Sunk</span>
+      </div>
+      <button class="btn" onclick="newGame()">New Game</button>
+    </div>
+  </div>
+  <div class="game-instructions">
+    Sink the CPU's fleet before it sinks yours! Click/tap a cell on the <b>Enemy Waters</b> grid to fire a shot — red marks a hit, gray a miss.
+    Sink a ship by hitting every cell it occupies. The CPU fires back at your fleet (shown on the right) each turn, hunting nearby cells once it scores a hit.
+    Fleet: Carrier (5), Battleship (4), Cruiser (3), Submarine (3), Destroyer (2). First to sink the entire enemy fleet wins!
+  </div>
+</div>
+<script>
+const SIZE=10;
+const FLEET=[
+  {name:'Carrier',len:5},
+  {name:'Battleship',len:4},
+  {name:'Cruiser',len:3},
+  {name:'Submarine',len:3},
+  {name:'Destroyer',len:2}
+];
+
+let playerGrid, cpuGrid; // grid[r][c] = {ship:idx|-1, hit:bool}
+let playerShips, cpuShips; // arrays of {name,len,cells:[[r,c]...],hits:0}
+let turn; // 'player' | 'cpu'
+let gameOver;
+let cpuAI; // hunt/target state
+
+function emptyGrid(){
+  return Array.from({length:SIZE},()=>Array.from({length:SIZE},()=>({ship:-1,hit:false})));
+}
+
+function inBounds(r,c){return r>=0&&r<SIZE&&c>=0&&c<SIZE;}
+
+function placeFleet(){
+  const grid=emptyGrid();
+  const ships=[];
+  for(let i=0;i<FLEET.length;i++){
+    const {name,len}=FLEET[i];
+    let placed=false;
+    let attempts=0;
+    while(!placed && attempts<500){
+      attempts++;
+      const horiz=Math.random()<0.5;
+      const r=Math.floor(Math.random()*SIZE);
+      const c=Math.floor(Math.random()*SIZE);
+      const cells=[];
+      let ok=true;
+      for(let k=0;k<len;k++){
+        const rr=horiz?r:r+k;
+        const cc=horiz?c+k:c;
+        if(!inBounds(rr,cc)){ok=false;break;}
+        if(grid[rr][cc].ship!==-1){ok=false;break;}
+        cells.push([rr,cc]);
+      }
+      if(ok){
+        for(const [rr,cc] of cells) grid[rr][cc].ship=i;
+        ships.push({name,len,cells,hits:0,sunk:false});
+        placed=true;
+      }
+    }
+  }
+  return {grid,ships};
+}
+
+function newGame(){
+  const p=placeFleet();
+  const cp=placeFleet();
+  playerGrid=p.grid; playerShips=p.ships;
+  cpuGrid=cp.grid; cpuShips=cp.ships;
+  turn='player';
+  gameOver=false;
+  cpuAI={mode:'hunt', targets:[], lastHits:[]};
+  document.getElementById('overlay').classList.remove('show');
+  setStatus('Fire when ready, Captain — click a cell on the enemy waters.');
+  renderBoards();
+}
+
+function setStatus(msg){document.getElementById('status').textContent=msg;}
+
+// ---- Rendering ----
+function renderBoards(){
+  renderBoard('cpuBoard', cpuGrid, true);
+  renderBoard('playerBoard', playerGrid, false);
+}
+
+function renderBoard(elId, grid, isEnemy){
+  const el=document.getElementById(elId);
+  el.innerHTML='';
+  for(let r=0;r<SIZE;r++){
+    for(let c=0;c<SIZE;c++){
+      const cell=grid[r][c];
+      const div=document.createElement('div');
+      let cls='cell';
+      const shipObj = cell.ship!==-1 ? (isEnemy?cpuShips[cell.ship]:playerShips[cell.ship]) : null;
+      if(cell.hit){
+        if(cell.ship!==-1){
+          cls += shipObj && shipObj.sunk ? ' ship sunk sunkmark' : ' hit';
+        } else {
+          cls += ' miss';
+        }
+      } else {
+        // show own ships always; never show enemy ships unless sunk
+        if(cell.ship!==-1 && !isEnemy) cls += ' ship';
+        else if(cell.ship!==-1 && isEnemy && shipObj && shipObj.sunk) cls += ' ship sunk sunkmark';
+      }
+      if(isEnemy){
+        if(gameOver || turn!=='player' || cell.hit) cls += ' cpu-disabled';
+      }
+      div.className=cls;
+      if(isEnemy){
+        div.addEventListener('click',()=>playerFire(r,c));
+      }
+      el.appendChild(div);
+    }
+  }
+}
+
+// ---- Player firing ----
+function playerFire(r,c){
+  if(gameOver||turn!=='player')return;
+  const cell=cpuGrid[r][c];
+  if(cell.hit)return;
+  cell.hit=true;
+  if(cell.ship!==-1){
+    const ship=cpuShips[cell.ship];
+    ship.hits++;
+    if(ship.hits>=ship.len){
+      ship.sunk=true;
+      setStatus(`💥 Hit! You sank the CPU's ${ship.name}!`);
+    } else {
+      setStatus('💥 Direct hit! Fire again — your turn continues.');
+    }
+    renderBoards();
+    if(checkFleetSunk(cpuShips)){
+      endGame(true);
+      return;
+    }
+    // hit grants another shot (still player's turn)
+    return;
+  } else {
+    setStatus('💦 Splash — miss. CPU\'s turn...');
+    renderBoards();
+    turn='cpu';
+    setTimeout(cpuTurn, 650);
+  }
+}
+
+function checkFleetSunk(ships){
+  return ships.every(s=>s.sunk);
+}
+
+// ---- CPU AI: hunt & target ----
+function cpuTurn(){
+  if(gameOver)return;
+  let r,c;
+  if(cpuAI.targets.length){
+    [r,c]=cpuAI.targets.shift();
+    // skip if already fired here (can happen via overlap of candidate generation)
+    while(playerGrid[r][c].hit && cpuAI.targets.length){
+      [r,c]=cpuAI.targets.shift();
+    }
+    if(playerGrid[r][c].hit){
+      // nothing left to try; fall back to random
+      const rc=randomUnfiredCell();
+      r=rc[0]; c=rc[1];
+    }
+  } else {
+    const rc=randomUnfiredCell();
+    r=rc[0]; c=rc[1];
+  }
+
+  const cell=playerGrid[r][c];
+  cell.hit=true;
+
+  if(cell.ship!==-1){
+    const ship=playerShips[cell.ship];
+    ship.hits++;
+    cpuAI.lastHits.push([r,c]);
+    if(ship.hits>=ship.len){
+      ship.sunk=true;
+      setStatus(`🚨 The CPU sank your ${ship.name}!`);
+      // remove queued targets that belonged to this now-sunk ship's vicinity by rebuilding from remaining lastHits
+      cpuAI.lastHits = cpuAI.lastHits.filter(([hr,hc])=>playerGrid[hr][hc].ship!==cell.ship || !playerGrid[hr][hc].hit);
+      // simplest robust reset: clear queue, recompute from any unsunk-ship hits remaining
+      recomputeTargetsFromHits();
+      if(cpuAI.targets.length===0) cpuAI.mode='hunt';
+    } else {
+      setStatus('🚨 The CPU scored a hit on your fleet — it\'s zeroing in!');
+      cpuAI.mode='target';
+      addAdjacentTargets(r,c);
+    }
+    renderBoards();
+    if(checkFleetSunk(playerShips)){
+      endGame(false);
+      return;
+    }
+    // CPU gets another shot on a hit
+    setTimeout(cpuTurn, 650);
+  } else {
+    setStatus('🌊 The CPU fired and missed. Your turn — fire away!');
+    renderBoards();
+    turn='player';
+    renderBoards(); // re-render to re-enable cpu board clicks
+  }
+}
+
+function randomUnfiredCell(){
+  let r,c;
+  do{
+    r=Math.floor(Math.random()*SIZE);
+    c=Math.floor(Math.random()*SIZE);
+  } while(playerGrid[r][c].hit);
+  return [r,c];
+}
+
+function addAdjacentTargets(r,c){
+  const candidates=[[r-1,c],[r+1,c],[r,c-1],[r,c+1]];
+  for(const [rr,cc] of candidates){
+    if(inBounds(rr,cc) && !playerGrid[rr][cc].hit){
+      if(!cpuAI.targets.some(([tr,tc])=>tr===rr&&tc===cc)){
+        cpuAI.targets.push([rr,cc]);
+      }
+    }
+  }
+}
+
+// After sinking a ship mid-hunt, rebuild the target queue using any remaining
+// unresolved hits (hits on ships that aren't yet sunk) so the CPU keeps hunting them.
+function recomputeTargetsFromHits(){
+  cpuAI.targets=[];
+  const unresolvedHits=[];
+  for(let r=0;r<SIZE;r++){
+    for(let c=0;c<SIZE;c++){
+      const cell=playerGrid[r][c];
+      if(cell.hit && cell.ship!==-1){
+        const ship=playerShips[cell.ship];
+        if(!ship.sunk) unresolvedHits.push([r,c]);
+      }
+    }
+  }
+  for(const [r,c] of unresolvedHits) addAdjacentTargets(r,c);
+  cpuAI.mode = cpuAI.targets.length ? 'target' : 'hunt';
+}
+
+function endGame(playerWon){
+  gameOver=true;
+  turn=playerWon?'player':'cpu';
+  renderBoards();
+  const ov=document.getElementById('overlay');
+  document.getElementById('ovTitle').textContent = playerWon ? 'Victory!' : 'Defeat';
+  document.getElementById('ovText').textContent = playerWon
+    ? 'You sank the entire enemy fleet. Well played, Admiral!'
+    : 'The CPU sank your entire fleet. Better luck next time, Admiral.';
+  ov.classList.add('show');
+  setStatus(playerWon ? '🏆 Victory! You sank the entire enemy fleet!' : '☠ Defeat — your fleet has been sunk.');
+}
+
+newGame();
+</script></body></html>

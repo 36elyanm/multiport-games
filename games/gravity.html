@@ -1,0 +1,74 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"><title>Gravity Flip</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>body{background:#08080f}#c{display:block;border-radius:8px}#ui{color:#9575cd;text-align:center;padding:8px;font-size:1.1rem;font-weight:700}</style>
+</head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Gravity Flip</div>
+  <div class="game-frame">
+    <div id="ui">Score: 0</div>
+    <canvas id="c" width="560" height="300"></canvas>
+  </div>
+  <div class="game-instructions">Press <b>Space</b>, click, or tap to flip gravity. Avoid obstacles!</div>
+</div>
+<script>
+const c=document.getElementById('c'),ctx=c.getContext('2d');
+let grav=1,player,obs,score,alive,frame,spd;
+
+function start(){player={x:80,y:100,w:26,h:26,vy:0};obs=[];score=0;alive=true;frame=0;spd=4;grav=1;}
+
+function flip(){if(!alive){start();return;}grav*=-1;}
+document.addEventListener('keydown',e=>{if(e.code==='Space'){e.preventDefault();flip();}});
+c.addEventListener('click',flip);c.addEventListener('touchstart',e=>{e.preventDefault();flip();},{passive:false});
+
+function spawnObs(){
+  const gap=100+Math.random()*60;
+  const topH=20+Math.random()*(c.height-gap-40);
+  obs.push({x:c.width,topH,botY:topH+gap,w:28});
+}
+
+function loop(){
+  ctx.fillStyle='#0d0d2e';ctx.fillRect(0,0,c.width,c.height);
+  // Bg lines
+  ctx.strokeStyle='rgba(149,117,205,.15)';ctx.lineWidth=1;
+  for(let i=0;i<c.width;i+=40){ctx.beginPath();ctx.moveTo(i,0);ctx.lineTo(i,c.height);ctx.stroke();}
+
+  if(!alive){
+    ctx.fillStyle='rgba(0,0,0,.6)';ctx.fillRect(0,0,c.width,c.height);
+    ctx.fillStyle='#9575cd';ctx.font='bold 32px Arial';ctx.textAlign='center';ctx.fillText('GAME OVER',c.width/2,130);
+    ctx.fillStyle='#fff';ctx.font='18px Arial';ctx.fillText(`Score: ${score}`,c.width/2,165);ctx.fillText('Click/Space to retry',c.width/2,196);
+    requestAnimationFrame(loop);return;
+  }
+
+  frame++;score++;spd=4+score/300;
+  player.vy+=0.5*grav;player.y+=player.vy;
+
+  const CEIL=2,FLOOR=c.height-player.h-2;
+  if(player.y<=CEIL){player.y=CEIL;player.vy=0;}
+  if(player.y>=FLOOR){player.y=FLOOR;player.vy=0;}
+
+  if(frame%90===0)spawnObs();
+  obs=obs.filter(o=>o.x>-40);
+  obs.forEach(o=>{o.x-=spd;
+    ctx.fillStyle='#7c4dff';ctx.fillRect(o.x,0,o.w,o.topH);ctx.fillRect(o.x,o.botY,o.w,c.height-o.botY);
+    ctx.fillStyle='#b39ddb';ctx.fillRect(o.x-2,o.topH-8,o.w+4,10);ctx.fillRect(o.x-2,o.botY-2,o.w+4,10);
+    if(player.x+player.w>o.x&&player.x<o.x+o.w&&(player.y<o.topH||player.y+player.h>o.botY))alive=false;
+  });
+
+  // Player cube
+  ctx.fillStyle=grav>0?'#ff6e40':'#40c4ff';
+  ctx.beginPath();ctx.roundRect(player.x,player.y,player.w,player.h,5);ctx.fill();
+  // Arrow showing gravity
+  ctx.fillStyle='rgba(255,255,255,.8)';ctx.beginPath();
+  if(grav>0){ctx.moveTo(player.x+13,player.y+16);ctx.lineTo(player.x+7,player.y+8);ctx.lineTo(player.x+19,player.y+8);}
+  else{ctx.moveTo(player.x+13,player.y+10);ctx.lineTo(player.x+7,player.y+18);ctx.lineTo(player.x+19,player.y+18);}
+  ctx.fill();
+
+  // Floor/ceiling markers
+  ctx.fillStyle='#333';ctx.fillRect(0,0,c.width,2);ctx.fillRect(0,c.height-2,c.width,2);
+
+  document.getElementById('ui').textContent=`Score: ${score}`;
+  requestAnimationFrame(loop);
+}
+start();loop();
+</script></body></html>

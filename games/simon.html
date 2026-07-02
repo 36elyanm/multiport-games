@@ -1,0 +1,76 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"><title>Color Memory</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+body{background:#08080f}
+#board{display:grid;grid-template-columns:1fr 1fr;gap:12px;max-width:340px;margin:10px auto}
+.btn{height:140px;border-radius:16px;cursor:pointer;border:4px solid rgba(0,0,0,.3);transition:filter .1s,transform .1s}
+.btn:active,.btn.lit{filter:brightness(1.8);transform:scale(.97)}
+#b0{background:#4caf50}
+#b1{background:#f44336}#b2{background:#ff9800}#b3{background:#2196f3}
+#ui{color:#7986cb;text-align:center;padding:12px;font-size:1.1rem;font-weight:700}
+#start-btn{margin:10px auto;display:block;padding:10px 30px;background:#e94560;border:none;border-radius:20px;color:#fff;font-size:1rem;cursor:pointer}
+</style></head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Color Memory</div>
+  <div class="game-frame" style="padding:16px">
+    <div id="ui">Press Start to play</div>
+    <div id="board">
+      <div id="b0" class="btn"></div>
+      <div id="b1" class="btn"></div>
+      <div id="b2" class="btn"></div>
+      <div id="b3" class="btn"></div>
+    </div>
+    <button id="start-btn" onclick="startGame()">Start</button>
+  </div>
+  <div class="game-instructions">Watch the flashing pattern, then repeat it! Each round adds one more step.</div>
+</div>
+<script>
+const COLORS=['#4caf50','#f44336','#ff9800','#2196f3'];
+const SOUNDS=[261,329,392,523];
+let sequence,playerSeq,level,locked,score,best=0;
+const ctx2=new (window.AudioContext||window.webkitAudioContext)();
+
+function beep(freq,dur=200){
+  const o=ctx2.createOscillator(),g=ctx2.createGain();
+  o.connect(g);g.connect(ctx2.destination);
+  o.frequency.value=freq;g.gain.setValueAtTime(.4,ctx2.currentTime);
+  g.gain.exponentialRampToValueAtTime(.001,ctx2.currentTime+dur/1000);
+  o.start();o.stop(ctx2.currentTime+dur/1000);
+}
+
+function flash(i,dur=350){
+  const btn=document.getElementById('b'+i);btn.classList.add('lit');beep(SOUNDS[i],dur);
+  return new Promise(r=>setTimeout(()=>{btn.classList.remove('lit');r();},dur));
+}
+
+async function playSequence(){
+  locked=true;
+  for(const i of sequence){await flash(i,400);await new Promise(r=>setTimeout(r,150));}
+  locked=false;playerSeq=[];document.getElementById('ui').textContent=`Your turn! Round ${level}`;
+}
+
+function startGame(){
+  sequence=[];playerSeq=[];level=0;locked=false;score=0;addStep();
+}
+
+function addStep(){
+  level++;sequence.push(Math.floor(Math.random()*4));
+  document.getElementById('ui').textContent=`Watch carefully… Round ${level}`;
+  setTimeout(playSequence,700);
+}
+
+for(let i=0;i<4;i++){
+  document.getElementById('b'+i).addEventListener('click',()=>{
+    if(locked)return;
+    flash(i,200);playerSeq.push(i);
+    const pos=playerSeq.length-1;
+    if(playerSeq[pos]!==sequence[pos]){
+      document.getElementById('ui').textContent=`Wrong! Score: ${score}  Best: ${Math.max(score,best)}`;best=Math.max(score,best);locked=true;
+      setTimeout(()=>{document.getElementById('ui').textContent='Press Start to play again';},1500);
+      return;
+    }
+    if(playerSeq.length===sequence.length){score++;document.getElementById('ui').textContent='Correct! ✓';setTimeout(addStep,600);}
+  });
+}
+</script></body></html>

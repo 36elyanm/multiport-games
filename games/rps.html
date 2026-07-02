@@ -1,0 +1,229 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"><title>Rock Paper Scissors</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+body{background:#08080f}
+#wrap{padding:16px;text-align:center}
+#status{color:#fff;font-size:1.15rem;font-weight:700;margin:10px 0;min-height:1.4em}
+#score{display:flex;justify-content:center;gap:28px;color:#fff;font-weight:700;font-size:1.1rem;margin-bottom:6px}
+#score .you{color:#e94560}
+#score .cpu{color:#4cc9f0}
+#arena{display:flex;align-items:center;justify-content:center;gap:30px;margin:18px 0;flex-wrap:wrap}
+.fighter{display:flex;flex-direction:column;align-items:center;gap:8px}
+.fighter .name{color:#caa;font-size:.8rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+.hand{font-size:4.5rem;line-height:1;transition:transform .25s ease;display:inline-block}
+.hand.shake{animation:shake .5s ease-in-out infinite}
+@keyframes shake{0%,100%{transform:rotate(-12deg)}50%{transform:rotate(12deg)}}
+.hand.reveal{animation:pop .35s ease}
+@keyframes pop{0%{transform:scale(.4) rotate(0deg)}60%{transform:scale(1.25)}100%{transform:scale(1)}}
+.vs{color:#e94560;font-weight:900;font-size:1.4rem}
+#choices{display:flex;gap:14px;justify-content:center;margin:14px 0;flex-wrap:wrap}
+.choice-btn{font-size:2.4rem;background:#16213e;border:2px solid transparent;border-radius:16px;padding:12px 20px;cursor:pointer;transition:transform .12s,border-color .12s}
+.choice-btn:hover:not(:disabled){transform:translateY(-3px);border-color:#e94560}
+.choice-btn:disabled{opacity:.35;cursor:default}
+#history{margin-top:14px;display:flex;flex-wrap:wrap;gap:6px;justify-content:center;max-width:520px}
+.hist-chip{font-size:1.1rem;background:#16213e;border-radius:10px;padding:6px 9px;display:flex;align-items:center;gap:4px}
+.hist-chip.win{box-shadow:inset 0 0 0 2px #4cd97b}
+.hist-chip.lose{box-shadow:inset 0 0 0 2px #e94560}
+.hist-chip.tie{box-shadow:inset 0 0 0 2px #888}
+.btn{padding:9px 26px;background:#e94560;border:none;border-radius:20px;color:#fff;cursor:pointer;font-size:1rem;font-weight:700;margin-top:14px}
+#bestof{display:flex;gap:8px;justify-content:center;margin-bottom:10px;flex-wrap:wrap}
+#bestof button{padding:6px 16px;border-radius:20px;border:none;cursor:pointer;font-weight:600;font-size:.85rem}
+#bestof button.active{background:#e94560;color:#fff}
+#bestof button:not(.active){background:#16213e;color:#aaa}
+#overlay{position:fixed;inset:0;background:rgba(8,8,15,.85);display:none;align-items:center;justify-content:center;z-index:50;backdrop-filter:blur(3px)}
+#overlay.show{display:flex}
+#overlay .box{background:#16213e;border-radius:16px;padding:28px 36px;text-align:center;max-width:90vw}
+#overlay h2{color:#fff;margin:0 0 8px;font-size:1.8rem}
+#overlay p{color:rgba(255,255,255,.7);margin:0 0 18px}
+</style></head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Rock Paper Scissors</div>
+  <div class="game-frame">
+    <div id="wrap">
+      <div id="bestof">
+        <button class="active" onclick="setBestOf(3)">Best of 3</button>
+        <button onclick="setBestOf(5)">Best of 5</button>
+        <button onclick="setBestOf(7)">Best of 7</button>
+      </div>
+      <div id="score"><span class="you">You: <span id="scoreP">0</span></span><span class="cpu">CPU: <span id="scoreC">0</span></span></div>
+      <div id="status">Pick rock, paper, or scissors!</div>
+      <div id="arena">
+        <div class="fighter">
+          <div class="name">You</div>
+          <div class="hand" id="handP">✊</div>
+        </div>
+        <div class="vs">VS</div>
+        <div class="fighter">
+          <div class="name">CPU</div>
+          <div class="hand" id="handC">✊</div>
+        </div>
+      </div>
+      <div id="choices">
+        <button class="choice-btn" onclick="play('rock')">✊</button>
+        <button class="choice-btn" onclick="play('paper')">✋</button>
+        <button class="choice-btn" onclick="play('scissors')">✌️</button>
+      </div>
+      <div id="history"></div>
+      <div><button class="btn" onclick="newMatch()">Restart Match</button></div>
+    </div>
+  </div>
+  <div class="game-instructions">
+    Tap rock, paper, or scissors to throw your hand. First to win the majority of rounds in the match wins the tournament!
+    The CPU isn't purely random — it studies your recent throws and switches between random play and pattern-based predictions, so mixing up your choices helps you stay unpredictable.
+  </div>
+</div>
+<div id="overlay"><div class="box">
+  <h2 id="ovTitle">You Win the Match!</h2>
+  <p id="ovText"></p>
+  <button class="btn" onclick="newMatch()">Play Again</button>
+</div></div>
+<script>
+const EMOJI={rock:'✊',paper:'✋',scissors:'✌️'};
+const BEATS={rock:'scissors',paper:'rock',scissors:'paper'}; // key beats value
+const NAMES={rock:'Rock',paper:'Paper',scissors:'Scissors'};
+let bestOf=3, scoreP=0, scoreC=0, history=[], busy=false, over=false;
+let playerHistory=[]; // sequence of player's choices for pattern analysis
+
+function setBestOf(n){
+  bestOf=n;
+  [...document.querySelectorAll('#bestof button')].forEach(b=>b.classList.remove('active'));
+  event.target.classList.add('active');
+  newMatch();
+}
+
+function newMatch(){
+  scoreP=0; scoreC=0; history=[]; playerHistory=[]; busy=false; over=false;
+  document.getElementById('overlay').classList.remove('show');
+  document.getElementById('handP').textContent='✊';
+  document.getElementById('handC').textContent='✊';
+  document.getElementById('handP').className='hand';
+  document.getElementById('handC').className='hand';
+  updateScore();
+  renderHistory();
+  setStatus('Pick rock, paper, or scissors!');
+  setChoicesEnabled(true);
+}
+
+function updateScore(){
+  document.getElementById('scoreP').textContent=scoreP;
+  document.getElementById('scoreC').textContent=scoreC;
+}
+function setStatus(msg){document.getElementById('status').textContent=msg;}
+function setChoicesEnabled(en){
+  [...document.querySelectorAll('.choice-btn')].forEach(b=>b.disabled=!en);
+}
+
+function needed(){return Math.floor(bestOf/2)+1;}
+
+function cpuPredict(){
+  // Mix of strategies: sometimes pure random, sometimes pattern-based on player's last choices
+  const r=Math.random();
+  if(playerHistory.length<3 || r<0.35){
+    // random
+    const opts=['rock','paper','scissors'];
+    return opts[Math.floor(Math.random()*3)];
+  }
+  // Pattern-based: find what player tends to play after their last move
+  const last=playerHistory[playerHistory.length-1];
+  const followUps={rock:[],paper:[],scissors:[]};
+  for(let i=0;i<playerHistory.length-1;i++){
+    followUps[playerHistory[i]].push(playerHistory[i+1]);
+  }
+  const candidates=followUps[last];
+  let predicted;
+  if(candidates.length){
+    const counts={rock:0,paper:0,scissors:0};
+    candidates.forEach(c=>counts[c]++);
+    predicted=Object.keys(counts).reduce((a,b)=>counts[a]>=counts[b]?a:b);
+  } else {
+    // fall back to overall most-frequent choice
+    const counts={rock:0,paper:0,scissors:0};
+    playerHistory.forEach(c=>counts[c]++);
+    predicted=Object.keys(counts).reduce((a,b)=>counts[a]>=counts[b]?a:b);
+  }
+  // counter the predicted choice
+  const counter={rock:'paper',paper:'scissors',scissors:'rock'};
+  return counter[predicted];
+}
+
+function play(choice){
+  if(busy||over)return;
+  busy=true;
+  setChoicesEnabled(false);
+  playerHistory.push(choice);
+  const cpuChoice=cpuPredict();
+
+  const handP=document.getElementById('handP'), handC=document.getElementById('handC');
+  handP.className='hand shake'; handC.className='hand shake';
+  handP.textContent='✊'; handC.textContent='✊';
+  setStatus('Rock… Paper… Scissors… Shoot!');
+
+  let ticks=0;
+  const shakeInterval=setInterval(()=>{
+    ticks++;
+    if(ticks>=6){
+      clearInterval(shakeInterval);
+      reveal(choice,cpuChoice);
+    }
+  },140);
+}
+
+function reveal(choice,cpuChoice){
+  const handP=document.getElementById('handP'), handC=document.getElementById('handC');
+  handP.className='hand reveal'; handC.className='hand reveal';
+  handP.textContent=EMOJI[choice];
+  handC.textContent=EMOJI[cpuChoice];
+
+  let result, resClass;
+  if(choice===cpuChoice){
+    result='tie'; resClass='tie';
+    setStatus(`Both threw ${NAMES[choice]} — it's a tie!`);
+  } else if(BEATS[choice]===cpuChoice){
+    result='win'; resClass='win';
+    scoreP++;
+    setStatus(`${NAMES[choice]} beats ${NAMES[cpuChoice]} — you win the round!`);
+  } else {
+    result='lose'; resClass='lose';
+    scoreC++;
+    setStatus(`${NAMES[cpuChoice]} beats ${NAMES[choice]} — CPU wins the round!`);
+  }
+  updateScore();
+  history.push({p:choice,c:cpuChoice,result});
+  renderHistory();
+
+  setTimeout(()=>{
+    if(scoreP>=needed()||scoreC>=needed()){
+      endMatch();
+    } else {
+      busy=false;
+      setChoicesEnabled(true);
+    }
+  },1100);
+}
+
+function renderHistory(){
+  const wrap=document.getElementById('history');
+  wrap.innerHTML='';
+  history.forEach(h=>{
+    const chip=document.createElement('div');
+    chip.className='hist-chip '+h.result;
+    chip.innerHTML=`${EMOJI[h.p]}<span style="color:#888;font-size:.8rem">vs</span>${EMOJI[h.c]}`;
+    wrap.appendChild(chip);
+  });
+}
+
+function endMatch(){
+  over=true;
+  busy=false;
+  setChoicesEnabled(false);
+  const playerWon = scoreP>scoreC;
+  const ov=document.getElementById('overlay');
+  document.getElementById('ovTitle').textContent = playerWon ? 'You Win the Match! 🎉' : 'CPU Wins the Match';
+  document.getElementById('ovText').textContent = `Final score — You: ${scoreP} · CPU: ${scoreC} (best of ${bestOf})`;
+  ov.classList.add('show');
+  setStatus(playerWon ? 'Tournament won! 🏆' : 'Tournament lost — try again!');
+}
+
+newMatch();
+</script></body></html>

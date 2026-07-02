@@ -1,0 +1,341 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"><title>Darts</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>body{background:#08080f}#c{display:block;border-radius:8px;margin:0 auto;touch-action:none;cursor:crosshair}#ui{color:#ffcc80;text-align:center;padding:8px;font-size:1.05rem;font-weight:700}</style>
+</head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Darts — 501</div>
+  <div class="game-frame" style="padding:10px">
+    <div id="ui">Player: 501 | CPU: 501 | Dart 1/3</div>
+    <canvas id="c" width="480" height="430"></canvas>
+  </div>
+  <div class="game-instructions">Classic 501: each player starts at 501 and the first to reduce their score to exactly 0 — finishing on a DOUBLE — wins. Click/tap and drag down from the dartboard to aim and set power, then release to throw. You get 3 darts per turn, then the CPU throws. Singles, doubles (outer ring), triples (inner ring) and the bullseye (50) all count.</div>
+</div>
+<script>
+const c=document.getElementById('c'),ctx=c.getContext('2d');
+const W=480,H=430;
+const CX=240, CY=210, R=160;
+// Ring radii (outer to inner) as fractions of R
+const DOUBLE_OUT=1.0, DOUBLE_IN=0.92, TRIPLE_OUT=0.62, TRIPLE_IN=0.54, BULL_OUT=0.10, BULL_IN=0.045;
+const SEGMENTS=[20,1,18,4,13,6,10,15,2,17,3,19,7,16,8,11,14,9,12,5];
+
+let playerScore, cpuScore, turn, dartsLeft, history, state, drag, dragOrigin, throwAnim, msg, msgTimer, lastHit, winner;
+
+function start(){
+  playerScore=501; cpuScore=501;
+  turn='player'; dartsLeft=3; history=[];
+  state='aim'; drag=null; throwAnim=null; msg=''; msgTimer=0; lastHit=null; winner=null;
+}
+
+function getPos(e){
+  const r=c.getBoundingClientRect();
+  const t=e.touches?e.touches[0]:e;
+  return {x:(t.clientX-r.left)*W/r.width,y:(t.clientY-r.top)*H/r.height};
+}
+
+function pointerDown(e){
+  e.preventDefault();
+  if(state==='gameover'){ start(); return; }
+  if(state!=='aim'||turn!=='player'||dartsLeft<=0) return;
+  const p=getPos(e);
+  drag=p; dragOrigin=p;
+}
+function pointerMove(e){
+  if(!drag) return;
+  e.preventDefault();
+  drag=getPos(e);
+}
+function pointerUp(e){
+  if(!drag) return;
+  e.preventDefault();
+  // direction: drag down/away from board = power & some randomness for accuracy
+  const dx=drag.x-dragOrigin.x, dy=drag.y-dragOrigin.y;
+  const dist=Math.hypot(dx,dy);
+  if(dist>6){
+    // aim point = where they started the drag (on the board), power affects accuracy spread
+    const power=Math.min(dist,140)/140;
+    throwDart(dragOrigin.x,dragOrigin.y,power);
+  }
+  drag=null;
+}
+c.addEventListener('mousedown',pointerDown);
+c.addEventListener('mousemove',pointerMove);
+window.addEventListener('mouseup',pointerUp);
+c.addEventListener('touchstart',pointerDown,{passive:false});
+c.addEventListener('touchmove',pointerMove,{passive:false});
+c.addEventListener('touchend',pointerUp,{passive:false});
+
+function scoreAt(x,y){
+  const dx=x-CX, dy=y-CY;
+  const dist=Math.hypot(dx,dy);
+  if(dist>R*DOUBLE_OUT) return {value:0,label:'MISS',isDouble:false};
+  if(dist<=R*BULL_IN) return {value:50,label:'BULL',isDouble:true,isBull:true};
+  if(dist<=R*BULL_OUT) return {value:25,label:'25',isDouble:false,isBull:true};
+  // angle -> segment
+  let ang=Math.atan2(dy,dx)*180/Math.PI; // -180..180
+  ang=(ang+90+360)%360; // rotate so segment 0 at top
+  const segIdx=Math.floor(ang/18)%20;
+  const num=SEGMENTS[segIdx];
+  let mult=1, label=`${num}`, isDouble=false;
+  if(dist>=R*TRIPLE_IN && dist<=R*TRIPLE_OUT){ mult=3; label=`T${num}`; }
+  else if(dist>=R*DOUBLE_IN && dist<=R*DOUBLE_OUT){ mult=2; label=`D${num}`; isDouble=true; }
+  return {value:num*mult,label,isDouble,num,mult};
+}
+
+function throwDart(aimX,aimY,power){
+  state='throwing';
+  // accuracy: higher power = tighter grouping but small inherent wobble; add randomness inversely related to a 'sweet spot'
+  const sweetSpot=0.62; // ideal power
+  const errFactor = Math.abs(power-sweetSpot)*1.4 + 0.18;
+  const spread = errFactor * 26;
+  const angle = Math.random()*Math.PI*2;
+  const mag = Math.random()*spread;
+  const fx = aimX + Math.cos(angle)*mag;
+  const fy = aimY + Math.sin(angle)*mag;
+  throwAnim={
+    fromX:aimX, fromY:aimY+260, toX:fx, toY:fy, t:0, who:turn
+  };
+}
+
+function applyThrow(who,result){
+  history.push({who,...result});
+  lastHit=result;
+  if(who==='player'){
+    const next=playerScore-result.value;
+    if(next<0||next===1||(next===0&&!result.isDouble)){
+      msg = next<0?'Bust! Score over.':next===1?'Bust! Cannot leave 1.':'Bust! Must finish on a double.';
+      msgTimer=110;
+      // bust: score for the turn doesn't count, dartsLeft -> end turn
+      dartsLeft=0;
+    } else if(next===0 && result.isDouble){
+      playerScore=0; winner='player'; state='gameover'; msg='You win! Checkout!'; msgTimer=999;
+      return;
+    } else {
+      playerScore=next;
+      dartsLeft--;
+      msg = `${result.label}  (+${result.value})`; msgTimer=70;
+    }
+  } else {
+    const next=cpuScore-result.value;
+    if(next<0||next===1||(next===0&&!result.isDouble)){
+      dartsLeft=0;
+      msg='CPU busts!'; msgTimer=70;
+    } else if(next===0 && result.isDouble){
+      cpuScore=0; winner='cpu'; state='gameover'; msg='CPU wins! Better luck next time.'; msgTimer=999;
+      return;
+    } else {
+      cpuScore=next;
+      dartsLeft--;
+      msg = `CPU: ${result.label} (+${result.value})`; msgTimer=70;
+    }
+  }
+  state='aim';
+  if(dartsLeft<=0){
+    setTimeout(endTurn, 650);
+  }
+}
+
+function endTurn(){
+  if(state==='gameover') return;
+  if(turn==='player'){
+    turn='cpu'; dartsLeft=3;
+    setTimeout(cpuTurn, 500);
+  } else {
+    turn='player'; dartsLeft=3;
+  }
+}
+
+function cpuTurn(){
+  if(state==='gameover'||turn!=='cpu') return;
+  if(dartsLeft<=0) return;
+  // CPU aims at a target based on remaining score - prefer triple-20 region or finishing double
+  let aimX=CX, aimY=CY-R*0.58; // triple 20 area (top, since segment 20 is at top)
+  // if close to finishing, aim for a double near the score (approx)
+  if(cpuScore<=40 && cpuScore%2===0 && cpuScore>0){
+    // aim near the double ring, angle depends on which double - just use top double for simplicity with some scatter
+    aimX=CX; aimY=CY-R*0.96;
+  } else if(cpuScore<60){
+    aimX=CX; aimY=CY-R*0.3; // aim center-ish for safer scoring
+  }
+  state='throwing';
+  const power=0.55+Math.random()*0.2;
+  throwDart(aimX,aimY,power);
+  setTimeout(()=>{ if(turn==='cpu'&&dartsLeft>0&&state!=='gameover') cpuTurn(); }, 900);
+}
+
+function drawBoard(){
+  // backdrop
+  const g=ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,'#1a1a2e'); g.addColorStop(1,'#0f0f1e');
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+
+  // board surround
+  ctx.fillStyle='#3e2723';
+  ctx.beginPath(); ctx.arc(CX,CY,R+18,0,Math.PI*2); ctx.fill();
+
+  // segments
+  for(let i=0;i<20;i++){
+    const a0=(-90 + i*18 - 9) * Math.PI/180;
+    const a1=a0 + 18*Math.PI/180;
+    const dark = i%2===0;
+    // single area (outer, between bull-out and triple-in, and between triple-out and double-in)
+    ctx.fillStyle = dark? '#1b1b1b':'#e8d9c5';
+    ctx.beginPath(); ctx.moveTo(CX,CY);
+    ctx.arc(CX,CY,R*DOUBLE_IN,a0,a1); ctx.closePath(); ctx.fill();
+
+    // triple ring
+    ctx.fillStyle = dark? '#2e7d32':'#c62828';
+    ctx.beginPath();
+    ctx.arc(CX,CY,R*TRIPLE_OUT,a0,a1);
+    ctx.arc(CX,CY,R*TRIPLE_IN,a1,a0,true);
+    ctx.closePath(); ctx.fill();
+
+    // double ring
+    ctx.fillStyle = dark? '#2e7d32':'#c62828';
+    ctx.beginPath();
+    ctx.arc(CX,CY,R*DOUBLE_OUT,a0,a1);
+    ctx.arc(CX,CY,R*DOUBLE_IN,a1,a0,true);
+    ctx.closePath(); ctx.fill();
+
+    // re-paint single areas to base colors over the ring gap (since double_in cut covers up to ring)
+    ctx.fillStyle = dark? '#1b1b1b':'#e8d9c5';
+    ctx.beginPath();
+    ctx.arc(CX,CY,R*TRIPLE_IN,a0,a1);
+    ctx.arc(CX,CY,R*BULL_OUT,a1,a0,true);
+    ctx.closePath(); ctx.fill();
+    ctx.beginPath();
+    ctx.arc(CX,CY,R*DOUBLE_IN,a0,a1);
+    ctx.arc(CX,CY,R*TRIPLE_OUT,a1,a0,true);
+    ctx.closePath(); ctx.fill();
+
+    // segment separator lines
+    ctx.strokeStyle='rgba(0,0,0,.5)'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(CX+Math.cos(a0)*R*BULL_OUT,CY+Math.sin(a0)*R*BULL_OUT);
+    ctx.lineTo(CX+Math.cos(a0)*R*DOUBLE_OUT,CY+Math.sin(a0)*R*DOUBLE_OUT); ctx.stroke();
+
+    // number label
+    const labelR = R*1.08;
+    const midA = a0 + 9*Math.PI/180;
+    ctx.fillStyle='#eee'; ctx.font='bold 15px Arial'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(SEGMENTS[i], CX+Math.cos(midA)*labelR, CY+Math.sin(midA)*labelR);
+  }
+
+  // bull outer (25)
+  ctx.fillStyle='#2e7d32';
+  ctx.beginPath(); ctx.arc(CX,CY,R*BULL_OUT,0,Math.PI*2); ctx.fill();
+  // bullseye (50)
+  ctx.fillStyle='#c62828';
+  ctx.beginPath(); ctx.arc(CX,CY,R*BULL_IN,0,Math.PI*2); ctx.fill();
+
+  // ring outline
+  ctx.strokeStyle='rgba(255,255,255,.15)'; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.arc(CX,CY,R*DOUBLE_OUT,0,Math.PI*2); ctx.stroke();
+}
+
+function drawDartsStuck(){
+  history.slice(-9).forEach((h,idx)=>{
+    if(h.x===undefined) return;
+  });
+}
+
+let stuckDarts=[];
+
+function loop(){
+  drawBoard();
+
+  // stuck darts (last few)
+  stuckDarts.forEach(d=>{
+    ctx.save();
+    ctx.translate(d.x,d.y);
+    ctx.rotate(Math.PI/4);
+    ctx.fillStyle=d.who==='player'?'#42a5f5':'#ef5350';
+    ctx.fillRect(-1.5,-16,3,16);
+    ctx.beginPath(); ctx.moveTo(-4,-16); ctx.lineTo(4,-16); ctx.lineTo(0,-22); ctx.fill();
+    ctx.fillStyle='#888';
+    ctx.beginPath(); ctx.moveTo(-3,0); ctx.lineTo(3,0); ctx.lineTo(0,6); ctx.fill();
+    ctx.restore();
+  });
+
+  // throw animation
+  if(throwAnim){
+    const ta=throwAnim;
+    ta.t += 0.07;
+    if(ta.t>=1){
+      ta.t=1;
+      const result = scoreAt(ta.toX,ta.toY);
+      stuckDarts.push({x:ta.toX,y:ta.toY,who:ta.who});
+      if(stuckDarts.length>9) stuckDarts.shift();
+      throwAnim=null;
+      applyThrow(ta.who,result);
+    } else {
+      const ex=ta.fromX+(ta.toX-ta.fromX)*ta.t;
+      const ey=ta.fromY+(ta.toY-ta.fromY)*ta.t;
+      const scale=0.4+0.6*ta.t;
+      ctx.save();
+      ctx.translate(ex,ey);
+      ctx.rotate(Math.PI/4);
+      ctx.fillStyle=ta.who==='player'?'#42a5f5':'#ef5350';
+      ctx.fillRect(-1.5*scale,-16*scale,3*scale,16*scale);
+      ctx.beginPath(); ctx.moveTo(-4*scale,-16*scale); ctx.lineTo(4*scale,-16*scale); ctx.lineTo(0,-22*scale); ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  // aim/drag visuals
+  if(drag&&dragOrigin&&state==='aim'&&turn==='player'){
+    ctx.strokeStyle='rgba(233,69,96,.7)'; ctx.lineWidth=2; ctx.setLineDash([5,5]);
+    ctx.beginPath(); ctx.moveTo(dragOrigin.x,dragOrigin.y); ctx.lineTo(drag.x,drag.y); ctx.stroke();
+    ctx.setLineDash([]);
+    // crosshair at aim point
+    ctx.strokeStyle='#e94560'; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.moveTo(dragOrigin.x-10,dragOrigin.y); ctx.lineTo(dragOrigin.x+10,dragOrigin.y);
+    ctx.moveTo(dragOrigin.x,dragOrigin.y-10); ctx.lineTo(dragOrigin.x,dragOrigin.y+10); ctx.stroke();
+    // power bar
+    const dist=Math.min(Math.hypot(drag.x-dragOrigin.x,drag.y-dragOrigin.y),140);
+    const pct=dist/140;
+    ctx.fillStyle='rgba(255,255,255,.2)'; ctx.fillRect(W/2-60,H-22,120,12);
+    ctx.fillStyle = pct>0.85||pct<0.4 ? '#e94560' : '#66bb6a';
+    ctx.fillRect(W/2-60,H-22,120*pct,12);
+    ctx.strokeStyle='rgba(255,255,255,.4)'; ctx.strokeRect(W/2-60,H-22,120,12);
+  } else if(state==='aim'&&turn==='player'){
+    ctx.fillStyle='rgba(255,255,255,.5)'; ctx.font='12px Arial'; ctx.textAlign='center';
+    ctx.fillText('Press & drag from the board to aim, release to throw',W/2,H-8);
+  }
+
+  // turn indicator
+  ctx.fillStyle='rgba(255,255,255,.85)'; ctx.font='bold 14px Arial'; ctx.textAlign='left';
+  ctx.fillText(turn==='player'?"Your turn":"CPU's turn",10,20);
+  ctx.textAlign='right';
+  ctx.fillText(`Darts left: ${dartsLeft}`,W-10,20);
+
+  // message
+  if(msgTimer>0){
+    msgTimer--;
+    ctx.fillStyle='rgba(255,255,255,.95)'; ctx.font='bold 18px Arial'; ctx.textAlign='center';
+    ctx.fillText(msg, W/2, 46);
+  }
+
+  // recent throws history (right column)
+  ctx.font='11px Arial'; ctx.textAlign='left'; ctx.fillStyle='rgba(255,255,255,.6)';
+  const recent=history.slice(-5).reverse();
+  recent.forEach((h,i)=>{
+    ctx.fillStyle = h.who==='player'?'rgba(66,165,245,.85)':'rgba(239,83,80,.85)';
+    ctx.fillText(`${h.who==='player'?'You':'CPU'}: ${h.label} (${h.value})`, 10, H-70+ i*14);
+  });
+
+  if(state==='gameover'){
+    ctx.fillStyle='rgba(0,0,0,.6)'; ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='#ffcc80'; ctx.font='bold 28px Arial'; ctx.textAlign='center';
+    ctx.fillText(winner==='player'?'🎯 You win!':'CPU wins', W/2, H/2-20);
+    ctx.fillStyle='#fff'; ctx.font='16px Arial';
+    ctx.fillText(`Final — You: ${playerScore}  CPU: ${cpuScore}`, W/2, H/2+12);
+    ctx.fillText('Click / tap to play again', W/2, H/2+42);
+  }
+
+  document.getElementById('ui').textContent = `Player: ${playerScore} | CPU: ${cpuScore} | ${turn==='player'?'Your':'CPU'} dart ${4-dartsLeft}/3`;
+
+  requestAnimationFrame(loop);
+}
+start();
+loop();
+</script></body></html>

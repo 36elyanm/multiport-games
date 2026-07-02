@@ -1,0 +1,83 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"><title>Ball Bounce</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>body{background:#08080f}#c{display:block;border-radius:8px}#ui{color:#81c784;text-align:center;padding:8px;font-size:1.1rem;font-weight:700}</style>
+</head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Ball Bounce</div>
+  <div class="game-frame">
+    <div id="ui">Score: 0 | Combo: x1</div>
+    <canvas id="c" width="480" height="520"></canvas>
+  </div>
+  <div class="game-instructions">Move mouse/touch to control the paddle. Bounce the ball on colored rings for points!</div>
+</div>
+<script>
+const c=document.getElementById('c'),ctx=c.getContext('2d');
+let paddle,ball,rings,score,combo,lives,frame;
+
+function makeRing(){
+  const colors=['#f44336','#2196f3','#4caf50','#ff9800','#9c27b0','#00bcd4','#ffeb3b'];
+  return{x:40+Math.random()*400,y:60+Math.random()*200,r:16+Math.random()*16,color:colors[Math.floor(Math.random()*colors.length)],hits:0};
+}
+
+function startGame(){
+  paddle={x:200,w:90,h:14,y:480};
+  ball={x:240,y:420,vx:3,vy:-5,r:12};
+  rings=[];score=0;combo=1;lives=3;frame=0;
+  for(let i=0;i<6;i++)rings.push(makeRing());
+}
+
+c.addEventListener('mousemove',e=>{const r=c.getBoundingClientRect();paddle.x=(e.clientX-r.left)*c.width/r.width-paddle.w/2;});
+c.addEventListener('touchmove',e=>{e.preventDefault();const r=c.getBoundingClientRect();paddle.x=(e.touches[0].clientX-r.left)*c.width/r.width-paddle.w/2;},{passive:false});
+
+function loop(){
+  ctx.fillStyle='#0d1520';ctx.fillRect(0,0,c.width,c.height);
+
+  frame++;
+  ball.x+=ball.vx;ball.y+=ball.vy;ball.vy+=0.08;
+
+  if(ball.x-ball.r<0){ball.x=ball.r;ball.vx*=-1;}
+  if(ball.x+ball.r>c.width){ball.x=c.width-ball.r;ball.vx*=-1;}
+  if(ball.y-ball.r<0){ball.y=ball.r;ball.vy*=-1;}
+
+  // Paddle
+  paddle.x=Math.max(0,Math.min(c.width-paddle.w,paddle.x));
+  if(ball.y+ball.r>=paddle.y&&ball.y+ball.r<=paddle.y+paddle.h+Math.abs(ball.vy)&&ball.x>paddle.x&&ball.x<paddle.x+paddle.w){
+    ball.vy=-Math.abs(ball.vy)-.5;ball.vx+=((ball.x-(paddle.x+paddle.w/2))/(paddle.w/2))*3;combo++;
+  }
+
+  if(ball.y>c.height+30){
+    lives--;combo=1;
+    if(lives<=0){startGame();}
+    else{ball.x=240;ball.y=420;ball.vx=(Math.random()-.5)*6;ball.vy=-7;}
+  }
+
+  // Rings
+  rings.forEach((ring,i)=>{
+    ctx.strokeStyle=ring.color;ctx.lineWidth=4;
+    ctx.beginPath();ctx.arc(ring.x,ring.y,ring.r,0,Math.PI*2);ctx.stroke();
+    const rgb=ring.color.slice(1).match(/../g).map(x=>parseInt(x,16)).join(',');
+    ctx.fillStyle=`rgba(${rgb},.1)`;ctx.fill();
+    const d=Math.hypot(ball.x-ring.x,ball.y-ring.y);
+    if(Math.abs(d-ring.r)<ball.r+2){
+      score+=10*combo;ring.hits++;
+      const ang=Math.atan2(ball.y-ring.y,ball.x-ring.x);
+      ball.vx=Math.cos(ang)*5;ball.vy=Math.sin(ang)*5;
+      if(ring.hits>=3)rings[i]=makeRing();
+    }
+  });
+
+  // Paddle draw
+  const g=ctx.createLinearGradient(paddle.x,paddle.y,paddle.x+paddle.w,paddle.y+paddle.h);
+  g.addColorStop(0,'#4caf50');g.addColorStop(1,'#1b5e20');
+  ctx.fillStyle=g;ctx.beginPath();ctx.roundRect(paddle.x,paddle.y,paddle.w,paddle.h,7);ctx.fill();
+
+  // Ball
+  ctx.fillStyle='#fff';ctx.shadowBlur=12;ctx.shadowColor='#4caf50';
+  ctx.beginPath();ctx.arc(ball.x,ball.y,ball.r,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
+
+  document.getElementById('ui').textContent=`Score: ${score} | Combo: x${combo} | ❤️x${lives}`;
+  requestAnimationFrame(loop);
+}
+startGame();loop();
+</script></body></html>

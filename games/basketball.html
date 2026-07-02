@@ -1,0 +1,245 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"><title>Basketball Shootout</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>body{background:#08080f}#c{display:block;border-radius:8px;margin:0 auto;touch-action:none;cursor:crosshair}#ui{color:#ffab91;text-align:center;padding:8px;font-size:1.05rem;font-weight:700}</style>
+</head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Basketball Shootout</div>
+  <div class="game-frame" style="padding:10px">
+    <div id="ui">Score: 0 | Time: 60s | Streak: 0</div>
+    <canvas id="c" width="520" height="400"></canvas>
+  </div>
+  <div class="game-instructions">Drag from the basketball backward (away from the hoop) and release to shoot — the drag distance and direction set the power and arc. Sink baskets before the 60-second clock runs out! Build a streak for combo bonus points. After round 1 the hoop starts moving — track it and time your shot!</div>
+</div>
+<script>
+const c=document.getElementById('c'),ctx=c.getContext('2d');
+const W=520,H=400;
+const GROUND=H-40;
+const BALL_START={x:100,y:GROUND-10};
+const BALL_R=14;
+const GRAVITY=0.42;
+
+let ball,hoop,score,timeLeft,streak,bestStreak,state,drag,dragOrigin,roundsMade,highScore,particles,lastTick,msg,msgTimer;
+
+function loadHigh(){ try{return parseInt(localStorage.getItem('bball_high')||'0');}catch(e){return 0;} }
+function saveHigh(v){ try{localStorage.setItem('bball_high',v);}catch(e){} }
+
+function start(){
+  ball={...BALL_START,vx:0,vy:0,inFlight:false,trail:[]};
+  hoop={x:420,y:140,r:28,vx:0,baseX:420,moving:false};
+  score=0;timeLeft=60;streak=0;bestStreak=0;roundsMade=0;
+  state='aim';drag=null;particles=[];msg='';msgTimer=0;
+  highScore=loadHigh();
+  lastTick=performance.now();
+}
+
+function getPos(e){
+  const r=c.getBoundingClientRect();
+  const t=e.touches?e.touches[0]:e;
+  return {x:(t.clientX-r.left)*W/r.width,y:(t.clientY-r.top)*H/r.height};
+}
+function pointerDown(e){
+  e.preventDefault();
+  if(state==='over'){ start(); return; }
+  if(state!=='aim'||ball.inFlight) return;
+  const p=getPos(e);
+  if(Math.hypot(p.x-ball.x,p.y-ball.y)<60){ drag=p; dragOrigin={x:ball.x,y:ball.y}; }
+}
+function pointerMove(e){ if(!drag) return; e.preventDefault(); drag=getPos(e); }
+function pointerUp(e){
+  if(!drag) return;
+  e.preventDefault();
+  const dx=dragOrigin.x-drag.x, dy=dragOrigin.y-drag.y; // shoot opposite of drag direction
+  const dist=Math.hypot(dx,dy);
+  if(dist>8){
+    const power=Math.min(dist,160)/160;
+    const ang=Math.atan2(dy,dx);
+    const speed=4+power*15;
+    ball.vx=Math.cos(ang)*speed;
+    ball.vy=Math.sin(ang)*speed;
+    ball.inFlight=true;
+    ball.scored=false;
+    state='flight';
+  }
+  drag=null;
+}
+c.addEventListener('mousedown',pointerDown);
+c.addEventListener('mousemove',pointerMove);
+window.addEventListener('mouseup',pointerUp);
+c.addEventListener('touchstart',pointerDown,{passive:false});
+c.addEventListener('touchmove',pointerMove,{passive:false});
+c.addEventListener('touchend',pointerUp,{passive:false});
+
+function spawnParticles(x,y,color){
+  for(let i=0;i<14;i++){
+    particles.push({x,y,vx:(Math.random()-.5)*5,vy:(Math.random()-1.4)*5,life:30,color});
+  }
+}
+
+function resetBall(){
+  ball={...BALL_START,vx:0,vy:0,inFlight:false,trail:[]};
+  state='aim';
+}
+
+function nextRound(){
+  roundsMade++;
+  // After a few makes, hoop starts moving
+  if(roundsMade>=3){
+    hoop.moving=true;
+    if(hoop.vx===0) hoop.vx=(Math.random()<0.5?1:-1)*1.6;
+  }
+  resetBall();
+}
+
+function loop(now){
+  if(!now)now=performance.now();
+  const dt=Math.min((now-lastTick)/1000,0.05);
+  lastTick=now;
+
+  // BG
+  const sky=ctx.createLinearGradient(0,0,0,H);
+  sky.addColorStop(0,'#1a237e');sky.addColorStop(1,'#0d1b4c');
+  ctx.fillStyle=sky;ctx.fillRect(0,0,W,H);
+  // crowd-ish dots
+  ctx.fillStyle='rgba(255,255,255,.05)';
+  for(let i=0;i<40;i++){ ctx.fillRect((i*47)%W,(i*23)%100+10,3,3); }
+  // court floor
+  ctx.fillStyle='#8d6e63';ctx.fillRect(0,GROUND,W,H-GROUND);
+  ctx.fillStyle='rgba(0,0,0,.15)';ctx.fillRect(0,GROUND,W,4);
+
+  if(state!=='over'){
+    timeLeft -= dt;
+    if(timeLeft<=0){ timeLeft=0; state='over'; if(score>highScore){highScore=score;saveHigh(highScore);} }
+  }
+
+  // hoop movement
+  if(hoop.moving && state!=='over'){
+    hoop.x += hoop.vx;
+    if(hoop.x<320||hoop.x>490) hoop.vx*=-1;
+  }
+
+  // backboard & hoop
+  ctx.fillStyle='rgba(255,255,255,.85)';
+  ctx.fillRect(hoop.x+hoop.r-2,hoop.y-38,6,52);
+  // rim
+  ctx.strokeStyle='#ff6f00';ctx.lineWidth=4;
+  ctx.beginPath();ctx.ellipse(hoop.x,hoop.y,hoop.r,7,0,0,Math.PI*2);ctx.stroke();
+  // net
+  ctx.strokeStyle='rgba(255,255,255,.5)';ctx.lineWidth=1;
+  for(let i=-1;i<=1;i++){
+    ctx.beginPath();ctx.moveTo(hoop.x+i*hoop.r*0.8,hoop.y+2);ctx.lineTo(hoop.x+i*hoop.r*0.4,hoop.y+26);ctx.stroke();
+  }
+  ctx.beginPath();ctx.ellipse(hoop.x,hoop.y+26,hoop.r*0.4,4,0,0,Math.PI*2);ctx.stroke();
+
+  // pole
+  ctx.fillStyle='#616161';ctx.fillRect(hoop.x+hoop.r+2,hoop.y-30,5,GROUND-(hoop.y-30));
+
+  // ball physics
+  if(ball.inFlight && state!=='over'){
+    ball.vy += GRAVITY;
+    ball.x += ball.vx;
+    ball.y += ball.vy;
+    ball.trail.push({x:ball.x,y:ball.y});
+    if(ball.trail.length>10) ball.trail.shift();
+
+    // scoring check: ball passes through rim area moving downward
+    if(!ball.scored && ball.vy>0){
+      const dx=ball.x-hoop.x, dy=ball.y-hoop.y;
+      if(Math.abs(dx)<hoop.r*0.55 && Math.abs(dy)<8){
+        ball.scored=true;
+        streak++;
+        if(streak>bestStreak)bestStreak=streak;
+        const comboBonus = Math.min(streak-1,5)*2;
+        const pts = 2 + comboBonus;
+        score += pts;
+        msg = streak>1 ? `+${pts}  🔥 Streak x${streak}!` : `+${pts}  Nice shot!`;
+        msgTimer=60;
+        spawnParticles(hoop.x,hoop.y,'255,193,7');
+        setTimeout(()=>{ if(state!=='over') nextRound(); },550);
+        state='scored';
+      }
+    }
+
+    // out of bounds / ground
+    if(ball.y> GROUND-BALL_R || ball.x<0 || ball.x>W){
+      if(!ball.scored){
+        streak=0;
+        msg='Missed!'; msgTimer=50;
+        setTimeout(()=>{ if(state!=='over') resetBall(); },450);
+        state='missed';
+      }
+    }
+  }
+
+  // trail
+  ball.trail.forEach((p,i)=>{
+    ctx.fillStyle=`rgba(255,152,0,${i/ball.trail.length*0.35})`;
+    ctx.beginPath();ctx.arc(p.x,p.y,BALL_R*(i/ball.trail.length),0,Math.PI*2);ctx.fill();
+  });
+
+  // ball
+  ctx.fillStyle='#ff8f00';
+  ctx.beginPath();ctx.arc(ball.x,ball.y,BALL_R,0,Math.PI*2);ctx.fill();
+  ctx.strokeStyle='#3e2723';ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.moveTo(ball.x-BALL_R,ball.y);ctx.lineTo(ball.x+BALL_R,ball.y);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(ball.x,ball.y-BALL_R);ctx.lineTo(ball.x,ball.y+BALL_R);ctx.stroke();
+  ctx.beginPath();ctx.arc(ball.x,ball.y,BALL_R,0,Math.PI*2);ctx.stroke();
+
+  // particles
+  particles.forEach(p=>{
+    p.x+=p.vx;p.y+=p.vy;p.vy+=0.2;p.life--;
+    ctx.fillStyle=`rgba(${p.color},${Math.max(p.life/30,0)})`;
+    ctx.beginPath();ctx.arc(p.x,p.y,3,0,Math.PI*2);ctx.fill();
+  });
+  particles=particles.filter(p=>p.life>0);
+
+  // aim drag visuals
+  if(drag&&dragOrigin&&state==='aim'){
+    const dx=dragOrigin.x-drag.x, dy=dragOrigin.y-drag.y;
+    const dist=Math.min(Math.hypot(dx,dy),160);
+    const ang=Math.atan2(dy,dx);
+    ctx.strokeStyle='rgba(233,69,96,.8)';ctx.lineWidth=3;ctx.setLineDash([6,5]);
+    ctx.beginPath();ctx.moveTo(ball.x,ball.y);
+    ctx.lineTo(ball.x+Math.cos(ang)*dist*1.4,ball.y+Math.sin(ang)*dist*1.4);
+    ctx.stroke();ctx.setLineDash([]);
+    const pct=dist/160;
+    ctx.fillStyle='rgba(255,255,255,.2)';ctx.fillRect(20,H-26,100,12);
+    ctx.fillStyle=pct>0.8?'#e94560':pct>0.4?'#ffb300':'#66bb6a';
+    ctx.fillRect(20,H-26,100*pct,12);
+    ctx.strokeStyle='rgba(255,255,255,.4)';ctx.strokeRect(20,H-26,100,12);
+    ctx.fillStyle='#fff';ctx.font='10px Arial';ctx.textAlign='left';ctx.fillText('POWER',20,H-30);
+  } else if(state==='aim'){
+    ctx.fillStyle='rgba(255,255,255,.5)';ctx.font='12px Arial';ctx.textAlign='center';
+    ctx.fillText('Drag back from the ball and release to shoot',W/2,H-8);
+  }
+
+  // HUD
+  ctx.fillStyle='rgba(255,255,255,.9)';ctx.font='bold 16px Arial';ctx.textAlign='left';
+  ctx.fillText(`Score: ${score}`,12,26);
+  ctx.textAlign='right';
+  ctx.fillText(`⏱ ${Math.ceil(timeLeft)}s`,W-12,26);
+  ctx.textAlign='center';
+  ctx.fillStyle='rgba(255,255,255,.7)';ctx.font='13px Arial';
+  ctx.fillText(`Streak: ${streak}  (best ${bestStreak})  •  High score: ${highScore}`,W/2,46);
+
+  if(msgTimer>0){
+    msgTimer--;
+    ctx.fillStyle='rgba(255,213,79,.95)';ctx.font='bold 18px Arial';ctx.textAlign='center';
+    ctx.fillText(msg,W/2,H/2-110);
+  }
+
+  if(state==='over'){
+    ctx.fillStyle='rgba(0,0,0,.6)';ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='#ffab91';ctx.font='bold 30px Arial';ctx.textAlign='center';
+    ctx.fillText(`Final Score: ${score}`,W/2,H/2-30);
+    ctx.fillStyle='#fff';ctx.font='16px Arial';
+    ctx.fillText(`Best streak: ${bestStreak}  •  High score: ${highScore}`,W/2,H/2+4);
+    ctx.fillText('Click / tap to play again',W/2,H/2+34);
+  }
+
+  document.getElementById('ui').textContent=`Score: ${score} | Time: ${Math.ceil(timeLeft)}s | Streak: ${streak}`;
+  requestAnimationFrame(loop);
+}
+start();
+requestAnimationFrame(loop);
+</script></body></html>

@@ -1,0 +1,333 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Word Scramble</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+body{background:#08080f}
+#ws{display:flex;flex-direction:column;align-items:center;gap:14px;padding:12px 8px;width:100%;box-sizing:border-box}
+#score-row{display:flex;gap:20px;font-size:.85rem;color:rgba(255,255,255,.6);font-weight:700;letter-spacing:.4px}
+#score-row b{color:#fff}
+#category-pill{padding:5px 18px;border-radius:50px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);font-size:.8rem;font-weight:700;color:rgba(255,255,255,.8);letter-spacing:.5px;text-transform:uppercase}
+#timer-bar-wrap{width:min(360px,90vw);height:8px;background:rgba(255,255,255,.1);border-radius:4px;overflow:hidden}
+#timer-bar{height:100%;background:linear-gradient(90deg,#e94560,#f7c948);border-radius:4px;transition:width .1s linear}
+#answer-row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;min-height:58px;align-items:center}
+.ans-slot{
+  width:48px;height:54px;border-radius:10px;
+  background:rgba(255,255,255,.07);border:2px solid rgba(255,255,255,.2);
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.4rem;font-weight:800;color:#fff;text-transform:uppercase;
+  transition:background .15s,transform .1s;cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+.ans-slot.filled{background:rgba(168,100,255,.35);border-color:rgba(168,100,255,.7)}
+.ans-slot.filled:active{transform:scale(.93)}
+.ans-slot.correct{background:#22c55e;border-color:#22c55e;animation:popIn .3s ease}
+@keyframes popIn{0%{transform:scale(0.7)}60%{transform:scale(1.15)}100%{transform:scale(1)}}
+.ans-slot.wrong{animation:shk .3s ease}
+@keyframes shk{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+#scramble-row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;min-height:58px;align-items:center}
+.sc-tile{
+  width:48px;height:54px;border-radius:10px;
+  background:linear-gradient(135deg,rgba(94,114,235,.4),rgba(168,100,255,.4));
+  border:2px solid rgba(168,100,255,.5);
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.4rem;font-weight:800;color:#fff;text-transform:uppercase;
+  cursor:pointer;transition:background .12s,transform .1s,opacity .12s;
+  -webkit-tap-highlight-color:transparent;user-select:none;
+}
+.sc-tile:active{transform:scale(.9)}
+.sc-tile.used{opacity:.25;pointer-events:none}
+#msg-area{min-height:28px;font-size:1rem;font-weight:800;color:#fff;text-align:center}
+#btn-row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.wb{padding:10px 22px;border:none;border-radius:50px;font-family:inherit;font-size:.88rem;font-weight:700;cursor:pointer;transition:opacity .15s,transform .1s}
+.wb:active{transform:scale(.95)}
+#clear-btn{background:rgba(255,255,255,.12);color:rgba(255,255,255,.85);border:1px solid rgba(255,255,255,.2)}
+#hint-btn{background:rgba(247,201,72,.25);color:#f7c948;border:1px solid rgba(247,201,72,.4)}
+#next-btn{background:#22c55e;color:#fff;display:none}
+#end-screen{display:none;flex-direction:column;align-items:center;gap:14px;padding:20px}
+#end-screen h2{font-size:1.6rem;font-weight:800;color:#fff}
+#end-score{font-size:1.1rem;color:rgba(255,255,255,.75)}
+#play-again{padding:12px 36px;border:none;border-radius:50px;background:linear-gradient(135deg,#e94560,#ff6b8a);color:#fff;font-family:inherit;font-size:1rem;font-weight:700;cursor:pointer}
+@media(max-width:380px){
+  .ans-slot,.sc-tile{width:40px;height:48px;font-size:1.1rem;border-radius:8px}
+  #answer-row,#scramble-row{gap:6px}
+}
+</style>
+</head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Word Scramble</div>
+  <div class="game-frame" style="padding:14px">
+    <div id="ws">
+      <div id="score-row">
+        <span>Score: <b id="sc-score">0</b></span>
+        <span>Word: <b id="sc-num">1</b>/10</span>
+        <span>Hints: <b id="sc-hints">3</b></span>
+      </div>
+      <div id="category-pill">Category</div>
+      <div id="timer-bar-wrap"><div id="timer-bar" style="width:100%"></div></div>
+      <div id="answer-row"></div>
+      <div id="scramble-row"></div>
+      <div id="msg-area"></div>
+      <div id="btn-row">
+        <button id="clear-btn" class="wb">↩ Clear</button>
+        <button id="hint-btn" class="wb">💡 Hint</button>
+        <button id="next-btn" class="wb">Next →</button>
+      </div>
+    </div>
+    <div id="end-screen">
+      <h2>🎉 Game Over!</h2>
+      <div id="end-score"></div>
+      <button id="play-again">Play Again</button>
+    </div>
+  </div>
+  <div class="game-instructions">
+    Unscramble the letters to form the hidden word! Tap/click scrambled letters in the right order.
+    Tap a filled slot to send it back. Use <b>💡 Hint</b> to reveal a letter (costs 20 pts). 30 seconds per word!
+  </div>
+</div>
+<script>
+const WORDS = [
+  // Animals
+  {word:'ELEPHANT',cat:'🐘 Animals'},{word:'GIRAFFE',cat:'🦒 Animals'},{word:'PENGUIN',cat:'🐧 Animals'},
+  {word:'DOLPHIN',cat:'🐬 Animals'},{word:'LEOPARD',cat:'🐆 Animals'},{word:'CROCODILE',cat:'🐊 Animals'},
+  {word:'HAMSTER',cat:'🐹 Animals'},{word:'OCTOPUS',cat:'🐙 Animals'},{word:'KANGAROO',cat:'🦘 Animals'},
+  {word:'BUTTERFLY',cat:'🦋 Animals'},{word:'PARROT',cat:'🦜 Animals'},{word:'GORILLA',cat:'🦍 Animals'},
+  // Fruits
+  {word:'MANGO',cat:'🥭 Fruits'},{word:'PAPAYA',cat:'🍈 Fruits'},{word:'APRICOT',cat:'🍑 Fruits'},
+  {word:'CHERRY',cat:'🍒 Fruits'},{word:'GUAVA',cat:'🍐 Fruits'},{word:'COCONUT',cat:'🥥 Fruits'},
+  {word:'LYCHEE',cat:'🍇 Fruits'},{word:'MELON',cat:'🍈 Fruits'},{word:'MANGO',cat:'🥭 Fruits'},
+  // Countries
+  {word:'FRANCE',cat:'🌍 Countries'},{word:'BRAZIL',cat:'🌍 Countries'},{word:'CANADA',cat:'🌍 Countries'},
+  {word:'MEXICO',cat:'🌍 Countries'},{word:'EGYPT',cat:'🌍 Countries'},{word:'INDIA',cat:'🌍 Countries'},
+  {word:'CHINA',cat:'🌍 Countries'},{word:'JAPAN',cat:'🌍 Countries'},{word:'KENYA',cat:'🌍 Countries'},
+  {word:'ITALY',cat:'🌍 Countries'},{word:'SPAIN',cat:'🌍 Countries'},{word:'GREECE',cat:'🌍 Countries'},
+  // Sports
+  {word:'CRICKET',cat:'🏏 Sports'},{word:'TENNIS',cat:'🎾 Sports'},{word:'HOCKEY',cat:'🏒 Sports'},
+  {word:'RUGBY',cat:'🏉 Sports'},{word:'BOXING',cat:'🥊 Sports'},{word:'SURFING',cat:'🏄 Sports'},
+  {word:'CYCLING',cat:'🚴 Sports'},{word:'ARCHERY',cat:'🏹 Sports'},{word:'SKATING',cat:'⛸️ Sports'},
+  // Science
+  {word:'GRAVITY',cat:'🔬 Science'},{word:'OXYGEN',cat:'🔬 Science'},{word:'PLANET',cat:'🔬 Science'},
+  {word:'MAGNET',cat:'🔬 Science'},{word:'VOLCANO',cat:'🔬 Science'},{word:'CRYSTAL',cat:'🔬 Science'},
+  {word:'NUCLEUS',cat:'🔬 Science'},{word:'PHOTON',cat:'🔬 Science'},{word:'ECLIPSE',cat:'🔬 Science'},
+  // Food
+  {word:'PIZZA',cat:'🍕 Food'},{word:'BURGER',cat:'🍔 Food'},{word:'NOODLE',cat:'🍜 Food'},
+  {word:'WAFFLE',cat:'🧇 Food'},{word:'PRETZEL',cat:'🥨 Food'},{word:'BISCUIT',cat:'🍪 Food'},
+];
+
+const TOTAL_WORDS = 10;
+let score = 0, wordNum = 0, hintsLeft = 3;
+let currentWord = '', scrambled = [], answerSlots = [], tileUsed = [];
+let timerPct = 100, timerInterval = null, solved = false;
+let usedIndices = new Set();
+
+function shuffle(arr) {
+  const a = [...arr];
+  for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}
+  return a;
+}
+
+function pickWord() {
+  let pool = WORDS.filter((_,i) => !usedIndices.has(i));
+  if(pool.length === 0){ usedIndices.clear(); pool = WORDS; }
+  const idx = Math.floor(Math.random() * pool.length);
+  const realIdx = WORDS.indexOf(pool[idx]);
+  usedIndices.add(realIdx);
+  return pool[idx];
+}
+
+function scrambleWord(word) {
+  let arr = word.split('');
+  let attempts = 0;
+  do { arr = shuffle(arr); attempts++; } while(arr.join('') === word && attempts < 20);
+  return arr;
+}
+
+function loadWord() {
+  solved = false;
+  clearInterval(timerInterval);
+  timerPct = 100;
+  document.getElementById('timer-bar').style.width = '100%';
+  document.getElementById('timer-bar').style.background = 'linear-gradient(90deg,#e94560,#f7c948)';
+
+  const entry = pickWord();
+  currentWord = entry.word;
+  scrambled = scrambleWord(currentWord);
+  tileUsed = Array(scrambled.length).fill(false);
+  answerSlots = Array(currentWord.length).fill(null); // null = empty, or {letter, tileIdx}
+
+  document.getElementById('category-pill').textContent = entry.cat;
+  document.getElementById('sc-num').textContent = wordNum + 1;
+  document.getElementById('msg-area').textContent = '';
+  document.getElementById('next-btn').style.display = 'none';
+  renderAnswer();
+  renderScramble();
+
+  const DUR = 30000;
+  const start = Date.now();
+  timerInterval = setInterval(() => {
+    if(solved) return;
+    const elapsed = Date.now() - start;
+    timerPct = Math.max(0, 100 - (elapsed / DUR) * 100);
+    document.getElementById('timer-bar').style.width = timerPct + '%';
+    if(timerPct <= 30) document.getElementById('timer-bar').style.background = '#e94560';
+    if(timerPct <= 0) {
+      clearInterval(timerInterval);
+      timeUp();
+    }
+  }, 100);
+}
+
+function renderAnswer() {
+  const row = document.getElementById('answer-row');
+  row.innerHTML = '';
+  for(let i=0; i<currentWord.length; i++){
+    const slot = document.createElement('div');
+    slot.className = 'ans-slot' + (answerSlots[i] !== null ? ' filled' : '');
+    slot.textContent = answerSlots[i] !== null ? answerSlots[i].letter : '';
+    const idx = i;
+    slot.addEventListener('click', () => returnLetter(idx));
+    slot.addEventListener('touchend', e => { e.preventDefault(); returnLetter(idx); });
+    row.appendChild(slot);
+  }
+}
+
+function renderScramble() {
+  const row = document.getElementById('scramble-row');
+  row.innerHTML = '';
+  scrambled.forEach((letter, i) => {
+    const tile = document.createElement('div');
+    tile.className = 'sc-tile' + (tileUsed[i] ? ' used' : '');
+    tile.textContent = letter;
+    tile.addEventListener('click', () => placeLetter(i));
+    tile.addEventListener('touchend', e => { e.preventDefault(); placeLetter(i); });
+    row.appendChild(tile);
+  });
+}
+
+function placeLetter(tileIdx) {
+  if(solved || tileUsed[tileIdx]) return;
+  const slot = answerSlots.findIndex(s => s === null);
+  if(slot === -1) return;
+  tileUsed[tileIdx] = true;
+  answerSlots[slot] = { letter: scrambled[tileIdx], tileIdx };
+  renderAnswer();
+  renderScramble();
+  checkAnswer();
+}
+
+function returnLetter(slotIdx) {
+  if(solved || answerSlots[slotIdx] === null) return;
+  const { tileIdx } = answerSlots[slotIdx];
+  tileUsed[tileIdx] = false;
+  answerSlots[slotIdx] = null;
+  renderAnswer();
+  renderScramble();
+}
+
+function checkAnswer() {
+  const filled = answerSlots.filter(s => s !== null);
+  if(filled.length < currentWord.length) return;
+  const attempt = answerSlots.map(s => s.letter).join('');
+  if(attempt === currentWord) {
+    solved = true;
+    clearInterval(timerInterval);
+    const bonus = Math.round(timerPct);
+    score += 100 + bonus;
+    document.getElementById('sc-score').textContent = score;
+    document.getElementById('msg-area').textContent = '✅ Correct! +' + (100 + bonus) + ' pts';
+    document.getElementById('msg-area').style.color = '#22c55e';
+    // Flash correct
+    document.querySelectorAll('.ans-slot').forEach(el => { el.classList.add('correct'); el.classList.remove('filled'); });
+    setTimeout(() => {
+      if(wordNum + 1 >= TOTAL_WORDS) { endGame(); return; }
+      document.getElementById('next-btn').style.display = 'inline-block';
+    }, 800);
+  } else if(filled.length === currentWord.length) {
+    // Wrong
+    document.getElementById('msg-area').textContent = '❌ Not right — try again!';
+    document.getElementById('msg-area').style.color = '#e94560';
+    document.querySelectorAll('.ans-slot').forEach(el => { el.classList.add('wrong'); setTimeout(() => el.classList.remove('wrong'), 350); });
+    // Reset answer slots
+    setTimeout(() => {
+      tileUsed = Array(scrambled.length).fill(false);
+      answerSlots = Array(currentWord.length).fill(null);
+      document.getElementById('msg-area').textContent = '';
+      renderAnswer(); renderScramble();
+    }, 400);
+  }
+}
+
+function timeUp() {
+  solved = true;
+  document.getElementById('msg-area').textContent = '⏰ Time up! The word was ' + currentWord;
+  document.getElementById('msg-area').style.color = '#f7c948';
+  // Reveal answer in slots
+  answerSlots = currentWord.split('').map((l,i) => ({letter:l, tileIdx:i}));
+  renderAnswer();
+  setTimeout(() => {
+    if(wordNum + 1 >= TOTAL_WORDS) { endGame(); return; }
+    document.getElementById('next-btn').style.display = 'inline-block';
+  }, 1500);
+}
+
+function clearAnswer() {
+  if(solved) return;
+  tileUsed = Array(scrambled.length).fill(false);
+  answerSlots = Array(currentWord.length).fill(null);
+  document.getElementById('msg-area').textContent = '';
+  renderAnswer(); renderScramble();
+}
+
+function useHint() {
+  if(solved || hintsLeft <= 0) { document.getElementById('msg-area').textContent = 'No hints left!'; document.getElementById('msg-area').style.color='#e94560'; return; }
+  // Find first empty slot and fill it with the correct letter
+  const emptySlot = answerSlots.findIndex(s => s === null);
+  if(emptySlot === -1) return;
+  const correctLetter = currentWord[emptySlot];
+  // Find an unused tile with that letter
+  const tileIdx = scrambled.findIndex((l,i) => l === correctLetter && !tileUsed[i]);
+  if(tileIdx === -1) return;
+  hintsLeft--;
+  score = Math.max(0, score - 20);
+  document.getElementById('sc-hints').textContent = hintsLeft;
+  document.getElementById('sc-score').textContent = score;
+  document.getElementById('msg-area').textContent = '💡 Hint used! -20 pts';
+  document.getElementById('msg-area').style.color = '#f7c948';
+  setTimeout(() => { if(!solved) document.getElementById('msg-area').textContent = ''; }, 1200);
+  tileUsed[tileIdx] = true;
+  answerSlots[emptySlot] = { letter: correctLetter, tileIdx };
+  renderAnswer(); renderScramble();
+  checkAnswer();
+}
+
+function nextWord() {
+  wordNum++;
+  loadWord();
+}
+
+function endGame() {
+  clearInterval(timerInterval);
+  document.getElementById('ws').style.display = 'none';
+  const end = document.getElementById('end-screen');
+  end.style.display = 'flex';
+  const hi = Math.max(score, parseInt(localStorage.getItem('scramble_hi')||'0'));
+  localStorage.setItem('scramble_hi', hi);
+  document.getElementById('end-score').textContent = `Score: ${score} pts  |  Best: ${hi} pts`;
+}
+
+function startGame() {
+  score = 0; wordNum = 0; hintsLeft = 3; usedIndices.clear();
+  document.getElementById('sc-score').textContent = 0;
+  document.getElementById('sc-hints').textContent = 3;
+  document.getElementById('ws').style.display = 'flex';
+  document.getElementById('end-screen').style.display = 'none';
+  loadWord();
+}
+
+document.getElementById('clear-btn').addEventListener('click', clearAnswer);
+document.getElementById('hint-btn').addEventListener('click', useHint);
+document.getElementById('next-btn').addEventListener('click', nextWord);
+document.getElementById('play-again').addEventListener('click', startGame);
+
+startGame();
+</script>
+</body></html>

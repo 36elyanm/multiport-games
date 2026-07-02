@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Multiport Games – 100 Free Games</title>
+<meta name="description" content="Play 100 free browser games instantly — no downloads, no signup. Arcade classics, puzzles, sports, and educational games for kids and adults, all in your browser.">
+<link rel="canonical" href="https://multiportgames.pages.dev/">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Multiport Games – 100 Free Browser Games">
+<meta property="og:description" content="Play 100 free browser games instantly — no downloads, no signup. Arcade classics, puzzles, sports, and educational games for everyone.">
+<meta property="og:url" content="https://multiportgames.pages.dev/">
+<meta property="og:image" content="https://multiportgames.pages.dev/apple-touch-icon.png">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Multiport Games – 100 Free Browser Games">
+<meta name="twitter:description" content="Play 100 free browser games instantly — no downloads, no signup.">
+<meta name="twitter:image" content="https://multiportgames.pages.dev/apple-touch-icon.png">
+<meta name="msvalidate.01" content="50BC95CD29BDA9BC07C511EE7760E1B4" />
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="css/style.css">
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+<style>
+#captcha-gate{position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;
+  background:rgba(8,8,15,0.97);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);}
+#captcha-gate h2{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display',system-ui,sans-serif;font-size:1.6rem;font-weight:800;color:#fff;letter-spacing:-.5px;}
+#captcha-gate p{color:rgba(255,255,255,.5);font-family:-apple-system,BlinkMacSystemFont,system-ui,sans-serif;font-size:.95rem;}
+.auth-pill{padding:7px 16px;border-radius:50px;font-family:inherit;font-size:.85rem;font-weight:600;cursor:pointer;transition:all .18s;text-decoration:none;display:inline-block;letter-spacing:.1px}
+.auth-pill.outline{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);color:rgba(255,255,255,.8)}
+.auth-pill.outline:hover{background:rgba(255,255,255,.14);color:#fff}
+.auth-pill.solid{background:linear-gradient(135deg,#e94560,#ff6b8a);border:none;color:#fff;box-shadow:0 0 16px rgba(233,69,96,.3)}
+.auth-pill.solid:hover{opacity:.88}
+.auth-user{color:rgba(255,255,255,.7);font-size:.85rem;font-weight:600}
+</style>
+</head>
+  <meta name="google-site-verification" content="65Oa_uiVGDzK8T2UYhr-qBkiv518mm2B1QY6KlibNJA" />
+<body>
+
+<div id="captcha-gate">
+  <h2>Multiport Games 🎮</h2>
+  <p>Please verify you're human to continue.</p>
+  <div class="cf-turnstile" data-sitekey="0x4AAAAAADWNTS62UeiB1Gk3" data-callback="onTurnstileSuccess"></div>
+</div>
+<script>
+// Skip CAPTCHA if already verified, or if screen is too small for the widget (e.g. Apple Watch)
+if(sessionStorage.getItem('captcha_ok')||screen.width<200){
+  document.getElementById('captcha-gate').style.display='none';
+  sessionStorage.setItem('captcha_ok','1');
+}
+</script>
+
+<header>
+  <h1>Multiport<span>Games</span></h1>
+  <input id="search-bar" type="text" placeholder="Search games…" oninput="filterGames()">
+  <div style="display:flex;gap:8px;align-items:center;flex-shrink:0">
+    <div id="streak-badge"></div>
+    <button class="icon-btn" id="achievements-btn" title="Achievements" onclick="openAchievements()">🏆</button>
+    <button class="icon-btn" id="theme-btn" title="Theme" onclick="toggleThemePanel()">🎨</button>
+    <a href="bug-report.html" class="auth-pill outline">🐛 Report Bug</a>
+    <a href="admin.html" class="auth-pill outline" style="position:relative">Admin<span id="admin-badge" style="display:none;position:absolute;top:-6px;right:-6px;background:#e94560;color:#fff;font-size:.65rem;font-weight:800;line-height:1;min-width:16px;height:16px;border-radius:50%;align-items:center;justify-content:center;padding:2px;box-shadow:0 0 0 2px #0f0f1e"></span></a>
+    <div id="auth-btns" style="display:flex;gap:8px;align-items:center"></div>
+  </div>
+</header>
+
+<div id="theme-panel">
+  <h3>🎨 Accent Color</h3>
+  <div class="swatch-row" id="swatch-row"></div>
+</div>
+
+<div id="achievements-overlay">
+  <div id="achievements-modal">
+    <h2>🏆 Achievements</h2>
+    <div class="ach-sub" id="ach-sub"></div>
+    <div id="ach-list"></div>
+    <button id="achievements-close" onclick="closeAchievements()">Close</button>
+  </div>
+</div>
+
+<div id="featured-wrap"></div>
+
+<div class="categories">
+  <button class="cat-btn active" onclick="filterCat('all',this)">All Games</button>
+  <button class="cat-btn" onclick="filterCat('arcade',this)">Arcade</button>
+  <button class="cat-btn" onclick="filterCat('puzzle',this)">Puzzle</button>
+  <button class="cat-btn" onclick="filterCat('action',this)">Action</button>
+  <button class="cat-btn" onclick="filterCat('racing',this)">Racing</button>
+  <button class="cat-btn" onclick="filterCat('sports',this)">Sports</button>
+  <button class="cat-btn" onclick="filterCat('skill',this)">Skill</button>
+  <button class="cat-btn" onclick="filterCat('edu',this)">🎓 Education</button>
+</div>
+
+<div class="section-title">🎮 All Games</div>
+
+<div class="games-grid" id="games-grid"></div>
+
+<footer>
+  <div style="color:rgba(255,255,255,.3);font-size:.78rem;margin-bottom:8px;letter-spacing:.2px">🔒 Secure (HTTPS) &nbsp;·&nbsp; No downloads or installs &nbsp;·&nbsp; Family-friendly &nbsp;·&nbsp; No ad trackers</div>
+  Multiport Games &copy; 2026 – 100 Free Browser Games &nbsp;·&nbsp; <a href="bug-report.html" style="color:rgba(255,255,255,.35);text-decoration:none;transition:color .18s" onmouseover="this.style.color='#e94560'" onmouseout="this.style.color='rgba(255,255,255,.35)'">🐛 Report a Bug</a> &nbsp;·&nbsp; <a href="mailto:michaelrelyan1@gmail.com" style="color:rgba(255,255,255,.35);text-decoration:none;transition:color .18s" onmouseover="this.style.color='#e94560'" onmouseout="this.style.color='rgba(255,255,255,.35)'">✉️ Contact Developer</a> &nbsp;·&nbsp; <a href="privacy.html" style="color:rgba(255,255,255,.35);text-decoration:none;transition:color .18s" onmouseover="this.style.color='#e94560'" onmouseout="this.style.color='rgba(255,255,255,.35)'">Privacy</a> &nbsp;·&nbsp; <a href="terms.html" style="color:rgba(255,255,255,.35);text-decoration:none;transition:color .18s" onmouseover="this.style.color='#e94560'" onmouseout="this.style.color='rgba(255,255,255,.35)'">Terms</a> &nbsp;·&nbsp; <a href="https://github.com/36elyanm/multiport-games/tree/claude/mini-games-website-Nscyd" target="_blank" rel="noopener noreferrer" style="color:rgba(255,255,255,.35);text-decoration:none;transition:color .18s" onmouseover="this.style.color='#e94560'" onmouseout="this.style.color='rgba(255,255,255,.35)'">GitHub</a> &nbsp;·&nbsp; <a href="admin.html" style="color:rgba(255,255,255,.35);text-decoration:none;transition:color .18s;position:relative" onmouseover="this.style.color='#e94560'" onmouseout="this.style.color='rgba(255,255,255,.35)'">Admin<span id="admin-badge-footer" style="display:none;position:absolute;top:-8px;right:-12px;background:#e94560;color:#fff;font-size:.6rem;font-weight:800;line-height:1;min-width:15px;height:15px;border-radius:50%;align-items:center;justify-content:center;padding:2px;box-shadow:0 0 0 2px #0f0f1e"></span></a>
+</footer>
+
+<script>
+const GAMES = [
+  { id:'dino',        name:'Dino Run',         tag:'arcade', emoji:'🦕', c1:'#2d5a27',c2:'#7ec850' },
+  { id:'flappy',      name:'Flappy Bird',       tag:'arcade', emoji:'🐦', c1:'#1a6db5',c2:'#56cfe1' },
+  { id:'snake',       name:'Snake',             tag:'arcade', emoji:'🐍', c1:'#155724',c2:'#28a745' },
+  { id:'tetris',      name:'Block Drop',        tag:'puzzle', emoji:'🟦', c1:'#0d47a1',c2:'#42a5f5' },
+  { id:'breakout',    name:'Breakout',          tag:'arcade', emoji:'🧱', c1:'#6a0572',c2:'#e040fb' },
+  { id:'pong',        name:'Pong',              tag:'sports', emoji:'🏓', c1:'#1b2838',c2:'#66c0f4' },
+  { id:'minesweeper', name:'Minesweeper',       tag:'puzzle', emoji:'💣', c1:'#424242',c2:'#9e9e9e' },
+  { id:'2048',        name:'2048',              tag:'puzzle', emoji:'🔢', c1:'#f57c00',c2:'#ffcc02' },
+  { id:'memory',      name:'Memory Match',      tag:'puzzle', emoji:'🃏', c1:'#4a148c',c2:'#ce93d8' },
+  { id:'tictactoe',   name:'Tic Tac Toe',       tag:'puzzle', emoji:'❌', c1:'#b71c1c',c2:'#ef9a9a' },
+  { id:'dodge',       name:'Dodge Blitz',       tag:'action', emoji:'⚡', c1:'#e65100',c2:'#ffb74d' },
+  { id:'asteroids',   name:'Space Rocks',       tag:'action', emoji:'☄️', c1:'#0d0d2b',c2:'#4fc3f7' },
+  { id:'platformer',  name:'Pixel Platformer',  tag:'action', emoji:'🏃', c1:'#1b5e20',c2:'#aed581' },
+  { id:'shooter',     name:'Space Shooter',     tag:'action', emoji:'🚀', c1:'#0a0a1a',c2:'#7c4dff' },
+  { id:'racer',       name:'Top-Down Racer',    tag:'racing', emoji:'🏎️', c1:'#880e4f',c2:'#f48fb1' },
+  { id:'jumper',      name:'High Jumper',       tag:'skill',  emoji:'🤸', c1:'#006064',c2:'#4dd0e1' },
+  { id:'catching',    name:'Fruit Catch',       tag:'skill',  emoji:'🍎', c1:'#4e342e',c2:'#ff7043' },
+  { id:'whackamole',  name:'Whack-a-Mole',      tag:'arcade', emoji:'🔨', c1:'#33691e',c2:'#cddc39' },
+  { id:'typing',      name:'Type Rush',         tag:'skill',  emoji:'⌨️', c1:'#01579b',c2:'#81d4fa' },
+  { id:'simon',       name:'Color Memory',      tag:'puzzle', emoji:'🔵', c1:'#1a237e',c2:'#7986cb' },
+  { id:'reaction',    name:'Reaction Test',     tag:'skill',  emoji:'⏱️', c1:'#37474f',c2:'#90a4ae' },
+  { id:'clicker',     name:'Cookie Clicker',    tag:'arcade', emoji:'🍪', c1:'#5d4037',c2:'#a1887f' },
+  { id:'maze',        name:'Maze Runner',       tag:'puzzle', emoji:'🌀', c1:'#263238',c2:'#78909c', url:'https://mazegame23.pages.dev' },
+  { id:'gravity',     name:'Gravity Flip',      tag:'skill',  emoji:'🌐', c1:'#4527a0',c2:'#9575cd' },
+  { id:'pinball',     name:'Pinball',           tag:'arcade', emoji:'🔵', c1:'#b71c1c',c2:'#ef5350' },
+  { id:'bubble',      name:'Bubble Shooter',    tag:'puzzle', emoji:'🫧', c1:'#006064',c2:'#26c6da' },
+  { id:'slingshot',   name:'Slingshot',         tag:'skill',  emoji:'🎯', c1:'#3e2723',c2:'#8d6e63' },
+  { id:'connect4',    name:'Four in a Row',     tag:'puzzle', emoji:'🔴', c1:'#e65100',c2:'#ffb300' },
+  { id:'wordjump',    name:'Word Jump',         tag:'puzzle', emoji:'🔤', c1:'#1565c0',c2:'#64b5f6' },
+  { id:'ballbounce',  name:'Ball Bounce',       tag:'skill',  emoji:'⚽', c1:'#2e7d32',c2:'#81c784' },
+  { id:'colorflood',  name:'Color Flood',       tag:'puzzle', emoji:'🎨', c1:'#ad1457',c2:'#f48fb1' },
+  { id:'icebreak',    name:'Ice Breaker',       tag:'action', emoji:'❄️', c1:'#0277bd',c2:'#b3e5fc' },
+  { id:'stackfall',   name:'Stack Fall',        tag:'skill',  emoji:'📦', c1:'#4e342e',c2:'#ff8a65' },
+  { id:'crossword',   name:'Number Cross',      tag:'puzzle', emoji:'#️⃣', c1:'#1a237e',c2:'#9fa8da' },
+  { id:'lander',      name:'Moon Lander',       tag:'skill',  emoji:'🌕', c1:'#090916',c2:'#ffe082' },
+  { id:'brickroad',   name:'Brick Road',        tag:'racing', emoji:'🧱', c1:'#bf360c',c2:'#ff8a65' },
+  { id:'swords',      name:'Sword Duel',        tag:'action', emoji:'⚔️', c1:'#37474f',c2:'#cfd8dc' },
+  { id:'wordle',      name:'Word Guess',        tag:'puzzle', emoji:'🟩', c1:'#121213',c2:'#538d4e' },
+  { id:'strands',     name:'Word Strands',      tag:'puzzle', emoji:'🔤', c1:'#1a1a2e',c2:'#4e9af1' },
+  { id:'archery',     name:'Archery',           tag:'sports', emoji:'🏹', c1:'#1b5e20',c2:'#c8e6c9' },
+  { id:'slots',       name:'Lucky Slots',       tag:'arcade', emoji:'🎰', c1:'#6a1b9a',c2:'#ce93d8' },
+  { id:'fishing',     name:'Pixel Fishing',     tag:'skill',  emoji:'🎣', c1:'#0d47a1',c2:'#64b5f6' },
+  { id:'hovercraft',  name:'Hovercraft',        tag:'racing', emoji:'🛸', c1:'#006064',c2:'#80deea' },
+  { id:'cannon',      name:'Cannon Ball',       tag:'skill',  emoji:'💥', c1:'#b71c1c',c2:'#ff8a80' },
+  { id:'chess',       name:'Mini Chess',        tag:'puzzle', emoji:'♟️', c1:'#3e2723',c2:'#d7ccc8' },
+  { id:'soccer',      name:'Penalty Kick',      tag:'sports', emoji:'⚽', c1:'#2e7d32',c2:'#a5d6a7' },
+  { id:'jetpack',     name:'Jetpack Rider',     tag:'action', emoji:'🚀', c1:'#0a0a2e',c2:'#ff6e40' },
+  { id:'birdfly',     name:'Bird Fly',          tag:'arcade', emoji:'🦅', c1:'#01579b',c2:'#87ceeb' },
+  { id:'numguess',    name:'Number Guess',      tag:'puzzle', emoji:'🔍', c1:'#4a148c',c2:'#ba68c8' },
+  { id:'blockslide',  name:'Block Slide',       tag:'puzzle', emoji:'🔲', c1:'#1b2838',c2:'#66c0f4' },
+  { id:'ballpit',     name:'Ball Pit',          tag:'arcade', emoji:'🎱', c1:'#880e4f',c2:'#f48fb1' },
+  { id:'sasquatch',   name:'Sneaky Sasquatch',  tag:'action', emoji:'🦶', c1:'#1b4d1e',c2:'#8b5e3c' },
+  { id:'knifecut',    name:'Knife Smash',       tag:'skill',  emoji:'🔪', c1:'#bf360c',c2:'#ffcc80' },
+  { id:'level67',    name:'Level 67',          tag:'action', emoji:'💀', c1:'#0d0d1a',c2:'#e94560' },
+  { id:'memetash',   name:'Meme Tash',         tag:'action', emoji:'😎', c1:'#1a1a2e',c2:'#ffcc00' },
+  { id:'skyrace',    name:'Sky Race',          tag:'racing', emoji:'✈️', c1:'#0277bd',c2:'#56cfe1' },
+  { id:'flappydunk', name:'Flappy Dunk',       tag:'sports', emoji:'🏀', c1:'#7b3f00',c2:'#f4753a' },
+  { id:'checkers',   name:'Checkers',          tag:'puzzle', emoji:'⚫', c1:'#1a1a2e',c2:'#e94560' },
+  { id:'battleship', name:'Naval Strike',      tag:'puzzle', emoji:'🚢', c1:'#0d1b2e',c2:'#4fc3f7' },
+  { id:'sudoku',     name:'Sudoku',            tag:'puzzle', emoji:'🔢', c1:'#1a1a2e',c2:'#a78bfa' },
+  { id:'airhockey',  name:'Air Hockey',        tag:'sports', emoji:'🏒', c1:'#0a2540',c2:'#4fc3f7' },
+  { id:'bowling',    name:'Bowling',           tag:'sports', emoji:'🎳', c1:'#3d1a00',c2:'#ffb74d' },
+  { id:'geometry',   name:'Geo Dash',          tag:'skill',  emoji:'⬛', c1:'#0a0a1a',c2:'#e94560' },
+  { id:'crossy',     name:'Road Hopper',       tag:'action', emoji:'🐔', c1:'#2d5a27',c2:'#f7c948' },
+  { id:'candy',      name:'Candy Crush',       tag:'puzzle', emoji:'🍭', c1:'#6a0572',c2:'#f7c948' },
+  { id:'mathblast',  name:'Math Blast',        tag:'edu',    emoji:'🔢', c1:'#0d1b4a',c2:'#4fc3f7' },
+  { id:'spelling',   name:'Spelling Bee',      tag:'edu',    emoji:'🐝', c1:'#3d2800',c2:'#ffd600' },
+  { id:'flags',      name:'World Flags',       tag:'edu',    emoji:'🌍', c1:'#1a237e',c2:'#64b5f6' },
+  { id:'timestable', name:'Times Tables',      tag:'edu',    emoji:'✖️', c1:'#1b5e20',c2:'#69f0ae' },
+  { id:'scramble',   name:'Word Scramble',     tag:'edu',    emoji:'🔤', c1:'#4a148c',c2:'#ea80fc' },
+  { id:'hangman',     name:'Hangman',           tag:'edu',    emoji:'🪢', c1:'#3e2723',c2:'#d7ccc8' },
+  { id:'wordsearch',  name:'Word Search',       tag:'puzzle', emoji:'🔍', c1:'#004d40',c2:'#80cbc4' },
+  { id:'wordladder',  name:'Word Ladder',       tag:'edu',    emoji:'🪜', c1:'#1b5e20',c2:'#c5e1a5' },
+  { id:'anagram',     name:'Anagram',           tag:'edu',    emoji:'🔀', c1:'#4a148c',c2:'#ce93d8' },
+  { id:'trivia',      name:'Trivia Quiz',       tag:'edu',    emoji:'❓', c1:'#0d47a1',c2:'#90caf9' },
+  { id:'fifteenpuzzle', name:'15 Puzzle',       tag:'puzzle', emoji:'🔢', c1:'#37474f',c2:'#b0bec5' },
+  { id:'solitaire',   name:'Solitaire',         tag:'puzzle', emoji:'🃏', c1:'#1b5e20',c2:'#66bb6a' },
+  { id:'blackjack',   name:'Blackjack',         tag:'skill',  emoji:'♠️', c1:'#1a1a2e',c2:'#e94560' },
+  { id:'videopoker',  name:'Video Poker',       tag:'skill',  emoji:'🂡', c1:'#311b92',c2:'#b388ff' },
+  { id:'dominoes',    name:'Dominoes',          tag:'puzzle', emoji:'🁫', c1:'#212121',c2:'#e0e0e0' },
+  { id:'yahtzee',     name:'Dice Master',       tag:'skill',  emoji:'🎲', c1:'#bf360c',c2:'#ffab91' },
+  { id:'bingo',       name:'Bingo',             tag:'skill',  emoji:'🎟️', c1:'#880e4f',c2:'#f48fb1' },
+  { id:'mancala',     name:'Mancala',           tag:'puzzle', emoji:'🟤', c1:'#5d4037',c2:'#ffcc80' },
+  { id:'reversi',     name:'Reversi',           tag:'puzzle', emoji:'⚪', c1:'#1b5e20',c2:'#a5d6a7' },
+  { id:'dotsboxes',   name:'Dots and Boxes',    tag:'puzzle', emoji:'🔲', c1:'#283593',c2:'#9fa8da' },
+  { id:'nim',         name:'Nim',               tag:'puzzle', emoji:'🪵', c1:'#4e342e',c2:'#bcaaa4' },
+  { id:'rps',         name:'Rock Paper Scissors', tag:'skill', emoji:'✊', c1:'#b71c1c',c2:'#ff8a65' },
+  { id:'pacmaze',     name:'Ghost Maze',        tag:'arcade', emoji:'👻', c1:'#000051',c2:'#ffeb3b' },
+  { id:'spaceinvaders', name:'Galaxy Defender', tag:'action', emoji:'👾', c1:'#0d0d2b',c2:'#69f0ae' },
+  { id:'plinko',      name:'Peg Drop',          tag:'arcade', emoji:'🔘', c1:'#4a148c',c2:'#f48fb1' },
+  { id:'pianotiles',  name:'Key Tap',           tag:'skill',  emoji:'🎹', c1:'#000000',c2:'#e94560' },
+  { id:'lightcycle',  name:'Neon Cycle',        tag:'action', emoji:'🏍️', c1:'#0d0d2b',c2:'#00e5ff' },
+  { id:'towerdefense', name:'Tower Defense',    tag:'action', emoji:'🏰', c1:'#1b5e20',c2:'#ffd54f' },
+  { id:'nonogram',    name:'Nonogram',          tag:'puzzle', emoji:'🧩', c1:'#263238',c2:'#80deea' },
+  { id:'minigolf',    name:'Mini Golf',         tag:'sports', emoji:'⛳', c1:'#1b5e20',c2:'#aed581' },
+  { id:'darts',       name:'Darts',             tag:'sports', emoji:'🎯', c1:'#b71c1c',c2:'#ffcdd2' },
+  { id:'basketball',  name:'Basketball',        tag:'sports', emoji:'🏀', c1:'#bf360c',c2:'#ffcc80' },
+  { id:'baseball',    name:'Baseball',          tag:'sports', emoji:'⚾', c1:'#0d47a1',c2:'#e3f2fd' },
+  { id:'curling',     name:'Curling',           tag:'sports', emoji:'🥌', c1:'#01579b',c2:'#b3e5fc' },
+  { id:'jigsaw',      name:'Jigsaw Puzzle',     tag:'puzzle', emoji:'🧩', c1:'#4a148c',c2:'#ffd54f' },
+  { id:'battlezoneroyale', name:'Battle Zone Royale', tag:'action', emoji:'⚡', c1:'#1a1a2e',c2:'#4fc3f7', url:'https://battlezoneroyale.pages.dev/' },
+];
+
+let currentCat = 'all';
+
+function renderGames(list) {
+  const grid = document.getElementById('games-grid');
+  grid.innerHTML = list.map(g => `
+    <a class="game-card" href="${g.url||('games/'+g.id+'.html')}" style="--c1:${g.c1};--c2:${g.c2}"${g.url?' target="_blank" rel="noopener noreferrer"':''} onclick="recordPlay('${g.id}')">
+      <div class="thumb">${g.emoji}</div>
+      <div class="info">
+        <div class="name">${g.name}${g.url?' <span style="opacity:.5;font-size:.75em">↗</span>':''}</div>
+        <div class="tag">${g.tag}</div>
+      </div>
+    </a>`).join('');
+}
+
+function filterGames() {
+  const q = document.getElementById('search-bar').value.toLowerCase();
+  const list = GAMES.filter(g =>
+    (currentCat === 'all' || g.tag === currentCat) &&
+    g.name.toLowerCase().includes(q)
+  );
+  renderGames(list);
+}
+
+function filterCat(cat, btn) {
+  currentCat = cat;
+  document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  filterGames();
+}
+
+renderGames(GAMES);
+
+// Auth header
+(function(){
+  const session=localStorage.getItem('miniarcade_session');
+  const el=document.getElementById('auth-btns');
+  if(session){
+    const {username}=JSON.parse(session);
+    el.innerHTML=`<span class="auth-user">👋 ${username}</span>
+      <button class="auth-pill outline" onclick="logout()">Log out</button>`;
+  } else {
+    el.innerHTML=`<a href="login.html" class="auth-pill outline">Log in</a>
+      <a href="signup.html" class="auth-pill solid">Sign up</a>`;
+  }
+})();
+function logout(){localStorage.removeItem('miniarcade_session');location.reload();}
+
+function onTurnstileSuccess(token){
+  sessionStorage.setItem('captcha_ok','1');
+  const gate=document.getElementById('captcha-gate');
+  gate.style.transition='opacity .4s ease';
+  gate.style.opacity='0';
+  setTimeout(()=>gate.remove(),400);
+}
+
+// ── Theme Customizer ──────────────────────────
+const THEMES = [
+  { name:'Crimson', rgb:'233,69,96',  c2:'#ff8fa3' },
+  { name:'Ocean',   rgb:'33,150,243', c2:'#80d8ff' },
+  { name:'Emerald', rgb:'34,197,94',  c2:'#86efac' },
+  { name:'Violet',  rgb:'168,85,247', c2:'#d8b4fe' },
+  { name:'Sunset',  rgb:'247,147,30', c2:'#ffd180' },
+  { name:'Teal',    rgb:'20,184,166', c2:'#5eead4' },
+];
+function applyTheme(rgb, c2, save) {
+  document.documentElement.style.setProperty('--accent-rgb', rgb);
+  document.documentElement.style.setProperty('--accent2', c2);
+  if (save) {
+    localStorage.setItem('theme_accent', JSON.stringify({ rgb, c2 }));
+    localStorage.setItem('ach_theme', '1');
+  }
+}
+function renderSwatches() {
+  const saved = JSON.parse(localStorage.getItem('theme_accent') || 'null');
+  document.getElementById('swatch-row').innerHTML = THEMES.map(t => {
+    const active = saved ? saved.rgb === t.rgb : t.name === 'Crimson';
+    return `<div class="swatch${active ? ' active' : ''}" style="background:rgb(${t.rgb})" title="${t.name}" onclick="selectTheme('${t.rgb}','${t.c2}')"></div>`;
+  }).join('');
+}
+function selectTheme(rgb, c2) {
+  applyTheme(rgb, c2, true);
+  renderSwatches();
+}
+function toggleThemePanel() {
+  document.getElementById('theme-panel').classList.toggle('open');
+}
+document.addEventListener('click', e => {
+  const panel = document.getElementById('theme-panel');
+  if (panel.classList.contains('open') && !panel.contains(e.target) && e.target.id !== 'theme-btn') {
+    panel.classList.remove('open');
+  }
+});
+(function () {
+  const saved = JSON.parse(localStorage.getItem('theme_accent') || 'null');
+  if (saved) applyTheme(saved.rgb, saved.c2, false);
+})();
+renderSwatches();
+
+// ── Daily Challenge & Streak ─────────────────
+function todayKey() {
+  const d = new Date();
+  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+}
+function dayIndex(len) {
+  const d = new Date();
+  return (d.getFullYear() * 372 + d.getMonth() * 31 + d.getDate()) % len;
+}
+function renderFeatured() {
+  const game = GAMES[dayIndex(GAMES.length)];
+  document.getElementById('featured-wrap').innerHTML = `
+    <a class="featured-banner" href="${game.url || ('games/' + game.id + '.html')}" style="--fc1:${game.c1};--fc2:${game.c2}" onclick="markDailyPlayed('${game.id}')"${game.url ? ' target="_blank" rel="noopener noreferrer"' : ''}>
+      <div class="f-emoji">${game.emoji}</div>
+      <div class="f-info">
+        <div class="f-label">🌟 Game of the Day</div>
+        <div class="f-name">${game.name}</div>
+      </div>
+      <div class="f-cta">Play Now →</div>
+    </a>`;
+}
+function markDailyPlayed(id) {
+  localStorage.setItem('ach_daily_played', '1');
+  recordPlay(id);
+}
+function updateStreak() {
+  const today = todayKey();
+  const last = localStorage.getItem('last_visit_key');
+  let streak = parseInt(localStorage.getItem('visit_streak') || '0', 10);
+  if (last !== today) {
+    const y = new Date();
+    y.setDate(y.getDate() - 1);
+    const yKey = `${y.getFullYear()}-${y.getMonth()}-${y.getDate()}`;
+    streak = (last === yKey) ? streak + 1 : 1;
+    localStorage.setItem('visit_streak', streak);
+    localStorage.setItem('last_visit_key', today);
+  }
+  if (streak > 1) {
+    const badge = document.getElementById('streak-badge');
+    badge.textContent = '🔥 ' + streak + ' day streak';
+    badge.style.display = 'flex';
+  }
+}
+renderFeatured();
+updateStreak();
+
+// ── Achievements ──────────────────────────────
+const BADGES = [
+  { emoji:'🎮', title:'First Steps',   desc:'Play your first game',              check:s=>s.played.length>=1 },
+  { emoji:'🗺️', title:'Explorer',      desc:'Play 5 different games',            check:s=>s.played.length>=5 },
+  { emoji:'🎯', title:'Variety Pack',  desc:'Play 15 different games',           check:s=>s.played.length>=15 },
+  { emoji:'🏅', title:'Game Master',   desc:'Play 30 different games',           check:s=>s.played.length>=30 },
+  { emoji:'👑', title:'Centurion',     desc:`Play all ${GAMES.length} games`,    check:s=>s.played.length>=GAMES.length },
+  { emoji:'🔥', title:'Streak Starter', desc:'Visit 2 days in a row',            check:s=>s.streak>=2 },
+  { emoji:'🔥🔥', title:'On Fire',      desc:'Visit 5 days in a row',             check:s=>s.streak>=5 },
+  { emoji:'🔥🔥🔥', title:'Unstoppable', desc:'Visit 14 days in a row',           check:s=>s.streak>=14 },
+  { emoji:'🎨', title:'Stylish',       desc:'Customize your accent color',       check:s=>s.theme },
+  { emoji:'🌟', title:'Daily Champion', desc:'Play the Game of the Day',         check:s=>s.daily },
+];
+function recordPlay(id) {
+  const played = JSON.parse(localStorage.getItem('played_games') || '[]');
+  if (!played.includes(id)) {
+    played.push(id);
+    localStorage.setItem('played_games', JSON.stringify(played));
+  }
+}
+function getAchState() {
+  return {
+    played: JSON.parse(localStorage.getItem('played_games') || '[]'),
+    streak: parseInt(localStorage.getItem('visit_streak') || '0', 10),
+    theme: !!localStorage.getItem('ach_theme'),
+    daily: !!localStorage.getItem('ach_daily_played'),
+  };
+}
+function openAchievements() {
+  const state = getAchState();
+  const unlocked = BADGES.filter(b => b.check(state)).length;
+  document.getElementById('ach-sub').textContent = `${unlocked} / ${BADGES.length} unlocked`;
+  document.getElementById('ach-list').innerHTML = BADGES.map(b => {
+    const on = b.check(state);
+    return `<div class="ach-item${on ? ' unlocked' : ''}">
+      <div class="ach-emoji">${b.emoji}</div>
+      <div class="ach-text"><div class="ach-title">${b.title}</div><div class="ach-desc">${b.desc}</div></div>
+    </div>`;
+  }).join('');
+  document.getElementById('achievements-overlay').classList.add('open');
+}
+function closeAchievements() {
+  document.getElementById('achievements-overlay').classList.remove('open');
+}
+document.getElementById('achievements-overlay').addEventListener('click', e => {
+  if (e.target.id === 'achievements-overlay') closeAchievements();
+});
+
+fetch('/api/bug-count').then(r=>r.json()).then(d=>{
+  const n=d.count||0;
+  if(!n)return;
+  [['admin-badge',n],['admin-badge-footer',n]].forEach(([id,count])=>{
+    const el=document.getElementById(id);
+    if(!el)return;
+    el.textContent=count>9?'9+':count;
+    el.style.display='flex';
+  });
+}).catch(()=>{});
+</script>
+</body>
+</html>

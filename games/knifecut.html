@@ -1,0 +1,92 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"><title>Knife Smash</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>body{background:#08080f}#c{display:block;border-radius:8px}#ui{color:#ffcc80;text-align:center;padding:8px;font-size:1.1rem;font-weight:700}</style>
+</head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Knife Smash</div>
+  <div class="game-frame">
+    <div id="ui">Knives: 10 | Score: 0</div>
+    <canvas id="c" width="400" height="500"></canvas>
+  </div>
+  <div class="game-instructions">Click or tap to throw knives. Hit the rotating log. Don't hit other knives!</div>
+</div>
+<script>
+const c=document.getElementById('c'),ctx=c.getContext('2d');
+let log,knives,flying,knivesLeft,score,state,frame;
+const CX=200,CY=200,LOG_R=70;
+
+function start(){
+  log={angle:0,speed:.02+Math.random()*.02*(Math.random()<.5?1:-1)};
+  knives=[];flying=null;knivesLeft=10;score=0;state='play';frame=0;
+}
+
+function throwKnife(){
+  if(flying||knivesLeft<=0||state!=='play')return;
+  flying={x:CX,y:440,vy:-12,angle:0};
+}
+
+c.addEventListener('click',()=>{if(state!=='play')start();else throwKnife();});
+c.addEventListener('touchstart',e=>{e.preventDefault();if(state!=='play')start();else throwKnife();},{passive:false});
+document.addEventListener('keydown',e=>{if(e.code==='Space'){e.preventDefault();if(state!=='play')start();else throwKnife();}});
+
+function loop(){
+  ctx.fillStyle='#1a0a0a';ctx.fillRect(0,0,c.width,c.height);
+
+  // Log
+  ctx.save();ctx.translate(CX,CY);ctx.rotate(log.angle);
+  const grad=ctx.createRadialGradient(0,0,0,0,0,LOG_R);
+  grad.addColorStop(0,'#8d6e63');grad.addColorStop(.7,'#6d4c41');grad.addColorStop(1,'#4e342e');
+  ctx.fillStyle=grad;ctx.beginPath();ctx.arc(0,0,LOG_R,0,Math.PI*2);ctx.fill();
+  // Wood rings
+  ctx.strokeStyle='rgba(0,0,0,.3)';ctx.lineWidth=2;
+  [40,25,10].forEach(r=>{ctx.beginPath();ctx.arc(0,0,r,0,Math.PI*2);ctx.stroke();});
+  ctx.restore();
+
+  if(state!=='play'){
+    ctx.fillStyle='rgba(0,0,0,.6)';ctx.fillRect(0,0,c.width,c.height);
+    ctx.fillStyle='#ffcc80';ctx.font='bold 32px Arial';ctx.textAlign='center';
+    ctx.fillText(state==='win'?'All Knives!':'💥 Hit a knife!',200,230);
+    ctx.fillStyle='#fff';ctx.font='18px Arial';ctx.fillText(`Score: ${score}`,200,268);ctx.fillText('Click to retry',200,300);
+    requestAnimationFrame(loop);return;
+  }
+
+  frame++;log.angle+=log.speed;
+  // Speed up
+  if(frame%200===0)log.speed*=1.1;
+
+  // Stuck knives on log
+  knives.forEach(k=>{
+    ctx.save();ctx.translate(CX,CY);ctx.rotate(log.angle+k.angle);ctx.translate(0,-LOG_R-20);
+    ctx.fillStyle='#cfd8dc';ctx.fillRect(-2,-22,4,28);ctx.fillStyle='#90a4ae';ctx.fillRect(-5,-38,10,18);
+    ctx.restore();
+  });
+
+  // Flying knife
+  if(flying){
+    flying.y+=flying.vy;flying.vy+=.4;
+    ctx.save();ctx.translate(flying.x,flying.y);
+    ctx.fillStyle='#cfd8dc';ctx.fillRect(-2,-22,4,28);ctx.fillStyle='#90a4ae';ctx.fillRect(-5,-38,10,18);
+    ctx.restore();
+    const dist=Math.hypot(flying.x-CX,flying.y-CY);
+    if(dist<=LOG_R+10){
+      // Check hit existing knife
+      const kAngle=Math.atan2(flying.x-CX,-(flying.y-CY))-log.angle;
+      let hit=false;
+      for(const k of knives){let d=Math.abs(((kAngle-k.angle+Math.PI*3)%(Math.PI*2))-Math.PI);if(d<.2){hit=true;break;}}
+      if(hit){state='over';}
+      else{knives.push({angle:kAngle});score+=10;knivesLeft--;flying=null;
+        if(knivesLeft===0)state='win';
+        log.speed*=1.05;
+      }
+    }
+    if(flying&&flying.y<-60)flying=null;
+  }
+
+  // UI knives remaining
+  for(let i=0;i<knivesLeft;i++){ctx.fillStyle='#cfd8dc';ctx.fillRect(10+i*26,458,5,28);ctx.fillStyle='#90a4ae';ctx.fillRect(7,456,11,12);}
+  document.getElementById('ui').textContent=`Knives: ${knivesLeft} | Score: ${score}`;
+  requestAnimationFrame(loop);
+}
+start();loop();
+</script></body></html>

@@ -1,0 +1,271 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"><title>Nim</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+body{background:#08080f}
+#wrap{padding:16px;text-align:center}
+#status{color:#fff;font-size:1.1rem;font-weight:700;margin:10px 0;min-height:1.4em}
+#rounds{color:#caa;font-size:.85rem;margin-bottom:10px}
+#piles{display:flex;flex-direction:column;gap:14px;align-items:center;margin:10px 0}
+.pile{display:flex;align-items:center;gap:14px;background:#16213e;border-radius:14px;padding:10px 18px;width:100%;max-width:520px;box-sizing:border-box;border:2px solid transparent;transition:border-color .15s}
+.pile.selected{border-color:#e94560}
+.pile .lbl{color:#fff;font-weight:800;font-size:1rem;min-width:64px;text-align:left}
+.tokens{display:flex;flex-wrap:wrap;gap:6px;flex:1}
+.token{width:22px;height:22px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#ffd76b,#c98a1f);box-shadow:0 2px 4px rgba(0,0,0,.4);cursor:pointer;transition:transform .1s,opacity .15s}
+.token:hover{transform:scale(1.15)}
+.token.toremove{opacity:.3;transform:scale(.8)}
+.token.cpu-removed{opacity:0;transform:scale(0)}
+.controls{display:flex;gap:10px;justify-content:center;margin-top:8px;flex-wrap:wrap}
+.btn{padding:9px 26px;background:#e94560;border:none;border-radius:20px;color:#fff;cursor:pointer;font-size:1rem;font-weight:700}
+.btn.secondary{background:#16213e;color:#fff;border:1px solid rgba(255,255,255,.15)}
+.btn:disabled{opacity:.4;cursor:default}
+#overlay{position:fixed;inset:0;background:rgba(8,8,15,.85);display:none;align-items:center;justify-content:center;z-index:50;backdrop-filter:blur(3px)}
+#overlay.show{display:flex}
+#overlay .box{background:#16213e;border-radius:16px;padding:28px 36px;text-align:center;max-width:90vw}
+#overlay h2{color:#fff;margin:0 0 8px;font-size:1.8rem}
+#overlay p{color:rgba(255,255,255,.7);margin:0 0 18px}
+#modeRow{display:flex;gap:10px;justify-content:center;margin-bottom:10px;flex-wrap:wrap}
+#modeRow button{padding:7px 16px;border-radius:20px;border:none;cursor:pointer;font-weight:600;font-size:.85rem}
+#modeRow button.active{background:#e94560;color:#fff}
+#modeRow button:not(.active){background:#16213e;color:#aaa}
+</style></head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Nim</div>
+  <div class="game-frame">
+    <div id="wrap">
+      <div id="modeRow">
+        <button class="active" id="btnMisere" onclick="setRule(true)">Misère (last move loses)</button>
+        <button id="btnNormal" onclick="setRule(false)">Normal (last move wins)</button>
+      </div>
+      <div id="rounds">Round 1 — You: 0 wins · CPU: 0 wins</div>
+      <div id="status">Your turn — tap tokens in one pile, then confirm</div>
+      <div id="piles"></div>
+      <div class="controls">
+        <button class="btn" id="confirmBtn" onclick="confirmRemoval()" disabled>Remove Selected</button>
+        <button class="btn secondary" onclick="clearSelection()">Clear</button>
+        <button class="btn secondary" onclick="newRound()">New Round</button>
+      </div>
+    </div>
+  </div>
+  <div class="game-instructions">
+    Piles of tokens sit on the table. On your turn, tap one or more tokens from a <b>single pile</b> (they highlight), then press <b>Remove Selected</b> to take them away — you must remove at least one token.
+    In <b>Misère</b> mode (default) the player forced to take the <b>last</b> token <b>loses</b>; in <b>Normal</b> mode taking the last token <b>wins</b>. The CPU calculates the optimal move using nim-sum strategy — it plays perfectly when a winning move exists!
+  </div>
+</div>
+<div id="overlay"><div class="box">
+  <h2 id="ovTitle">You Win!</h2>
+  <p id="ovText"></p>
+  <button class="btn" onclick="newRound()">Next Round</button>
+</div></div>
+<script>
+let piles, turn, over, busy, misere=true;
+let selection={pile:-1, count:0};
+let winsP=0, winsC=0, round=1;
+
+function setRule(m){
+  misere=m;
+  document.getElementById('btnMisere').className = m?'active':'';
+  document.getElementById('btnNormal').className = m?'':'active';
+  newRound();
+}
+
+function randomPiles(){
+  const n = 3 + Math.floor(Math.random()*2); // 3 or 4 piles
+  const p=[];
+  for(let i=0;i<n;i++) p.push(2+Math.floor(Math.random()*7)); // 2..8
+  return p;
+}
+
+function newRound(){
+  piles=randomPiles();
+  turn='P';
+  over=false; busy=false;
+  selection={pile:-1,count:0};
+  document.getElementById('overlay').classList.remove('show');
+  setStatus();
+  updateRounds();
+  render();
+}
+function newGame(){winsP=0;winsC=0;round=1;newRound();}
+
+function updateRounds(){
+  document.getElementById('rounds').textContent = `Round ${round} — You: ${winsP} wins · CPU: ${winsC} wins`;
+}
+
+function setStatus(msg){
+  const el=document.getElementById('status');
+  if(msg){el.textContent=msg;return;}
+  el.textContent = turn==='P' ? 'Your turn — tap tokens in one pile, then confirm' : 'CPU thinking…';
+}
+
+function totalTokens(){return piles.reduce((a,b)=>a+b,0);}
+
+function tokenClick(pileIdx, tokenIdx){
+  if(over||busy||turn!=='P')return;
+  if(selection.pile!==-1 && selection.pile!==pileIdx){
+    // switch pile selection
+    selection={pile:pileIdx,count:0};
+  }
+  if(selection.pile===-1) selection.pile=pileIdx;
+  // Toggle: if clicking within current selection range, shrink to that; else grow to include
+  const idxFromEnd = piles[pileIdx]-1-tokenIdx; // 0 = last token
+  if(idxFromEnd < selection.count){
+    selection.count = idxFromEnd; // shrink
+  } else {
+    selection.count = idxFromEnd+1; // grow to include this token
+  }
+  if(selection.count<=0){selection={pile:-1,count:0};}
+  document.getElementById('confirmBtn').disabled = !(selection.pile!==-1 && selection.count>0);
+  render();
+}
+
+function clearSelection(){
+  selection={pile:-1,count:0};
+  document.getElementById('confirmBtn').disabled=true;
+  render();
+}
+
+function confirmRemoval(){
+  if(over||busy||turn!=='P')return;
+  if(selection.pile===-1||selection.count<=0)return;
+  const p=selection.pile, n=selection.count;
+  piles[p]-=n;
+  selection={pile:-1,count:0};
+  document.getElementById('confirmBtn').disabled=true;
+  render();
+  if(checkEnd('P'))return;
+  turn='C';
+  setStatus();
+  busy=true;
+  setTimeout(cpuMove,650);
+}
+
+function checkEnd(lastMover){
+  if(totalTokens()===0){
+    over=true;
+    busy=false;
+    let playerWon;
+    if(misere){
+      // the one who took the last token loses
+      playerWon = (lastMover!=='P');
+    } else {
+      // the one who took the last token wins
+      playerWon = (lastMover==='P');
+    }
+    if(playerWon) winsP++; else winsC++;
+    round++;
+    updateRounds();
+    render();
+    const ov=document.getElementById('overlay');
+    document.getElementById('ovTitle').textContent = playerWon ? 'You Win! 🎉' : 'CPU Wins';
+    document.getElementById('ovText').textContent = playerWon
+      ? 'The CPU was forced into the losing move.'
+      : 'The CPU forced you into the losing move.';
+    ov.classList.add('show');
+    setStatus(playerWon?'You win this round!':'CPU wins this round');
+    return true;
+  }
+  return false;
+}
+
+// Optimal Nim move via nim-sum (handles both normal and misère via standard theory)
+function cpuChooseMove(){
+  const nonZero = piles.map((v,i)=>({v,i})).filter(p=>p.v>0);
+  const nimSum = piles.reduce((a,b)=>a^b,0);
+
+  if(misere){
+    const bigPiles = nonZero.filter(p=>p.v>1);
+    if(bigPiles.length<=1){
+      // Endgame: at most one pile has more than 1 token; the rest are size-1 piles.
+      // Winning strategy: leave an ODD number of size-1 piles for the opponent.
+      const onesCount = nonZero.filter(p=>p.v===1).length;
+      if(bigPiles.length===1){
+        const big=bigPiles[0];
+        if((onesCount+1) % 2 === 1){
+          return {pile:big.i, count: big.v-1}; // reduce to a 1-pile
+        } else {
+          return {pile:big.i, count: big.v}; // take the whole pile
+        }
+      } else if(nonZero.length){
+        const idx = piles.findIndex(p=>p===1);
+        return {pile:idx, count:1};
+      }
+    }
+    // Not yet in the endgame: play the normal-play winning strategy (drive nim-sum to zero)
+    if(nimSum!==0){
+      for(const {v,i} of nonZero){
+        const target = v^nimSum;
+        if(target < v) return {pile:i, count: v-target};
+      }
+    }
+    // No winning move available — make a reasonable move (don't dump a whole big pile)
+    let maxIdx=0;
+    for(let i=1;i<piles.length;i++) if(piles[i]>piles[maxIdx]) maxIdx=i;
+    if(piles[maxIdx]>1) return {pile:maxIdx,count:piles[maxIdx]-1};
+    return {pile:maxIdx,count:1};
+  } else {
+    // Normal play: move to make nim-sum zero
+    if(nimSum!==0){
+      for(let i=0;i<piles.length;i++){
+        const target = piles[i]^nimSum;
+        if(target < piles[i]){
+          return {pile:i, count: piles[i]-target};
+        }
+      }
+    }
+    // losing position — make a reasonable move (remove 1 from largest pile)
+    let maxIdx=0;
+    for(let i=1;i<piles.length;i++) if(piles[i]>piles[maxIdx]) maxIdx=i;
+    return {pile:maxIdx, count:1};
+  }
+}
+
+function cpuMove(){
+  if(over)return;
+  const move=cpuChooseMove();
+  const p=move.pile, n=Math.max(1,Math.min(move.count, piles[p]));
+  // animate: highlight tokens to be removed, then remove
+  animateCpuRemoval(p,n,()=>{
+    piles[p]-=n;
+    render();
+    if(checkEnd('C'))return;
+    turn='P';
+    busy=false;
+    setStatus();
+    render();
+  });
+}
+
+function animateCpuRemoval(pileIdx,count,done){
+  render(pileIdx,count);
+  setTimeout(done,500);
+}
+
+function render(cpuHighlightPile,cpuHighlightCount){
+  const wrap=document.getElementById('piles');
+  wrap.innerHTML='';
+  piles.forEach((count,pi)=>{
+    const row=document.createElement('div');
+    row.className='pile'+(selection.pile===pi?' selected':'');
+    const lbl=document.createElement('div');
+    lbl.className='lbl';
+    lbl.textContent=`Pile ${pi+1} (${count})`;
+    row.appendChild(lbl);
+    const tk=document.createElement('div');
+    tk.className='tokens';
+    for(let i=0;i<count;i++){
+      const t=document.createElement('div');
+      t.className='token';
+      const idxFromEnd = count-1-i;
+      if(selection.pile===pi && idxFromEnd<selection.count) t.classList.add('toremove');
+      if(cpuHighlightPile===pi && idxFromEnd<cpuHighlightCount) t.classList.add('cpu-removed');
+      t.onclick=()=>tokenClick(pi,i);
+      tk.appendChild(t);
+    }
+    row.appendChild(tk);
+    wrap.appendChild(row);
+  });
+}
+
+newGame();
+</script></body></html>

@@ -1,0 +1,257 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"><title>15 Puzzle</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+body{background:#08080f}
+#fp-wrap{display:flex;flex-direction:column;align-items:center;gap:14px;padding:14px 8px}
+#fp-stats{display:flex;gap:24px;font-size:.9rem;color:rgba(255,255,255,.6);font-weight:700}
+#fp-stats b{color:#fff}
+#fp-board{
+  display:grid;grid-template-columns:repeat(4,1fr);gap:5px;
+  background:#222;padding:6px;border-radius:10px;width:300px;height:300px;user-select:none;
+}
+.tile{
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.5rem;font-weight:800;color:#fff;background:#e94560;border-radius:8px;
+  cursor:pointer;transition:transform .12s,background .15s;position:relative;overflow:hidden;
+  background-size:400% 400%;
+}
+.tile.blank{background:transparent;cursor:default;box-shadow:none}
+.tile:active{transform:scale(.95)}
+#fp-msg{min-height:26px;font-weight:700;color:#fff;text-align:center}
+#fp-btn-row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.fp-btn{padding:10px 22px;background:#e94560;border:none;border-radius:20px;color:#fff;cursor:pointer;font-size:.95rem;font-weight:700}
+.fp-btn:hover{background:#d63a52}
+.fp-btn.secondary{background:rgba(255,255,255,.1)}
+.fp-btn.secondary:hover{background:rgba(255,255,255,.18)}
+#fp-toggle-row{display:flex;align-items:center;gap:8px;font-size:.85rem;color:rgba(255,255,255,.6);font-weight:600}
+#fp-toggle-row input{width:18px;height:18px;cursor:pointer}
+@media(max-width:480px){
+  #fp-board{width:260px;height:260px}
+  .tile{font-size:1.25rem}
+}
+</style></head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">15 Puzzle</div>
+  <div class="game-frame" style="padding:18px">
+    <div id="fp-wrap">
+      <div id="fp-stats"><span>🔢 Moves: <b id="fp-moves">0</b></span><span>⏱ <b id="fp-timer">0s</b></span></div>
+      <label id="fp-toggle-row"><input type="checkbox" id="fp-image-toggle"> Picture mode</label>
+      <div id="fp-board"></div>
+      <div id="fp-msg"></div>
+      <div id="fp-btn-row">
+        <button class="fp-btn" id="fp-shuffle">Shuffle</button>
+      </div>
+    </div>
+  </div>
+  <div class="game-instructions">
+    Slide tiles into the empty space to arrange them in numerical order from 1 to 15 (blank in the bottom-right corner). Click or tap a tile adjacent to the blank space to slide it. Toggle <b>Picture mode</b> to swap the numbers for a canvas-drawn image cut into pieces. Every shuffle is guaranteed solvable.
+  </div>
+</div>
+<script>
+const SIZE = 4;
+const TOTAL = SIZE*SIZE; // 16, last is blank (0)
+
+let tiles; // array of 16, tiles[i] = value at position i (0 = blank)
+let blankIdx;
+let moves = 0, seconds = 0, timer = null, gameOver = false, imageMode = false;
+let pieceImages = []; // data URLs for each piece 1..15
+
+function solvedTiles(){
+  const arr = [];
+  for (let i=1;i<TOTAL;i++) arr.push(i);
+  arr.push(0);
+  return arr;
+}
+
+function isSolved(){
+  for (let i=0;i<TOTAL-1;i++) if (tiles[i] !== i+1) return false;
+  return tiles[TOTAL-1] === 0;
+}
+
+// Count inversions (ignoring blank) to determine solvability.
+function countInversions(arr){
+  const nums = arr.filter(x => x !== 0);
+  let inv = 0;
+  for (let i=0;i<nums.length;i++)
+    for (let j=i+1;j<nums.length;j++)
+      if (nums[i] > nums[j]) inv++;
+  return inv;
+}
+
+// For a 4x4 (even width) board: solvable if (inversions + blank row from bottom) is even.
+function isSolvable(arr){
+  const inv = countInversions(arr);
+  const blankPos = arr.indexOf(0);
+  const blankRowFromBottom = SIZE - Math.floor(blankPos / SIZE); // 1-indexed from bottom
+  return (inv + blankRowFromBottom) % 2 === 1;
+}
+
+function randomPermutation(){
+  const arr = [];
+  for (let i=0;i<TOTAL;i++) arr.push(i); // 0..15, 0 = blank
+  for (let i=arr.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [arr[i],arr[j]] = [arr[j],arr[i]];
+  }
+  return arr;
+}
+
+function generateSolvableShuffle(){
+  let arr;
+  do {
+    arr = randomPermutation();
+  } while (!isSolvable(arr) || isAlreadySolved(arr));
+  return arr;
+}
+
+function isAlreadySolved(arr){
+  for (let i=0;i<TOTAL-1;i++) if (arr[i] !== i+1) return false;
+  return arr[TOTAL-1] === 0;
+}
+
+function setMsg(t, color){
+  const el = document.getElementById('fp-msg');
+  el.textContent = t;
+  el.style.color = color || '#fff';
+}
+
+function startTimer(){
+  clearInterval(timer);
+  seconds = 0;
+  document.getElementById('fp-timer').textContent = '0s';
+  timer = setInterval(() => {
+    seconds++;
+    document.getElementById('fp-timer').textContent = seconds + 's';
+  }, 1000);
+}
+
+function generatePieceImages(){
+  pieceImages = [];
+  // Draw a single source image on an offscreen canvas, then slice into 15 pieces (skip piece 16/blank)
+  const srcSize = 320;
+  const src = document.createElement('canvas');
+  src.width = srcSize; src.height = srcSize;
+  const sctx = src.getContext('2d');
+  // Pleasant gradient + pattern background
+  const grad = sctx.createLinearGradient(0,0,srcSize,srcSize);
+  grad.addColorStop(0,'#e94560');
+  grad.addColorStop(0.5,'#5e3aee');
+  grad.addColorStop(1,'#08080f');
+  sctx.fillStyle = grad;
+  sctx.fillRect(0,0,srcSize,srcSize);
+  // overlay circles pattern
+  sctx.globalAlpha = .25;
+  for (let i=0;i<10;i++){
+    sctx.beginPath();
+    sctx.fillStyle = i % 2 === 0 ? '#ffffff' : '#000000';
+    const r = 18 + (i*9)%40;
+    sctx.arc((i*47)%srcSize, (i*83)%srcSize, r, 0, Math.PI*2);
+    sctx.fill();
+  }
+  sctx.globalAlpha = 1;
+  // grid lines + numbers as visual guide baked into source
+  sctx.strokeStyle = 'rgba(255,255,255,.35)';
+  sctx.lineWidth = 2;
+  const cell = srcSize / SIZE;
+  for (let i=1;i<SIZE;i++){
+    sctx.beginPath(); sctx.moveTo(i*cell,0); sctx.lineTo(i*cell,srcSize); sctx.stroke();
+    sctx.beginPath(); sctx.moveTo(0,i*cell); sctx.lineTo(srcSize,i*cell); sctx.stroke();
+  }
+  sctx.fillStyle='rgba(255,255,255,.5)';
+  sctx.font = 'bold 22px sans-serif';
+  sctx.textAlign='center'; sctx.textBaseline='middle';
+  sctx.fillText('★', srcSize/2, srcSize/2);
+
+  // Slice into TOTAL-1 pieces (1..15), each piece keeps its "home" position crop
+  for (let v=1; v<TOTAL; v++){
+    const r = Math.floor((v-1)/SIZE), c = (v-1)%SIZE;
+    const pc = document.createElement('canvas');
+    pc.width = cell; pc.height = cell;
+    const pctx = pc.getContext('2d');
+    pctx.drawImage(src, c*cell, r*cell, cell, cell, 0, 0, cell, cell);
+    pieceImages[v] = pc.toDataURL();
+  }
+}
+
+function render(){
+  const board = document.getElementById('fp-board');
+  board.innerHTML = '';
+  for (let i=0;i<TOTAL;i++){
+    const val = tiles[i];
+    const div = document.createElement('div');
+    if (val === 0){
+      div.className = 'tile blank';
+    } else {
+      div.className = 'tile';
+      if (imageMode && pieceImages[val]){
+        div.style.backgroundImage = `url(${pieceImages[val]})`;
+        div.style.backgroundSize = 'cover';
+        div.textContent = '';
+      } else {
+        div.style.backgroundImage = '';
+        div.style.background = '#e94560';
+        div.textContent = val;
+      }
+      const idx = i;
+      div.addEventListener('click', () => tryMove(idx));
+      div.addEventListener('touchend', e => { e.preventDefault(); tryMove(idx); });
+    }
+    board.appendChild(div);
+  }
+}
+
+function tryMove(idx){
+  if (gameOver) return;
+  const r = Math.floor(idx / SIZE), c = idx % SIZE;
+  const br = Math.floor(blankIdx / SIZE), bc = blankIdx % SIZE;
+  const adjacent = (Math.abs(r-br) + Math.abs(c-bc)) === 1;
+  if (!adjacent) return;
+  [tiles[idx], tiles[blankIdx]] = [tiles[blankIdx], tiles[idx]];
+  blankIdx = idx;
+  moves++;
+  document.getElementById('fp-moves').textContent = moves;
+  render();
+  if (isSolved()){
+    gameOver = true;
+    clearInterval(timer);
+    setMsg(`🎉 Solved in ${moves} moves and ${seconds}s!`, '#538d4e');
+  }
+}
+
+function shuffleBoard(){
+  tiles = generateSolvableShuffle();
+  blankIdx = tiles.indexOf(0);
+  moves = 0;
+  gameOver = false;
+  document.getElementById('fp-moves').textContent = '0';
+  setMsg('');
+  startTimer();
+  render();
+}
+
+document.getElementById('fp-shuffle').addEventListener('click', shuffleBoard);
+document.getElementById('fp-image-toggle').addEventListener('change', e => {
+  imageMode = e.target.checked;
+  if (imageMode && pieceImages.length === 0) generatePieceImages();
+  render();
+});
+
+// keyboard support: arrow keys move the tile into the blank from that direction
+document.addEventListener('keydown', e => {
+  if (gameOver) return;
+  const br = Math.floor(blankIdx / SIZE), bc = blankIdx % SIZE;
+  let r = br, c = bc;
+  if (e.key === 'ArrowUp') r = br + 1;        // tile below blank moves up
+  else if (e.key === 'ArrowDown') r = br - 1; // tile above blank moves down
+  else if (e.key === 'ArrowLeft') c = bc + 1; // tile to the right moves left
+  else if (e.key === 'ArrowRight') c = bc - 1;// tile to the left moves right
+  else return;
+  if (r < 0 || r >= SIZE || c < 0 || c >= SIZE) return;
+  e.preventDefault();
+  tryMove(r*SIZE + c);
+});
+
+shuffleBoard();
+</script>
+</body></html>

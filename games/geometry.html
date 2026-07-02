@@ -1,0 +1,360 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"><title>Geo Dash</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>body{background:#08080f}#c{display:block;border-radius:8px}</style>
+</head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Geo Dash</div>
+  <div class="game-frame"><canvas id="c" width="480" height="380"></canvas></div>
+  <div class="game-instructions">Press <b>Space</b>, click, or tap the canvas to jump. Land on platforms, dodge the spikes!</div>
+</div>
+<script>
+const c=document.getElementById('c'),ctx=c.getContext('2d');
+const W=480,H=380,GND=H-60,CUBE=28;
+
+// ── State ──────────────────────────────────────────────
+let state='idle',score=0,hi=+(localStorage.getItem('geo_hi')||0),frame=0,speed=4;
+let cube={x:80,y:GND-CUBE,vy:0,rot:0,dead:false,jumped:false};
+let obstacles=[],platforms=[],particles=[];
+const GRAV=0.55,JUMP=-11.5;
+
+// ── Colour palette ────────────────────────────────────
+const COLORS=['#e94560','#5e72eb','#00d2c6','#f7c948','#a855f7','#22c55e'];
+let cubeColor='#e94560';
+
+// ── Background stars ──────────────────────────────────
+const stars=Array.from({length:60},()=>({
+  x:Math.random()*W,y:Math.random()*(H-60),
+  r:Math.random()*1.4+0.3,a:Math.random()
+}));
+
+function reset(){
+  score=0;frame=0;speed=4;
+  cube={x:80,y:GND-CUBE,vy:0,rot:0,dead:false,jumped:false};
+  cubeColor=COLORS[Math.floor(Math.random()*COLORS.length)];
+  obstacles=[];platforms=[];particles=[];
+  state='play';
+}
+
+function jump(){
+  if(state==='idle'||state==='dead'){reset();return;}
+  if(cube.y>=GND-CUBE-2){cube.vy=JUMP;cube.jumped=true;}
+}
+
+document.addEventListener('keydown',e=>{if(e.code==='Space'){e.preventDefault();jump();}});
+c.addEventListener('click',jump);
+c.addEventListener('touchstart',e=>{e.preventDefault();jump();},{passive:false});
+
+// ── Obstacle patterns ─────────────────────────────────
+// Each pattern: array of {type, ox, oy} relative to spawn x
+// type: 'spike' | 'platform' (platform just blocks) | 'spike_tall'
+const PATTERNS=[
+  // single spike
+  [{type:'spike',ox:0,oy:0}],
+  // double spike
+  [{type:'spike',ox:0,oy:0},{type:'spike',ox:36,oy:0}],
+  // triple spike
+  [{type:'spike',ox:0,oy:0},{type:'spike',ox:36,oy:0},{type:'spike',ox:72,oy:0}],
+  // tall spike
+  [{type:'spike_tall',ox:0,oy:0}],
+  // tall + spike
+  [{type:'spike_tall',ox:0,oy:0},{type:'spike',ox:50,oy:0}],
+  // platform above ground + spike after
+  [{type:'platform',ox:0,oy:-70,pw:80,ph:14},{type:'spike',ox:100,oy:0}],
+  // double platform staircase
+  [{type:'platform',ox:0,oy:-60,pw:60,ph:14},{type:'platform',ox:80,oy:-110,pw:60,ph:14}],
+  // floating spike on platform
+  [{type:'platform',ox:0,oy:-80,pw:100,ph:14},{type:'spike',ox:30,oy:-80,sOnPlat:true}],
+  // gap hint — just a spike in the middle
+  [{type:'spike',ox:0,oy:0},{type:'spike',ox:100,oy:0}],
+];
+
+function spawnPattern(){
+  const pat=PATTERNS[Math.floor(Math.random()*PATTERNS.length)];
+  const baseX=W+20;
+  pat.forEach(item=>{
+    if(item.type==='spike'||item.type==='spike_tall'){
+      const tall=item.type==='spike_tall';
+      obstacles.push({x:baseX+item.ox,y:GND,tall,scored:false,color:COLORS[Math.floor(Math.random()*COLORS.length)]});
+    } else if(item.type==='platform'){
+      platforms.push({x:baseX+item.ox,y:GND+item.oy,w:item.pw,h:item.ph,scored:false});
+      // spike on platform?
+      if(item.sOnPlat){
+        obstacles.push({x:baseX+item.ox+30,y:GND+item.oy,tall:false,scored:false,onPlatform:true,
+          color:COLORS[Math.floor(Math.random()*COLORS.length)]});
+      }
+    }
+  });
+}
+
+// ── Collision helpers ─────────────────────────────────
+function spikeVerts(sp){
+  const h=sp.tall?60:32,bw=sp.tall?30:28;
+  const bx=sp.x-bw/2,by=sp.y-(sp.onPlatform?sp.y:sp.y); // anchor at ground or platform top
+  // re-derive y
+  let baseY=sp.y; // GND for normal
+  // We'll use spike tip y as baseY-h, base corners baseY
+  return {tip:{x:sp.x,y:baseY-h},l:{x:sp.x-bw/2,y:baseY},r:{x:sp.x+bw/2,y:baseY},h,bw};
+}
+
+function pointInTriangle(px,py,ax,ay,bx,by,cx,cy){
+  const d1=(px-bx)*(ay-by)-(ax-bx)*(py-by);
+  const d2=(px-cx)*(by-cy)-(bx-cx)*(py-cy);
+  const d3=(px-ax)*(cy-ay)-(cx-ax)*(py-ay);
+  const hasN=(d1<0)||(d2<0)||(d3<0),hasP=(d1>0)||(d2>0)||(d3>0);
+  return !(hasN&&hasP);
+}
+
+function cubeHitsSpike(sp){
+  const v=spikeVerts(sp);
+  // test cube corners against triangle
+  const cx0=cube.x,cy0=cube.y;
+  const corners=[[cx0,cy0],[cx0+CUBE,cy0],[cx0,cy0+CUBE],[cx0+CUBE,cy0+CUBE]];
+  for(const [px,py] of corners){
+    if(pointInTriangle(px,py,v.tip.x,v.tip.y,v.l.x,v.l.y,v.r.x,v.r.y))return true;
+  }
+  // also test spike tip inside cube AABB
+  if(v.tip.x>cx0&&v.tip.x<cx0+CUBE&&v.tip.y>cy0&&v.tip.y<cy0+CUBE)return true;
+  return false;
+}
+
+function cubeOnPlatform(plat){
+  const cl=cube.x+4,cr=cube.x+CUBE-4;
+  const cb=cube.y+CUBE;
+  const pl=plat.x,pr=plat.x+plat.w,pt=plat.y;
+  return cr>pl&&cl<pr&&cb>=pt-2&&cb<=pt+speed+4&&cube.vy>=0;
+}
+
+// ── Particles ─────────────────────────────────────────
+function burst(x,y,col){
+  for(let i=0;i<18;i++){
+    const a=Math.random()*Math.PI*2,sp=2+Math.random()*5;
+    particles.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:1,col});
+  }
+}
+
+// ── Drawing ───────────────────────────────────────────
+function drawBG(){
+  // gradient sky
+  const sky=ctx.createLinearGradient(0,0,0,H);
+  sky.addColorStop(0,'#0a0a1a');sky.addColorStop(1,'#12082a');
+  ctx.fillStyle=sky;ctx.fillRect(0,0,W,H);
+  // stars
+  stars.forEach(s=>{
+    s.a+=0.008;
+    ctx.globalAlpha=0.4+0.3*Math.sin(s.a);
+    ctx.fillStyle='#fff';
+    ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);ctx.fill();
+  });
+  ctx.globalAlpha=1;
+  // ground
+  const ggrad=ctx.createLinearGradient(0,GND,0,H);
+  ggrad.addColorStop(0,'#1e1040');ggrad.addColorStop(1,'#0d0820');
+  ctx.fillStyle=ggrad;ctx.fillRect(0,GND,W,H-GND);
+  // ground line glow
+  ctx.strokeStyle='#5e72eb';ctx.lineWidth=2;ctx.shadowBlur=8;ctx.shadowColor='#5e72eb';
+  ctx.beginPath();ctx.moveTo(0,GND);ctx.lineTo(W,GND);ctx.stroke();
+  ctx.shadowBlur=0;
+  // ground grid lines
+  ctx.strokeStyle='rgba(94,114,235,0.15)';ctx.lineWidth=1;
+  const off=(frame*speed)%40;
+  for(let x=W-off;x>-40;x-=40){
+    ctx.beginPath();ctx.moveTo(x,GND);ctx.lineTo(x,H);ctx.stroke();
+  }
+}
+
+function drawCube(){
+  const cx=cube.x+CUBE/2,cy=cube.y+CUBE/2;
+  ctx.save();
+  ctx.translate(cx,cy);
+  ctx.rotate(cube.rot*Math.PI/180);
+  // shadow
+  ctx.fillStyle='rgba(0,0,0,0.25)';
+  ctx.fillRect(-CUBE/2+2,CUBE/2-4,CUBE,6);
+  // body
+  ctx.fillStyle=cubeColor;
+  ctx.shadowBlur=16;ctx.shadowColor=cubeColor;
+  ctx.fillRect(-CUBE/2,-CUBE/2,CUBE,CUBE);
+  ctx.shadowBlur=0;
+  // inner face shine
+  ctx.fillStyle='rgba(255,255,255,0.18)';
+  ctx.fillRect(-CUBE/2+3,-CUBE/2+3,CUBE/2,CUBE/2);
+  // border
+  ctx.strokeStyle='rgba(255,255,255,0.4)';ctx.lineWidth=1.5;
+  ctx.strokeRect(-CUBE/2,-CUBE/2,CUBE,CUBE);
+  // eye
+  ctx.fillStyle='rgba(255,255,255,0.85)';
+  ctx.beginPath();ctx.arc(4,-4,5,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#111';
+  ctx.beginPath();ctx.arc(5,-4,2.5,0,Math.PI*2);ctx.fill();
+  ctx.restore();
+}
+
+function drawSpike(sp){
+  const v=spikeVerts(sp);
+  ctx.save();
+  ctx.shadowBlur=10;ctx.shadowColor=sp.color;
+  ctx.fillStyle=sp.color;
+  ctx.beginPath();
+  ctx.moveTo(v.tip.x,v.tip.y);
+  ctx.lineTo(v.l.x,v.l.y);
+  ctx.lineTo(v.r.x,v.r.y);
+  ctx.closePath();ctx.fill();
+  // highlight
+  ctx.fillStyle='rgba(255,255,255,0.25)';
+  ctx.beginPath();
+  ctx.moveTo(v.tip.x,v.tip.y);
+  ctx.lineTo(v.l.x,v.l.y);
+  ctx.lineTo(v.tip.x-4,v.tip.y+v.h*0.5);
+  ctx.closePath();ctx.fill();
+  ctx.shadowBlur=0;
+  ctx.restore();
+}
+
+function drawPlatform(plat){
+  ctx.save();
+  const g=ctx.createLinearGradient(plat.x,plat.y,plat.x,plat.y+plat.h);
+  g.addColorStop(0,'#5e72eb');g.addColorStop(1,'#3b4db8');
+  ctx.fillStyle=g;
+  ctx.shadowBlur=8;ctx.shadowColor='#5e72eb';
+  ctx.fillRect(plat.x,plat.y,plat.w,plat.h);
+  ctx.fillStyle='rgba(255,255,255,0.15)';
+  ctx.fillRect(plat.x,plat.y,plat.w,4);
+  ctx.shadowBlur=0;
+  ctx.restore();
+}
+
+function drawParticles(){
+  particles.forEach(p=>{
+    ctx.globalAlpha=p.life;
+    ctx.fillStyle=p.col;
+    ctx.beginPath();ctx.arc(p.x,p.y,4*p.life,0,Math.PI*2);ctx.fill();
+  });
+  ctx.globalAlpha=1;
+}
+
+function drawHUD(){
+  ctx.fillStyle='rgba(255,255,255,0.85)';
+  ctx.font='bold 22px Arial';ctx.textAlign='left';
+  ctx.fillText(score,14,32);
+  ctx.font='13px Arial';ctx.fillStyle='rgba(255,255,255,0.4)';
+  ctx.fillText('BEST '+hi,14,50);
+}
+
+function drawOverlay(title,sub1,sub2){
+  ctx.fillStyle='rgba(0,0,0,0.6)';
+  ctx.fillRect(80,120,320,140);
+  ctx.strokeStyle='rgba(94,114,235,0.5)';ctx.lineWidth=1.5;
+  ctx.strokeRect(80,120,320,140);
+  ctx.fillStyle='#fff';ctx.font='bold 32px Arial';ctx.textAlign='center';
+  ctx.fillText(title,W/2,168);
+  ctx.font='16px Arial';ctx.fillStyle='rgba(255,255,255,0.75)';
+  ctx.fillText(sub1,W/2,200);
+  ctx.font='14px Arial';ctx.fillStyle='rgba(255,255,255,0.5)';
+  ctx.fillText(sub2,W/2,228);
+}
+
+// ── Main loop ─────────────────────────────────────────
+function loop(){
+  drawBG();
+
+  if(state==='idle'){
+    drawCube();
+    drawOverlay('GEO DASH','Dodge the spikes!','Space / Tap to start');
+    requestAnimationFrame(loop);return;
+  }
+
+  if(state==='dead'){
+    platforms.forEach(drawPlatform);
+    obstacles.forEach(drawSpike);
+    drawParticles();
+    drawCube();
+    drawHUD();
+    drawOverlay('DEAD','Score: '+score+'   Best: '+hi,'Tap or Space to retry');
+    requestAnimationFrame(loop);return;
+  }
+
+  frame++;
+  // speed ramp
+  speed=4+Math.floor(score/5)*0.4;
+
+  // physics
+  cube.vy+=GRAV;
+  cube.y+=cube.vy;
+
+  // platform collision
+  let onPlat=false;
+  platforms.forEach(plat=>{
+    if(cubeOnPlatform(plat)){
+      cube.y=plat.y-CUBE;
+      cube.vy=0;
+      onPlat=true;
+    }
+  });
+
+  // ground
+  if(cube.y+CUBE>=GND){
+    cube.y=GND-CUBE;
+    cube.vy=0;
+    onPlat=true;
+  }
+
+  // ceiling death
+  if(cube.y<0){state='dead';burst(cube.x+CUBE/2,cube.y,cubeColor);}
+
+  // rotation
+  if(onPlat){
+    cube.rot=Math.round(cube.rot/90)*90; // snap to 90°
+  } else {
+    cube.rot+=speed*1.8;
+  }
+
+  // spawn pattern every ~90 frames (adjusted by speed)
+  const spawnInterval=Math.max(55,90-score*2);
+  if(frame%spawnInterval===0)spawnPattern();
+
+  // move & cull obstacles
+  obstacles=obstacles.filter(sp=>{
+    sp.x-=speed;
+    if(!sp.scored&&sp.x+20<cube.x){sp.scored=true;score++;if(score>hi){hi=score;localStorage.setItem('geo_hi',hi);}}
+    return sp.x>-60;
+  });
+  platforms=platforms.filter(plat=>{
+    plat.x-=speed;
+    return plat.x>-200;
+  });
+
+  // update particles
+  particles=particles.filter(p=>{
+    p.x+=p.vx;p.y+=p.vy;p.vy+=0.1;p.life-=0.04;return p.life>0;
+  });
+
+  // collision check
+  obstacles.forEach(sp=>{
+    if(cubeHitsSpike(sp)&&state!=='dead'){
+      state='dead';
+      burst(cube.x+CUBE/2,cube.y+CUBE/2,cubeColor);
+      burst(cube.x+CUBE/2,cube.y+CUBE/2,sp.color);
+    }
+  });
+
+  // draw
+  platforms.forEach(drawPlatform);
+  obstacles.forEach(drawSpike);
+  drawParticles();
+  if(state!=='dead')drawCube();
+  drawHUD();
+
+  // speed indicator bar
+  const pct=Math.min((speed-4)/8,1);
+  ctx.fillStyle='rgba(255,255,255,0.1)';ctx.fillRect(W-100,H-28,90,8);
+  const barG=ctx.createLinearGradient(W-100,0,W-10,0);
+  barG.addColorStop(0,'#22c55e');barG.addColorStop(0.6,'#f7c948');barG.addColorStop(1,'#e94560');
+  ctx.fillStyle=barG;ctx.fillRect(W-100,H-28,90*pct,8);
+  ctx.fillStyle='rgba(255,255,255,0.3)';ctx.font='10px Arial';ctx.textAlign='right';
+  ctx.fillText('SPEED',W-10,H-14);
+
+  requestAnimationFrame(loop);
+}
+loop();
+</script></body></html>

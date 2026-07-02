@@ -1,0 +1,84 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"><title>Cannon Ball</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>body{background:#08080f}#c{display:block;border-radius:8px;margin:0 auto}#ui{color:#ff8a80;text-align:center;padding:8px;font-size:1.1rem;font-weight:700}</style>
+</head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Cannon Ball</div>
+  <div class="game-frame" style="padding:10px">
+    <div id="ui">Score: 0 | Shots: 5</div>
+    <canvas id="c" width="600" height="400"></canvas>
+  </div>
+  <div class="game-instructions">Move mouse to aim, click to fire! Hit as many targets as possible with 5 shots.</div>
+</div>
+<script>
+const c=document.getElementById('c'),ctx=c.getContext('2d');
+let cannon,balls,targets,score,shotsLeft,state,angle,frame;
+
+function start(){
+  cannon={x:50,y:330,r:18};
+  balls=[];score=0;shotsLeft=5;state='aim';
+  targets=Array.from({length:8},()=>({x:300+Math.random()*260,y:50+Math.random()*280,r:16+Math.random()*12,hp:1,vx:(Math.random()-.5)*2.5,vy:(Math.random()-.5)*.5,color:`hsl(${Math.random()*360},70%,55%)`}));
+  angle=-Math.PI/4;frame=0;
+}
+
+c.addEventListener('mousemove',e=>{const rect=c.getBoundingClientRect();const mx=(e.clientX-rect.left)*600/rect.width,my=(e.clientY-rect.top)*400/rect.height;angle=Math.atan2(my-cannon.y,mx-cannon.x);});
+c.addEventListener('click',e=>{
+  if(state==='over'){start();return;}
+  if(state==='aim'&&shotsLeft>0){
+    const spd=16;balls.push({x:cannon.x+Math.cos(angle)*cannon.r,y:cannon.y+Math.sin(angle)*cannon.r,vx:Math.cos(angle)*spd,vy:Math.sin(angle)*spd,r:9,trail:[]});
+    shotsLeft--;if(shotsLeft===0)setTimeout(()=>state='over',3000);
+  }
+});
+c.addEventListener('touchstart',e=>{e.preventDefault();c.click();},{passive:false});
+c.addEventListener('touchmove',e=>{e.preventDefault();const rect=c.getBoundingClientRect();const mx=(e.touches[0].clientX-rect.left)*600/rect.width,my=(e.touches[0].clientY-rect.top)*400/rect.height;angle=Math.atan2(my-cannon.y,mx-cannon.x);},{passive:false});
+
+function loop(){
+  // Sky gradient
+  const sky=ctx.createLinearGradient(0,0,0,400);sky.addColorStop(0,'#1a237e');sky.addColorStop(1,'#283593');
+  ctx.fillStyle=sky;ctx.fillRect(0,0,600,400);
+  // Ground
+  ctx.fillStyle='#5d4037';ctx.fillRect(0,360,600,40);ctx.fillStyle='#388e3c';ctx.fillRect(0,358,600,6);
+
+  frame++;
+  targets.forEach(t=>{t.x+=t.vx;t.y+=t.vy;if(t.x<200||t.x>580){t.vx*=-1;}if(t.y<20||t.y>340){t.vy*=-1;}
+    ctx.fillStyle=t.color;ctx.beginPath();ctx.arc(t.x,t.y,t.r,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle='rgba(255,255,255,.3)';ctx.lineWidth=2;ctx.stroke();
+    ctx.fillStyle='rgba(255,255,255,.3)';ctx.beginPath();ctx.arc(t.x-t.r*.3,t.y-t.r*.3,t.r*.35,0,Math.PI*2);ctx.fill();
+  });
+
+  balls.forEach(b=>{
+    b.trail.push({x:b.x,y:b.y});if(b.trail.length>10)b.trail.shift();
+    b.vy+=0.3;b.x+=b.vx;b.y+=b.vy;
+    b.trail.forEach((pt,i)=>{ctx.fillStyle=`rgba(255,100,0,${i/b.trail.length*.4})`;ctx.beginPath();ctx.arc(pt.x,pt.y,b.r*(i/b.trail.length),0,Math.PI*2);ctx.fill();});
+    ctx.fillStyle='#555';ctx.beginPath();ctx.arc(b.x,b.y,b.r,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#888';ctx.beginPath();ctx.arc(b.x-b.r*.3,b.y-b.r*.3,b.r*.4,0,Math.PI*2);ctx.fill();
+    // Hit
+    targets=targets.filter(t=>{if(Math.hypot(b.x-t.x,b.y-t.y)<b.r+t.r){score+=10;b.vx*=.3;b.vy*=-.5;return false;}return true;});
+    if(b.y>370){b.vy*=-.5;b.y=370;}if(b.x<0||b.x>600)b.vx*=-1;
+  });
+  balls=balls.filter(b=>!(b.y>375&&Math.abs(b.vy)<1));
+
+  // Cannon
+  ctx.fillStyle='#455a64';ctx.save();ctx.translate(cannon.x,cannon.y);ctx.rotate(angle);
+  ctx.fillRect(0,-12,50,24);ctx.restore();
+  ctx.fillStyle='#263238';ctx.beginPath();ctx.arc(cannon.x,cannon.y,cannon.r,0,Math.PI*2);ctx.fill();
+
+  // Aim guide
+  ctx.strokeStyle='rgba(255,255,0,.2)';ctx.setLineDash([8,8]);ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(cannon.x+Math.cos(angle)*30,cannon.y+Math.sin(angle)*30);ctx.lineTo(cannon.x+Math.cos(angle)*150,cannon.y+Math.sin(angle)*150);ctx.stroke();ctx.setLineDash([]);
+
+  // Shots
+  for(let i=0;i<shotsLeft;i++){ctx.fillStyle='#555';ctx.beginPath();ctx.arc(20+i*22,385,8,0,Math.PI*2);ctx.fill();}
+
+  if(state==='over'){
+    ctx.fillStyle='rgba(0,0,0,.6)';ctx.fillRect(0,0,600,400);
+    ctx.fillStyle='#ff8a80';ctx.font='bold 34px Arial';ctx.textAlign='center';ctx.fillText(`Score: ${score}`,300,180);
+    ctx.fillStyle='#fff';ctx.font='18px Arial';ctx.fillText(`Hit ${(8-targets.length)} targets`,300,218);ctx.fillText('Click to retry',300,254);
+  }
+
+  document.getElementById('ui').textContent=`Score: ${score} | Shots: ${shotsLeft}`;
+  requestAnimationFrame(loop);
+}
+start();loop();
+</script></body></html>

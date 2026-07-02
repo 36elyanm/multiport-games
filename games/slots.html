@@ -1,0 +1,79 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"><title>Lucky Slots</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+body{background:#08080f}
+#machine{background:#16213e;border-radius:20px;padding:24px;max-width:380px;margin:0 auto;text-align:center;border:3px solid #6a1b9a}
+#reels{display:flex;gap:12px;justify-content:center;margin:16px 0}
+.reel{width:90px;height:100px;background:#0d0d2e;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:3.5rem;border:2px solid #7b1fa2;overflow:hidden;transition:transform .1s}
+.reel.spinning{animation:spin .1s linear infinite}
+@keyframes spin{0%{transform:translateY(-10px)}50%{transform:translateY(10px)}100%{transform:translateY(-10px)}}
+#credits{font-size:1.4rem;font-weight:900;color:#ffeb3b}
+#msg{font-size:1.1rem;font-weight:700;min-height:28px;color:#ce93d8;margin:8px 0}
+#spin-btn{padding:14px 40px;font-size:1.2rem;background:#7b1fa2;border:none;border-radius:30px;color:#fff;cursor:pointer;margin:8px 4px;transition:background .2s}
+#spin-btn:hover{background:#9c27b0}
+#spin-btn:disabled{opacity:.5;cursor:not-allowed}
+.bet-row{display:flex;gap:8px;justify-content:center;margin:6px 0}
+.bet-btn{padding:6px 14px;background:#1a1a2e;border:2px solid #7b1fa2;border-radius:20px;color:#ce93d8;cursor:pointer;font-size:.9rem}
+.bet-btn.active{background:#7b1fa2;color:#fff}
+</style></head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Lucky Slots</div>
+  <div class="game-frame" style="padding:16px">
+    <div id="machine">
+      <div>Credits: <span id="credits">100</span></div>
+      <div id="reels">
+        <div class="reel" id="r0">🍒</div>
+        <div class="reel" id="r1">🍋</div>
+        <div class="reel" id="r2">🍇</div>
+      </div>
+      <div id="msg">Good luck!</div>
+      <div class="bet-row">
+        <button class="bet-btn active" id="b1" onclick="setBet(1)">Bet 1</button>
+        <button class="bet-btn" id="b5" onclick="setBet(5)">Bet 5</button>
+        <button class="bet-btn" id="b10" onclick="setBet(10)">Bet 10</button>
+      </div>
+      <button id="spin-btn" onclick="spin()">🎰 SPIN</button>
+    </div>
+  </div>
+  <div class="game-instructions">Choose your bet and spin! Match 3 symbols to win big!</div>
+</div>
+<script>
+const SYMS=['🍒','🍋','🍇','🍊','⭐','💎','7️⃣'];
+const PAYS={'🍒🍒🍒':10,'🍋🍋🍋':15,'🍇🍇🍇':20,'🍊🍊🍊':25,'⭐⭐⭐':50,'💎💎💎':100,'7️⃣7️⃣7️⃣':250};
+let credits=100,bet=1,spinning=false;
+
+function setBet(b){bet=b;document.querySelectorAll('.bet-btn').forEach(btn=>btn.classList.remove('active'));document.getElementById('b'+b).classList.add('active');}
+
+function spin(){
+  if(spinning||credits<bet)return;
+  credits-=bet;updateUI();spinning=true;
+  document.getElementById('spin-btn').disabled=true;
+  document.getElementById('msg').textContent='Spinning…';
+
+  const reels=[0,1,2].map(i=>document.getElementById('r'+i));
+  reels.forEach(r=>r.classList.add('spinning'));
+  const results=[];
+  // Stop reels one by one
+  [600,900,1200].forEach((delay,i)=>{
+    setTimeout(()=>{
+      const sym=SYMS[Math.floor(Math.random()*SYMS.length)];results.push(sym);
+      reels[i].textContent=sym;reels[i].classList.remove('spinning');
+      if(i===2){
+        spinning=false;document.getElementById('spin-btn').disabled=false;
+        const key=results.join('');const pay=PAYS[key]||0;
+        // Two matching
+        let twoMatch=0;
+        if(results[0]===results[1]||results[1]===results[2]||results[0]===results[2])twoMatch=bet;
+        const win=(pay?pay*bet:0)+twoMatch;
+        credits+=win;
+        if(win>0){document.getElementById('msg').textContent=pay?`🎉 JACKPOT! +${win} credits!`:`Pair! +${win} credits`;}
+        else document.getElementById('msg').textContent='No win. Try again!';
+        if(credits<=0){credits=0;document.getElementById('msg').textContent='Game over! Refreshing…';setTimeout(()=>{credits=100;updateUI();},2000);}
+        updateUI();
+      }
+    },delay);
+  });
+}
+function updateUI(){document.getElementById('credits').textContent=credits;}
+</script></body></html>

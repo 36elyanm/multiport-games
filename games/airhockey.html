@@ -1,0 +1,298 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"><title>Air Hockey</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>body{background:#08080f}#c{display:block;border-radius:8px;touch-action:none}</style>
+</head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Air Hockey</div>
+  <div class="game-frame"><canvas id="c" width="480" height="700"></canvas></div>
+  <div class="game-instructions">Drag your <b>mallet</b> (bottom half) with mouse or touch to hit the puck into the CPU's goal at the top. Defend your own goal at the bottom. First to <b>7</b> goals wins!</div>
+</div>
+<script>
+const c=document.getElementById('c'),ctx=c.getContext('2d');
+const W=c.width,H=c.height;
+const MID=H/2;
+const GOAL_W=140;
+const MALLET_R=30;
+const PUCK_R=16;
+const FRICTION=0.992;
+const WIN_SCORE=7;
+
+let playerScore=0,cpuScore=0,state='idle';
+
+let player={x:W/2,y:H-90,vx:0,vy:0,px:W/2,py:H-90};
+let cpu={x:W/2,y:90,vx:0,vy:0};
+let puck={x:W/2,y:MID,vx:0,vy:0};
+
+function resetPuck(dir){
+  puck={x:W/2,y:MID,vx:(Math.random()-0.5)*4,vy:3*dir};
+}
+resetPuck(1);
+
+let pointer={active:false,x:W/2,y:H-90};
+
+function getPos(e){
+  const rect=c.getBoundingClientRect();
+  const cx=(e.touches?e.touches[0].clientX:e.clientX);
+  const cy=(e.touches?e.touches[0].clientY:e.clientY);
+  return {
+    x:(cx-rect.left)*W/rect.width,
+    y:(cy-rect.top)*H/rect.height
+  };
+}
+
+function startPointer(e){
+  e.preventDefault();
+  pointer.active=true;
+  const p=getPos(e);
+  pointer.x=p.x;pointer.y=p.y;
+  if(state!=='play')startGame();
+}
+function movePointer(e){
+  if(!pointer.active)return;
+  e.preventDefault();
+  const p=getPos(e);
+  pointer.x=p.x;pointer.y=p.y;
+}
+function endPointer(e){
+  pointer.active=false;
+}
+
+c.addEventListener('mousedown',startPointer);
+c.addEventListener('mousemove',movePointer);
+window.addEventListener('mouseup',endPointer);
+c.addEventListener('touchstart',startPointer,{passive:false});
+c.addEventListener('touchmove',movePointer,{passive:false});
+c.addEventListener('touchend',endPointer);
+c.addEventListener('touchcancel',endPointer);
+
+function startGame(){
+  playerScore=0;cpuScore=0;state='play';
+  resetPuck(Math.random()<0.5?1:-1);
+  player={x:W/2,y:H-90,vx:0,vy:0,px:W/2,py:H-90};
+  cpu={x:W/2,y:90,vx:0,vy:0};
+}
+
+function clamp(v,lo,hi){return Math.max(lo,Math.min(hi,v));}
+
+function update(){
+  if(state!=='play')return;
+
+  // Player mallet follows pointer, constrained to bottom half
+  if(pointer.active){
+    player.px=player.x;player.py=player.y;
+    player.x=clamp(pointer.x,MALLET_R,W-MALLET_R);
+    player.y=clamp(pointer.y,MID+MALLET_R,H-MALLET_R);
+    player.vx=player.x-player.px;
+    player.vy=player.y-player.py;
+  } else {
+    player.vx*=0.8;player.vy*=0.8;
+  }
+
+  // CPU AI: track puck x when in CPU half, otherwise drift to center
+  const targetX = (puck.y < MID) ? puck.x : W/2;
+  const targetY = (puck.y < MID) ? clamp(puck.y - 10, MALLET_R, MID-MALLET_R) : 90;
+  let dx=targetX-cpu.x, dy=targetY-cpu.y;
+  const speed=puck.y<MID?5.2:3.2;
+  const dist=Math.hypot(dx,dy)||1;
+  cpu.vx=(dx/dist)*Math.min(speed,Math.abs(dx));
+  cpu.vy=(dy/dist)*Math.min(speed,Math.abs(dy));
+  cpu.x=clamp(cpu.x+cpu.vx,MALLET_R,W-MALLET_R);
+  cpu.y=clamp(cpu.y+cpu.vy,MALLET_R,MID-MALLET_R);
+
+  // Puck physics
+  puck.x+=puck.vx;
+  puck.y+=puck.vy;
+  puck.vx*=FRICTION;
+  puck.vy*=FRICTION;
+
+  // Wall bounces (left/right)
+  if(puck.x-PUCK_R<0){puck.x=PUCK_R;puck.vx*=-1;}
+  if(puck.x+PUCK_R>W){puck.x=W-PUCK_R;puck.vx*=-1;}
+
+  // Top/bottom: goal or wall bounce
+  const inGoalX = puck.x > (W-GOAL_W)/2 && puck.x < (W+GOAL_W)/2;
+  if(puck.y-PUCK_R<0){
+    if(inGoalX){
+      playerScore++;
+      if(playerScore>=WIN_SCORE){state='win';}
+      else resetPuck(1);
+      return;
+    } else {
+      puck.y=PUCK_R;puck.vy*=-1;
+    }
+  }
+  if(puck.y+PUCK_R>H){
+    if(inGoalX){
+      cpuScore++;
+      if(cpuScore>=WIN_SCORE){state='lose';}
+      else resetPuck(-1);
+      return;
+    } else {
+      puck.y=H-PUCK_R;puck.vy*=-1;
+    }
+  }
+
+  // Mallet collisions
+  collideMallet(player);
+  collideMallet(cpu);
+}
+
+function collideMallet(m){
+  const dx=puck.x-m.x, dy=puck.y-m.y;
+  const dist=Math.hypot(dx,dy);
+  const minDist=MALLET_R+PUCK_R;
+  if(dist<minDist && dist>0){
+    const nx=dx/dist, ny=dy/dist;
+    // separate
+    const overlap=minDist-dist;
+    puck.x+=nx*overlap;
+    puck.y+=ny*overlap;
+    // reflect velocity + transfer mallet momentum
+    const relVx=puck.vx-(m.vx||0);
+    const relVy=puck.vy-(m.vy||0);
+    const dot=relVx*nx+relVy*ny;
+    puck.vx = puck.vx - 2*dot*nx + (m.vx||0)*0.6;
+    puck.vy = puck.vy - 2*dot*ny + (m.vy||0)*0.6;
+    // Add a bit of speed from mallet hit
+    const speed=Math.hypot(puck.vx,puck.vy);
+    const maxSpeed=14;
+    if(speed>maxSpeed){
+      puck.vx=puck.vx/speed*maxSpeed;
+      puck.vy=puck.vy/speed*maxSpeed;
+    }
+    const minSpeed=2.5;
+    if(speed<minSpeed && speed>0){
+      puck.vx=puck.vx/speed*minSpeed;
+      puck.vy=puck.vy/speed*minSpeed;
+    }
+  }
+}
+
+function drawTable(){
+  // Ice gradient
+  const g=ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,'#0c2740');
+  g.addColorStop(0.5,'#143a5c');
+  g.addColorStop(1,'#0c2740');
+  ctx.fillStyle=g;
+  ctx.fillRect(0,0,W,H);
+
+  // Border
+  ctx.strokeStyle='rgba(255,255,255,0.5)';
+  ctx.lineWidth=6;
+  ctx.strokeRect(3,3,W-6,H-6);
+
+  // Center line
+  ctx.strokeStyle='rgba(255,255,255,0.35)';
+  ctx.lineWidth=2;
+  ctx.setLineDash([10,8]);
+  ctx.beginPath();
+  ctx.moveTo(0,MID);ctx.lineTo(W,MID);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Center circle
+  ctx.beginPath();
+  ctx.arc(W/2,MID,60,0,Math.PI*2);
+  ctx.strokeStyle='rgba(255,255,255,0.3)';
+  ctx.lineWidth=2;
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(W/2,MID,3,0,Math.PI*2);
+  ctx.fillStyle='rgba(255,255,255,0.3)';
+  ctx.fill();
+
+  // Goal areas (highlighted)
+  ctx.fillStyle='rgba(233,69,96,0.28)';
+  ctx.fillRect((W-GOAL_W)/2,0,GOAL_W,14);
+  ctx.fillRect((W-GOAL_W)/2,H-14,GOAL_W,14);
+  ctx.strokeStyle='#e94560';
+  ctx.lineWidth=3;
+  ctx.beginPath();
+  ctx.moveTo((W-GOAL_W)/2,0);ctx.lineTo((W-GOAL_W)/2,14);ctx.lineTo((W+GOAL_W)/2,14);ctx.lineTo((W+GOAL_W)/2,0);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo((W-GOAL_W)/2,H);ctx.lineTo((W-GOAL_W)/2,H-14);ctx.lineTo((W+GOAL_W)/2,H-14);ctx.lineTo((W+GOAL_W)/2,H);
+  ctx.stroke();
+
+  // Goal arcs (semi-circles in front of goal)
+  ctx.strokeStyle='rgba(255,255,255,0.25)';
+  ctx.lineWidth=2;
+  ctx.beginPath();ctx.arc(W/2,0,90,0,Math.PI);ctx.stroke();
+  ctx.beginPath();ctx.arc(W/2,H,90,Math.PI,Math.PI*2);ctx.stroke();
+}
+
+function glowCircle(x,y,r,fill,glow){
+  ctx.save();
+  ctx.shadowBlur=22;
+  ctx.shadowColor=glow;
+  ctx.beginPath();
+  ctx.arc(x,y,r,0,Math.PI*2);
+  ctx.fillStyle=fill;
+  ctx.fill();
+  ctx.restore();
+  ctx.lineWidth=2;
+  ctx.strokeStyle='rgba(255,255,255,0.6)';
+  ctx.stroke();
+}
+
+function drawMallet(m,color,glow){
+  glowCircle(m.x,m.y,MALLET_R,color,glow);
+  ctx.beginPath();
+  ctx.arc(m.x,m.y,MALLET_R*0.45,0,Math.PI*2);
+  ctx.fillStyle='rgba(255,255,255,0.5)';
+  ctx.fill();
+}
+
+function drawPuck(){
+  glowCircle(puck.x,puck.y,PUCK_R,'#1a1a22','#66c0f4');
+  ctx.beginPath();
+  ctx.arc(puck.x,puck.y,PUCK_R*0.5,0,Math.PI*2);
+  ctx.fillStyle='rgba(255,255,255,0.25)';
+  ctx.fill();
+}
+
+function drawScore(){
+  ctx.font='12px Arial';
+  ctx.fillStyle='rgba(255,255,255,0.5)';
+  ctx.textAlign='center';
+  ctx.fillText('CPU', W/2, MID-66);
+  ctx.fillText('YOU', W/2, MID+78);
+  ctx.fillStyle='#fff';
+  ctx.font='bold 36px Arial';
+  ctx.fillText(cpuScore, W/2, MID-32);
+  ctx.fillText(playerScore, W/2, MID+58);
+}
+
+function drawOverlay(text,sub){
+  ctx.fillStyle='rgba(0,0,0,.6)';
+  ctx.fillRect(0,0,W,H);
+  ctx.fillStyle='#66c0f4';
+  ctx.font='bold 34px Arial';
+  ctx.textAlign='center';
+  ctx.fillText(text, W/2, MID-10);
+  ctx.fillStyle='#fff';
+  ctx.font='18px Arial';
+  ctx.fillText(sub, W/2, MID+28);
+}
+
+function loop(){
+  update();
+  drawTable();
+  drawMallet(cpu,'#e94560','#e94560');
+  drawMallet(player,'#66c0f4','#66c0f4');
+  drawPuck();
+  drawScore();
+
+  if(state==='idle'){
+    drawOverlay('AIR HOCKEY','Drag to move your mallet — tap to start');
+  } else if(state==='win'){
+    drawOverlay('YOU WIN! 🏆','Tap to play again');
+  } else if(state==='lose'){
+    drawOverlay('CPU WINS','Tap to play again');
+  }
+  requestAnimationFrame(loop);
+}
+loop();
+</script></body></html>

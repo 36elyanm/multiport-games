@@ -1,0 +1,161 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"><title>Meme Tash</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+body{background:#1a0533}
+#c{display:block;border-radius:8px}
+#ui{color:#ff79c6;text-align:center;padding:8px;font-size:1.1rem;font-weight:700;text-shadow:0 0 8px #ff79c6}
+</style>
+</head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title" style="color:#ff79c6;text-shadow:0 0 12px #ff79c6">Meme Tash</div>
+  <div class="game-frame" style="background:#1a0533">
+    <div id="ui">0m | Best: 0m</div>
+    <canvas id="c" width="600" height="380"></canvas>
+  </div>
+  <div class="game-instructions">Press <b>Space</b>, click, or tap to jump. Easier spikes — but still dodge them all!</div>
+</div>
+<script>
+const c=document.getElementById('c'),ctx=c.getContext('2d');
+const W=600,H=380,FLOOR=H-52,CEIL=52,SZ=32,SPK=36;
+const SPEED=4,GRAV=0.54,JUMP=-12;
+const MEMES=['😎','🤣','💀','🗿','🐸','🤡','😤','🥴','🫡','💅'];
+let px,py,pvy,camX,spikes,frame,score,state,hi=0,nextSpawn,meme,wobble=0;
+
+function reset(){
+  px=90;py=FLOOR-SZ;pvy=0;
+  camX=0;spikes=[];frame=0;score=0;state='play';nextSpawn=400;
+  meme=MEMES[Math.floor(Math.random()*MEMES.length)];
+}
+
+function jump(){
+  if(py+SZ>=FLOOR-1){pvy=JUMP;}
+}
+function handleInput(){
+  if(state!=='play'){reset();}else jump();
+}
+document.addEventListener('keydown',e=>{if(e.code==='Space'||e.code==='ArrowUp'){e.preventDefault();handleInput();}});
+c.addEventListener('click',handleInput);
+c.addEventListener('touchstart',e=>{e.preventDefault();handleInput();},{passive:false});
+
+function spawnPattern(wx){
+  const r=Math.random();
+  if(r<0.30){// single floor spike
+    spikes.push({x:wx,floor:true});
+  } else if(r<0.54){// double floor
+    spikes.push({x:wx,floor:true});spikes.push({x:wx+SPK,floor:true});
+  } else if(r<0.66){// single ceiling
+    spikes.push({x:wx,floor:false});
+  } else if(r<0.78){// floor + ceiling far apart
+    spikes.push({x:wx,floor:true});spikes.push({x:wx+140,floor:false});
+  } else if(r<0.88){// triple floor
+    for(let i=0;i<3;i++)spikes.push({x:wx+i*SPK,floor:true});
+  } else {// two ceiling
+    spikes.push({x:wx,floor:false});spikes.push({x:wx+SPK,floor:false});
+  }
+}
+
+function genSpikes(){
+  while(nextSpawn<camX+W+300){
+    spawnPattern(nextSpawn);
+    nextSpawn+=130+Math.random()*180;// wider gaps = easier
+  }
+}
+
+function hitTest(){
+  for(const s of spikes){
+    const sx=s.x-camX;
+    if(sx>W+SPK||sx<-SPK)continue;
+    // 45% hitbox width, 65% height = very forgiving
+    const hx=(s.x-camX)+SPK*.27,hw=SPK*.45;
+    const hy=s.floor?(FLOOR-SPK*.65):CEIL,hh=SPK*.65;
+    if(px+SZ>hx&&px<hx+hw&&py+SZ>hy&&py<hy+hh)return true;
+  }
+  return false;
+}
+
+const SPIKE_COLORS=['#ff79c6','#bd93f9','#ff5555','#ffb86c','#50fa7b'];
+
+function drawSpike(sx,floor,col){
+  ctx.shadowColor=col;ctx.shadowBlur=14;
+  ctx.fillStyle=col;
+  ctx.beginPath();
+  if(floor){ctx.moveTo(sx,FLOOR);ctx.lineTo(sx+SPK,FLOOR);ctx.lineTo(sx+SPK/2,FLOOR-SPK);}
+  else{ctx.moveTo(sx,CEIL);ctx.lineTo(sx+SPK,CEIL);ctx.lineTo(sx+SPK/2,CEIL+SPK);}
+  ctx.closePath();ctx.fill();
+  ctx.fillStyle='rgba(255,255,255,0.2)';
+  ctx.beginPath();
+  if(floor){ctx.moveTo(sx+SPK*.3,FLOOR-4);ctx.lineTo(sx+SPK*.7,FLOOR-4);ctx.lineTo(sx+SPK/2,FLOOR-SPK+10);}
+  else{ctx.moveTo(sx+SPK*.3,CEIL+4);ctx.lineTo(sx+SPK*.7,CEIL+4);ctx.lineTo(sx+SPK/2,CEIL+SPK-10);}
+  ctx.closePath();ctx.fill();
+  ctx.shadowBlur=0;
+}
+
+function drawPlayer(){
+  wobble=(pvy<0?-0.15:0.1)*Math.abs(pvy)*.15;
+  ctx.save();ctx.translate(px+SZ/2,py+SZ/2);
+  // Glow circle
+  const g=ctx.createRadialGradient(0,0,2,0,0,SZ);
+  g.addColorStop(0,'rgba(255,121,198,0.3)');g.addColorStop(1,'transparent');
+  ctx.fillStyle=g;ctx.beginPath();ctx.arc(0,0,SZ,0,Math.PI*2);ctx.fill();
+  // Face circle
+  ctx.fillStyle='#ffdd57';ctx.shadowColor='#ffdd57';ctx.shadowBlur=10;
+  ctx.beginPath();ctx.arc(0,wobble*10,SZ/2,0,Math.PI*2);ctx.fill();
+  ctx.shadowBlur=0;
+  // Emoji
+  ctx.font=`${SZ-4}px Arial`;ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillText(meme,0,wobble*10+2);
+  ctx.textBaseline='alphabetic';ctx.restore();
+}
+
+function loop(){
+  ctx.fillStyle='#1a0533';ctx.fillRect(0,0,W,H);
+  // Grid
+  ctx.strokeStyle='rgba(255,121,198,0.07)';ctx.lineWidth=1;
+  const gx=60-(camX%60);
+  for(let x=gx;x<W;x+=60){ctx.beginPath();ctx.moveTo(x,CEIL);ctx.lineTo(x,FLOOR);ctx.stroke();}
+  for(let y=CEIL;y<=FLOOR;y+=60){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+
+  if(state!=='play'){
+    ctx.fillStyle='rgba(0,0,0,0.7)';ctx.fillRect(0,0,W,H);
+    ctx.textAlign='center';
+    if(state==='idle'){
+      ctx.fillStyle='#ff79c6';ctx.font='bold 48px Arial';
+      ctx.shadowColor='#ff79c6';ctx.shadowBlur=18;ctx.fillText('MEME TASH',W/2,H/2-28);
+      ctx.shadowBlur=0;ctx.fillStyle='#aaa';ctx.font='18px Arial';
+      ctx.fillText('Space / Click / Tap to jump',W/2,H/2+18);
+      ctx.fillText('(easier than Level 67 lol)',W/2,H/2+44);
+    } else {
+      ctx.fillStyle='#ff79c6';ctx.font='bold 40px Arial';ctx.fillText('💀 REKT 💀',W/2,H/2-45);
+      ctx.fillStyle='#fff';ctx.font='24px Arial';ctx.fillText(`${score}m`,W/2,H/2);
+      ctx.fillStyle='#aaa';ctx.font='17px Arial';ctx.fillText(`Best: ${hi}m`,W/2,H/2+34);
+      ctx.fillText('Space / Click / Tap to retry',W/2,H/2+62);
+    }
+    requestAnimationFrame(loop);return;
+  }
+
+  pvy+=GRAV;py+=pvy;camX+=SPEED;frame++;
+  score=Math.floor(camX/10);if(score>hi)hi=score;
+
+  if(py+SZ>=FLOOR){py=FLOOR-SZ;pvy=0;}
+  if(py<=CEIL){state='dead';}
+
+  genSpikes();
+  spikes=spikes.filter(s=>s.x>camX-SPK*2);
+
+  ctx.fillStyle='#110222';ctx.fillRect(0,FLOOR,W,H-FLOOR);ctx.fillRect(0,0,W,CEIL);
+  ctx.shadowColor='#ff79c6';ctx.shadowBlur=16;
+  ctx.fillStyle='#ff79c6';ctx.fillRect(0,FLOOR,W,3);ctx.fillRect(0,CEIL-3,W,3);
+  ctx.shadowBlur=0;
+
+  spikes.forEach((s,i)=>drawSpike(s.x-camX,s.floor,SPIKE_COLORS[i%SPIKE_COLORS.length]));
+  if(hitTest())state='dead';
+  drawPlayer();
+
+  document.getElementById('ui').textContent=`${score}m | Best: ${hi}m`;
+  requestAnimationFrame(loop);
+}
+
+state='idle';loop();
+</script>
+</body></html>

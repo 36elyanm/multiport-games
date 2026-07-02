@@ -1,0 +1,83 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"><title>Fruit Catch</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>body{background:#08080f}#c{display:block;border-radius:8px}#ui{color:#ff7043;font-size:1.1rem;font-weight:700;text-align:center;padding:8px}</style>
+</head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Fruit Catch</div>
+  <div class="game-frame">
+    <div id="ui">Score: 0 | Lives: 3</div>
+    <canvas id="c" width="480" height="520"></canvas>
+  </div>
+  <div class="game-instructions">Move mouse, use <b>←→</b>, or touch to catch falling fruit. Avoid bombs!</div>
+</div>
+<script>
+const c=document.getElementById('c'),ctx=c.getContext('2d');
+const FRUITS=[{e:'🍎',v:10},{e:'🍊',v:8},{e:'🍇',v:15},{e:'🍓',v:12},{e:'🍌',v:7},{e:'🍉',v:20},{e:'💣',v:-30}];
+let basket,items,score,lives,frame,state,keys={};
+
+function start(){basket={x:200,w:80,h:20};items=[];score=0;lives=3;frame=0;state='play';}
+
+document.addEventListener('keydown',e=>keys[e.code]=true);
+document.addEventListener('keyup',e=>keys[e.code]=false);
+c.addEventListener('mousemove',e=>{const r=c.getBoundingClientRect();basket.x=(e.clientX-r.left)*c.width/r.width-basket.w/2;});
+c.addEventListener('touchmove',e=>{e.preventDefault();const r=c.getBoundingClientRect();basket.x=(e.touches[0].clientX-r.left)*c.width/r.width-basket.w/2;},{passive:false});
+c.addEventListener('click',()=>{if(state!=='play')start();});
+c.addEventListener('touchstart',e=>{if(state!=='play'){start();return;}const r=c.getBoundingClientRect();basket.x=(e.touches[0].clientX-r.left)*c.width/r.width-basket.w/2;},{passive:true});
+
+function spawnItem(){
+  const t=FRUITS[Math.floor(Math.random()*FRUITS.length)];
+  items.push({x:20+Math.random()*(c.width-40),y:-20,r:20,emoji:t.e,value:t.v,speed:2+Math.random()*2+score/200,rot:0,rotSpeed:(Math.random()-.5)*.1});
+}
+
+function loop(){
+  const bg=ctx.createLinearGradient(0,0,0,c.height);
+  bg.addColorStop(0,'#1a1a2e');bg.addColorStop(1,'#0d0d1e');
+  ctx.fillStyle=bg;ctx.fillRect(0,0,c.width,c.height);
+
+  if(state!=='play'){
+    ctx.fillStyle='rgba(0,0,0,.6)';ctx.fillRect(0,0,c.width,c.height);
+    ctx.fillStyle='#ff7043';ctx.font='bold 36px Arial';ctx.textAlign='center';ctx.fillText('GAME OVER',240,220);
+    ctx.fillStyle='#fff';ctx.font='20px Arial';ctx.fillText(`Score: ${score}`,240,264);ctx.fillText('Click to restart',240,298);
+    requestAnimationFrame(loop);return;
+  }
+
+  frame++;
+  if(keys['ArrowLeft']||keys['KeyA'])basket.x-=6;
+  if(keys['ArrowRight']||keys['KeyD'])basket.x+=6;
+  basket.x=Math.max(0,Math.min(c.width-basket.w,basket.x));
+
+  if(frame%Math.round(Math.max(20,50-score/40))===0)spawnItem();
+
+  items=items.filter(it=>it.y<c.height+30);
+  items.forEach(it=>{
+    it.y+=it.speed;it.rot+=it.rotSpeed;
+    ctx.save();ctx.translate(it.x,it.y);ctx.rotate(it.rot);
+    ctx.font=`${it.r*2}px serif`;ctx.textAlign='center';ctx.fillText(it.emoji,0,it.r*.7);
+    ctx.restore();
+
+    const basketY=c.height-50;
+    if(it.y+it.r>basketY&&it.x>basket.x-it.r&&it.x<basket.x+basket.w+it.r){
+      score+=it.value;
+      if(it.value<0){lives--;if(lives<=0)state='over';}
+      it.y=c.height+50;
+    }
+  });
+
+  // Basket
+  const g=ctx.createLinearGradient(basket.x,c.height-50,basket.x+basket.w,c.height-30);
+  g.addColorStop(0,'#bf360c');g.addColorStop(1,'#ff7043');
+  ctx.fillStyle=g;ctx.beginPath();
+  ctx.moveTo(basket.x,c.height-50);ctx.lineTo(basket.x+basket.w,c.height-50);
+  ctx.lineTo(basket.x+basket.w-8,c.height-28);ctx.lineTo(basket.x+8,c.height-28);ctx.closePath();ctx.fill();
+  ctx.strokeStyle='#e64a19';ctx.lineWidth=2;ctx.stroke();
+
+  // Grid lines on basket
+  ctx.strokeStyle='rgba(255,255,255,.3)';ctx.lineWidth=1;
+  for(let i=1;i<4;i++){const bx=basket.x+(basket.w/4)*i;ctx.beginPath();ctx.moveTo(bx,c.height-50);ctx.lineTo(bx-4,c.height-28);ctx.stroke();}
+
+  document.getElementById('ui').textContent=`Score: ${score} | Lives: ${'❤️'.repeat(Math.max(0,lives))}`;
+  requestAnimationFrame(loop);
+}
+start();loop();
+</script></body></html>

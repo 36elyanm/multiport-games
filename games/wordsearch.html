@@ -1,0 +1,284 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"><title>Word Search</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+body{background:#08080f}
+#ws-wrap{display:flex;flex-direction:column;align-items:center;gap:14px;padding:14px 8px}
+#ws-stats{display:flex;gap:24px;font-size:.9rem;color:rgba(255,255,255,.6);font-weight:700}
+#ws-stats b{color:#fff}
+#grid{display:grid;gap:2px;background:#222;padding:6px;border-radius:8px;user-select:none;touch-action:none}
+.cell{
+  display:flex;align-items:center;justify-content:center;
+  width:30px;height:30px;font-size:.95rem;font-weight:700;color:#fff;
+  background:#1c1c28;border-radius:4px;cursor:pointer;
+  transition:background .1s,color .1s;
+}
+.cell.selecting{background:#e94560;color:#fff}
+.cell.found{background:#538d4e;color:#fff}
+#word-list{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;max-width:480px}
+.word-chip{
+  padding:6px 12px;border-radius:14px;background:rgba(255,255,255,.08);
+  color:#fff;font-size:.85rem;font-weight:700;letter-spacing:.5px;text-transform:uppercase;
+}
+.word-chip.found{background:#538d4e;text-decoration:line-through;opacity:.7}
+#ws-msg{min-height:26px;font-weight:700;color:#fff;text-align:center}
+#ws-newgame{padding:10px 26px;background:#e94560;border:none;border-radius:20px;color:#fff;cursor:pointer;font-size:1rem;font-weight:700}
+#ws-newgame:hover{background:#d63a52}
+@media(max-width:480px){
+  .cell{width:24px;height:24px;font-size:.78rem}
+}
+</style></head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Word Search</div>
+  <div class="game-frame" style="padding:16px">
+    <div id="ws-wrap">
+      <div id="ws-stats"><span>⏱ <b id="ws-timer">0s</b></span><span>✅ <b id="ws-found-count">0</b>/<b id="ws-total">0</b></span></div>
+      <div id="grid"></div>
+      <div id="word-list"></div>
+      <div id="ws-msg"></div>
+      <button id="ws-newgame">New Puzzle</button>
+    </div>
+  </div>
+  <div class="game-instructions">
+    Find all the hidden words in the grid. They can run horizontally, vertically, or diagonally — forwards or backwards. <b>Drag</b> (mouse or touch) from the first letter to the last letter of a word to select it. Found words are highlighted and crossed off the list.
+  </div>
+</div>
+<script>
+const SIZE = 12;
+const WORD_BANK = ['PYTHON','BANANA','GUITAR','ROCKET','PLANET','CASTLE','BRIDGE','CANDLE','FOREST','WINTER','PUZZLE','GARDEN','PENCIL','RIBBON','TURTLE','DRAGON','MARBLE','COFFEE','JACKET','SILVER','VOYAGE','ISLAND','CIRCUS','WIZARD','FLAVOR','CRYSTAL','HAMMER','VELVET','GLOBE','MELODY'];
+const DIRS = [
+  {dr:0,dc:1},{dr:1,dc:0},{dr:1,dc:1},{dr:1,dc:-1},
+  {dr:0,dc:-1},{dr:-1,dc:0},{dr:-1,dc:-1},{dr:-1,dc:1}
+];
+
+let grid, placedWords, foundWords, cellEls, selecting, selStart, selPath, seconds, timer;
+
+function pickWords(){
+  const shuffled = [...WORD_BANK].sort(()=>Math.random()-0.5);
+  return shuffled.slice(0, 8);
+}
+
+function emptyGrid(){
+  return Array.from({length:SIZE},()=>Array(SIZE).fill(''));
+}
+
+function tryPlace(word){
+  for (let attempt=0; attempt<200; attempt++){
+    const dir = DIRS[Math.floor(Math.random()*DIRS.length)];
+    const len = word.length;
+    const maxR = SIZE - (dir.dr>0?len-1:0) - (dir.dr<0?0:0);
+    let r0 = Math.floor(Math.random()*SIZE);
+    let c0 = Math.floor(Math.random()*SIZE);
+    const endR = r0 + dir.dr*(len-1);
+    const endC = c0 + dir.dc*(len-1);
+    if (endR<0||endR>=SIZE||endC<0||endC>=SIZE) continue;
+    let ok = true;
+    for (let i=0;i<len;i++){
+      const r = r0+dir.dr*i, c = c0+dir.dc*i;
+      const existing = grid[r][c];
+      if (existing && existing !== word[i]){ ok=false; break; }
+    }
+    if (!ok) continue;
+    for (let i=0;i<len;i++){
+      const r = r0+dir.dr*i, c = c0+dir.dc*i;
+      grid[r][c] = word[i];
+    }
+    return {word, cells: Array.from({length:len},(_,i)=>({r:r0+dir.dr*i,c:c0+dir.dc*i}))};
+  }
+  return null;
+}
+
+function buildPuzzle(){
+  let words;
+  let success = false;
+  let placements;
+  // Retry whole layout if some words fail to place
+  for (let tries=0; tries<30 && !success; tries++){
+    grid = emptyGrid();
+    words = pickWords();
+    placements = [];
+    success = true;
+    for (const w of words){
+      const p = tryPlace(w);
+      if (!p){ success = false; break; }
+      placements.push(p);
+    }
+  }
+  // fill blanks with random letters
+  const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  for (let r=0;r<SIZE;r++) for (let c=0;c<SIZE;c++){
+    if (!grid[r][c]) grid[r][c] = LETTERS[Math.floor(Math.random()*LETTERS.length)];
+  }
+  placedWords = placements;
+}
+
+function renderGrid(){
+  const gridEl = document.getElementById('grid');
+  gridEl.style.gridTemplateColumns = `repeat(${SIZE}, 1fr)`;
+  gridEl.innerHTML = '';
+  cellEls = [];
+  for (let r=0;r<SIZE;r++){
+    cellEls[r] = [];
+    for (let c=0;c<SIZE;c++){
+      const div = document.createElement('div');
+      div.className = 'cell';
+      div.textContent = grid[r][c];
+      div.dataset.r = r;
+      div.dataset.c = c;
+      gridEl.appendChild(div);
+      cellEls[r][c] = div;
+    }
+  }
+}
+
+function renderWordList(){
+  const wl = document.getElementById('word-list');
+  wl.innerHTML = '';
+  placedWords.forEach(p => {
+    const chip = document.createElement('div');
+    chip.className = 'word-chip';
+    chip.textContent = p.word;
+    chip.id = 'chip-' + p.word;
+    wl.appendChild(chip);
+  });
+  document.getElementById('ws-total').textContent = placedWords.length;
+  document.getElementById('ws-found-count').textContent = foundWords.size;
+}
+
+function cellFromPoint(x, y){
+  const el = document.elementFromPoint(x, y);
+  if (!el || !el.classList.contains('cell')) return null;
+  return {r: parseInt(el.dataset.r), c: parseInt(el.dataset.c), el};
+}
+
+function clearSelectionStyles(){
+  selPath.forEach(p => cellEls[p.r][p.c].classList.remove('selecting'));
+}
+
+function pathBetween(start, end){
+  const dr = Math.sign(end.r - start.r);
+  const dc = Math.sign(end.c - start.c);
+  // must be straight line (horizontal, vertical, diagonal)
+  const rDist = Math.abs(end.r - start.r);
+  const cDist = Math.abs(end.c - start.c);
+  if (!(dr===0 || dc===0 || rDist===cDist)) return null;
+  const len = Math.max(rDist, cDist) + 1;
+  const path = [];
+  for (let i=0;i<len;i++){
+    path.push({r: start.r + dr*i, c: start.c + dc*i});
+  }
+  return path;
+}
+
+function startSelection(r, c){
+  selecting = true;
+  selStart = {r, c};
+  selPath = [{r, c}];
+  cellEls[r][c].classList.add('selecting');
+}
+
+function updateSelection(r, c){
+  if (!selecting) return;
+  const path = pathBetween(selStart, {r, c});
+  if (!path) return;
+  clearSelectionStyles();
+  selPath = path;
+  selPath.forEach(p => cellEls[p.r][p.c].classList.add('selecting'));
+}
+
+function endSelection(){
+  if (!selecting) return;
+  selecting = false;
+  checkSelection();
+  clearSelectionStyles();
+  selPath = [];
+}
+
+function sameCells(a, b){
+  if (a.length !== b.length) return false;
+  return a.every((p,i) => p.r===b[i].r && p.c===b[i].c);
+}
+
+function checkSelection(){
+  if (selPath.length < 2) return;
+  const reversed = [...selPath].reverse();
+  for (const p of placedWords){
+    if (foundWords.has(p.word)) continue;
+    if (sameCells(selPath, p.cells) || sameCells(reversed, p.cells)){
+      foundWords.add(p.word);
+      p.cells.forEach(c => cellEls[c.r][c.c].classList.add('found'));
+      const chip = document.getElementById('chip-' + p.word);
+      if (chip) chip.classList.add('found');
+      document.getElementById('ws-found-count').textContent = foundWords.size;
+      if (foundWords.size === placedWords.length){
+        endGame();
+      }
+      return;
+    }
+  }
+}
+
+function endGame(){
+  clearInterval(timer);
+  document.getElementById('ws-msg').textContent = `🎉 Solved in ${seconds}s!`;
+}
+
+function setupInputHandlers(){
+  const gridEl = document.getElementById('grid');
+
+  gridEl.addEventListener('mousedown', e => {
+    const cell = cellFromPoint(e.clientX, e.clientY);
+    if (cell) startSelection(cell.r, cell.c);
+  });
+  document.addEventListener('mousemove', e => {
+    if (!selecting) return;
+    const cell = cellFromPoint(e.clientX, e.clientY);
+    if (cell) updateSelection(cell.r, cell.c);
+  });
+  document.addEventListener('mouseup', () => endSelection());
+
+  gridEl.addEventListener('touchstart', e => {
+    e.preventDefault();
+    const t = e.touches[0];
+    const cell = cellFromPoint(t.clientX, t.clientY);
+    if (cell) startSelection(cell.r, cell.c);
+  }, {passive:false});
+  gridEl.addEventListener('touchmove', e => {
+    e.preventDefault();
+    if (!selecting) return;
+    const t = e.touches[0];
+    const cell = cellFromPoint(t.clientX, t.clientY);
+    if (cell) updateSelection(cell.r, cell.c);
+  }, {passive:false});
+  gridEl.addEventListener('touchend', e => {
+    e.preventDefault();
+    endSelection();
+  }, {passive:false});
+}
+
+function startTimer(){
+  clearInterval(timer);
+  seconds = 0;
+  document.getElementById('ws-timer').textContent = '0s';
+  timer = setInterval(() => {
+    seconds++;
+    document.getElementById('ws-timer').textContent = seconds + 's';
+  }, 1000);
+}
+
+function newGame(){
+  selecting = false;
+  selPath = [];
+  foundWords = new Set();
+  document.getElementById('ws-msg').textContent = '';
+  buildPuzzle();
+  renderGrid();
+  renderWordList();
+  startTimer();
+}
+
+document.getElementById('ws-newgame').addEventListener('click', newGame);
+setupInputHandlers();
+newGame();
+</script>
+</body></html>

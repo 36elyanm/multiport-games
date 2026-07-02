@@ -1,0 +1,141 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"><title>Dino Run</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+body{background:#08080f}
+#c{background:#2d5a27;display:block;border-radius:8px}
+#score-display{color:#7ec850;font-size:1.2rem;font-weight:700;text-align:center;padding:8px}
+</style></head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Dino Run</div>
+  <div class="game-frame">
+    <div id="score-display">Score: 0 | Hi: 0</div>
+    <canvas id="c" width="800" height="250"></canvas>
+  </div>
+  <div class="game-instructions">Press <b>Space</b> or <b>Up Arrow</b> or <b>Tap</b> to jump. Double-jump allowed! Avoid the cacti and birds.</div>
+</div>
+<script>
+const c=document.getElementById('c'),ctx=c.getContext('2d');
+let score=0,hi=0,spd=5,frame=0,gameOver=false,started=false;
+const dino={x:80,y:200,w:40,h:50,vy:0,jumps:0};
+const ground=200;
+let obs=[],birds=[];
+let dustParticles=[];
+
+function reset(){score=0;spd=5;frame=0;gameOver=false;started=false;obs=[];birds=[];dustParticles=[];dino.y=ground;dino.vy=0;dino.jumps=0;}
+
+function jump(){
+  if(!started)started=true;
+  if(gameOver){reset();return;}
+  if(dino.jumps<2){dino.vy=-14+dino.jumps*2;dino.jumps++;}
+}
+
+document.addEventListener('keydown',e=>{if(e.code==='Space'||e.code==='ArrowUp'){e.preventDefault();jump();}});
+c.addEventListener('click',jump);
+c.addEventListener('touchstart',e=>{e.preventDefault();jump();},{passive:false});
+
+function spawnObs(){
+  const h=30+Math.random()*40;
+  obs.push({x:820,w:20,h,y:ground+dino.h-h});
+}
+function spawnBird(){
+  const altitudes=[ground-20,ground-60,ground-100];
+  const y=altitudes[Math.floor(Math.random()*altitudes.length)];
+  birds.push({x:820,y,w:35,h:20,frame:0});
+}
+
+function drawDino(){
+  ctx.save();
+  // Body
+  ctx.fillStyle='#7ec850';
+  ctx.fillRect(dino.x,dino.y,dino.w,dino.h);
+  // Head
+  ctx.fillRect(dino.x+dino.w-10,dino.y-16,22,20);
+  // Eye
+  ctx.fillStyle='#1a1a2e';
+  ctx.fillRect(dino.x+dino.w+6,dino.y-12,5,5);
+  // Legs
+  const legOff=Math.floor(frame/6)%2===0?0:8;
+  ctx.fillStyle='#5aaa30';
+  ctx.fillRect(dino.x+5,dino.y+dino.h,10,12+legOff);
+  ctx.fillRect(dino.x+dino.w-15,dino.y+dino.h,10,12+(8-legOff));
+  ctx.restore();
+}
+
+function drawObs(o){
+  ctx.fillStyle='#a3d977';
+  ctx.fillRect(o.x,o.y,o.w,o.h);
+  ctx.fillStyle='#7ec850';
+  ctx.fillRect(o.x-5,o.y+5,o.w+10,o.h-10);
+}
+
+function drawBird(b){
+  ctx.fillStyle='#ff6b35';
+  ctx.fillRect(b.x,b.y,b.w,b.h);
+  const wingY=Math.floor(b.frame/8)%2===0?-6:4;
+  ctx.fillRect(b.x+5,b.y-8+wingY,b.w-10,8);
+  ctx.fillStyle='#ffcc00';
+  ctx.fillRect(b.x+b.w-6,b.y+4,8,5);
+}
+
+function rect(a,b){return a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y;}
+
+function loop(){
+  ctx.clearRect(0,0,800,250);
+  // Sky gradient
+  const sky=ctx.createLinearGradient(0,0,0,200);
+  sky.addColorStop(0,'#0d3b1e');sky.addColorStop(1,'#2d5a27');
+  ctx.fillStyle=sky;ctx.fillRect(0,0,800,250);
+  // Ground
+  ctx.fillStyle='#5aaa30';ctx.fillRect(0,ground+dino.h,800,50);
+  ctx.fillStyle='#3d8020';ctx.fillRect(0,ground+dino.h,800,4);
+
+  if(gameOver){
+    ctx.fillStyle='#fff';ctx.font='bold 36px Arial';ctx.textAlign='center';
+    ctx.fillText('GAME OVER',400,120);
+    ctx.font='20px Arial';ctx.fillText('Tap or Space to restart',400,158);
+    document.getElementById('score-display').textContent=`Score: ${score} | Hi: ${hi}`;
+    requestAnimationFrame(loop);return;
+  }
+
+  if(!started){
+    ctx.fillStyle='#7ec85099';ctx.font='bold 24px Arial';ctx.textAlign='center';
+    ctx.fillText('Press Space / Tap to start',400,120);
+    drawDino();
+    requestAnimationFrame(loop);
+    return;
+  }
+
+  frame++;
+  score++;
+  if(score>hi)hi=score;
+  spd=5+score/400;
+
+  // Spawn
+  if(frame%Math.round(Math.max(60,120-score/50))===0)spawnObs();
+  if(score>300&&frame%180===0)spawnBird();
+
+  // Physics
+  dino.vy+=0.7;
+  dino.y+=dino.vy;
+  if(dino.y>=ground){dino.y=ground;dino.vy=0;dino.jumps=0;}
+
+  // Hitbox covers body + head (head drawn at dino.y-16)
+  const dinoHit={x:dino.x+4,y:dino.y-13,w:dino.w+4,h:dino.h+13};
+
+  obs=obs.filter(o=>o.x>-30);
+  obs.forEach(o=>{o.x-=spd;drawObs(o);
+    if(rect(dinoHit,{x:o.x,y:o.y,w:o.w,h:o.h}))gameOver=true;
+  });
+
+  birds=birds.filter(b=>b.x>-50);
+  birds.forEach(b=>{b.x-=spd+1;b.frame++;drawBird(b);
+    if(rect(dinoHit,{x:b.x,y:b.y,w:b.w,h:b.h}))gameOver=true;
+  });
+
+  drawDino();
+  document.getElementById('score-display').textContent=`Score: ${score} | Hi: ${hi}`;
+  requestAnimationFrame(loop);
+}
+loop();
+</script></body></html>

@@ -1,0 +1,63 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"><title>Memory Match</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+body{background:#08080f}
+#grid{display:grid;grid-template-columns:repeat(4,90px);gap:10px;justify-content:center;margin:0 auto}
+.card{width:90px;height:90px;background:#4a148c;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:2.2rem;transition:transform .3s;transform:rotateY(180deg);border:2px solid #7b1fa2}
+.card.flipped,.card.matched{transform:rotateY(0deg);background:#1a1a2e}
+.card.matched{border-color:#ce93d8;cursor:default}
+#ui{color:#ce93d8;text-align:center;padding:10px;font-size:1.1rem;font-weight:700}
+</style></head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Memory Match</div>
+  <div class="game-frame" style="padding:20px">
+    <div id="ui">Moves: 0 | Pairs: 0/8</div>
+    <div id="grid"></div>
+  </div>
+  <div class="game-instructions">Click cards to flip them. Find all matching pairs. Fewer moves = better score!</div>
+</div>
+<script>
+const EMOJIS=['🐶','🐱','🦊','🐼','🦁','🐯','🐨','🦋'];
+let cards,flipped,locked,moves,pairs;
+
+function init(){
+  const deck=[...EMOJIS,...EMOJIS].sort(()=>Math.random()-.5);
+  cards=deck.map((e,i)=>({id:i,emoji:e,flipped:false,matched:false}));
+  flipped=[];locked=false;moves=0;pairs=0;render();
+}
+
+function click(id){
+  if(locked)return;
+  const card=cards[id];
+  if(card.flipped||card.matched)return;
+  card.flipped=true;flipped.push(id);render();
+  if(flipped.length===2){
+    moves++;
+    locked=true;
+    const [a,b]=flipped;
+    if(cards[a].emoji===cards[b].emoji){
+      cards[a].matched=cards[b].matched=true;pairs++;
+      flipped=[];locked=false;
+      if(pairs===8){render();setTimeout(()=>alert(`🎉 You won in ${moves} moves!`),50);}
+    } else {
+      setTimeout(()=>{cards[a].flipped=cards[b].flipped=false;flipped=[];locked=false;render();},900);
+    }
+    render();
+  }
+}
+
+function render(){
+  document.getElementById('ui').textContent=`Moves: ${moves} | Pairs: ${pairs}/8`;
+  const g=document.getElementById('grid');g.innerHTML='';
+  cards.forEach(card=>{
+    const d=document.createElement('div');
+    d.className='card'+(card.flipped||card.matched?' flipped':'')+(card.matched?' matched':'');
+    if(card.flipped||card.matched)d.textContent=card.emoji;
+    else d.textContent='❓';
+    d.onclick=()=>click(card.id);
+    g.appendChild(d);
+  });
+}
+init();
+</script></body></html>

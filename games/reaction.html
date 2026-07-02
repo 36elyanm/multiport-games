@@ -1,0 +1,52 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"><title>Reaction Test</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+body{background:#08080f}
+#box{width:100%;max-width:500px;height:300px;margin:0 auto;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:1.8rem;font-weight:700;cursor:pointer;user-select:none;transition:background .1s}
+#ui{color:#90a4ae;text-align:center;padding:12px;font-size:1rem;font-weight:700}
+#history{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;padding:8px;max-width:500px;margin:0 auto}
+.ht{background:#16213e;border-radius:8px;padding:6px 12px;font-size:.85rem;color:#aaa}
+</style></head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Reaction Test</div>
+  <div class="game-frame" style="padding:16px">
+    <div id="ui">5 rounds – average reaction time</div>
+    <div id="box" style="background:#37474f">Click to start</div>
+    <div id="history"></div>
+  </div>
+  <div class="game-instructions">Wait for GREEN, then click as fast as possible. 5 rounds, fastest average wins!</div>
+</div>
+<script>
+let state='idle',startT,timer,results=[];
+const box=document.getElementById('box');
+
+function go(){
+  if(state==='idle'||state==='done'){
+    results=[];state='waiting';
+    box.style.background='#b71c1c';box.textContent='Wait for green…';
+    document.getElementById('history').innerHTML='';
+    schedule();
+  } else if(state==='waiting'){
+    clearTimeout(timer);box.style.background='#37474f';box.textContent='Too early! Click to retry';state='idle';
+  } else if(state==='go'){
+    const ms=Date.now()-startT;results.push(ms);
+    const hist=document.getElementById('history');
+    const d=document.createElement('div');d.className='ht';d.textContent=ms+'ms';hist.appendChild(d);
+    if(results.length>=5){
+      const avg=Math.round(results.reduce((a,b)=>a+b,0)/results.length);
+      box.style.background='#1a237e';box.textContent=`Avg: ${avg}ms`;
+      const rating=avg<150?'🏆 Superhuman':avg<220?'⚡ Excellent':avg<300?'✅ Good':avg<400?'👍 Average':'🐢 Keep practicing';
+      document.getElementById('ui').textContent=`${rating} — click to retry`;state='done';
+    } else {state='waiting';box.style.background='#b71c1c';box.textContent='Wait…';schedule();}
+  }
+}
+
+function schedule(){
+  const delay=1500+Math.random()*3000;
+  timer=setTimeout(()=>{state='go';startT=Date.now();box.style.background='#1b5e20';box.textContent='CLICK NOW!';},delay);
+}
+
+box.addEventListener('click',go);
+box.addEventListener('touchstart',e=>{e.preventDefault();go();},{passive:false});
+</script></body></html>

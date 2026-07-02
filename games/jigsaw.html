@@ -1,0 +1,373 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"><title>Jigsaw Puzzle</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+body{background:#08080f}
+#ui{color:#ce93d8;text-align:center;padding:8px;font-size:1.05rem;font-weight:700}
+#wrap{display:flex;flex-wrap:wrap;gap:16px;justify-content:center;align-items:flex-start}
+#board{position:relative;border-radius:8px;overflow:hidden;border:2px solid rgba(255,255,255,.15);background:rgba(255,255,255,.03);flex:0 0 auto}
+#board .cell{position:absolute;border:1px dashed rgba(255,255,255,.12);box-sizing:border-box}
+#tray{position:relative;border-radius:8px;border:2px solid rgba(255,255,255,.1);background:rgba(255,255,255,.02);flex:0 0 auto;overflow:hidden}
+.piece{position:absolute;cursor:grab;box-sizing:border-box;border:1px solid rgba(0,0,0,.35);box-shadow:0 2px 6px rgba(0,0,0,.4);touch-action:none;background-repeat:no-repeat}
+.piece.placed{cursor:default;border-color:rgba(255,255,255,.25);box-shadow:none}
+.piece.dragging{z-index:1000;box-shadow:0 8px 18px rgba(0,0,0,.6);cursor:grabbing}
+#controls{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin:14px 0}
+#controls button,#controls select{background:#1a1a2e;color:#eee;border:1px solid rgba(255,255,255,.2);border-radius:6px;padding:8px 14px;font-size:.9rem;cursor:pointer}
+#controls button:hover{border-color:#e94560;color:#e94560}
+#stats{color:rgba(255,255,255,.7);text-align:center;font-size:.95rem;margin-bottom:8px}
+#win{display:none;text-align:center;color:#a5d6a7;font-weight:700;font-size:1.2rem;margin:10px 0}
+@media (max-width:700px){ #wrap{flex-direction:column;align-items:center} }
+</style>
+</head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Jigsaw Puzzle</div>
+  <div class="game-frame" style="padding:14px">
+    <div id="controls">
+      <select id="pieceCount">
+        <option value="12">12 pieces (easy)</option>
+        <option value="24" selected>24 pieces (medium)</option>
+        <option value="48">48 pieces (hard)</option>
+      </select>
+      <button id="newPuzzle">🔀 New Puzzle</button>
+      <button id="shuffleBtn">🔁 Reshuffle</button>
+    </div>
+    <div id="stats">Pieces placed: <span id="placedCount">0</span> / <span id="totalCount">0</span> &nbsp;•&nbsp; Time: <span id="timer">0:00</span></div>
+    <div id="win">🎉 Puzzle complete! 🎉</div>
+    <div id="ui"></div>
+    <div id="wrap">
+      <div id="board"></div>
+      <div id="tray"></div>
+    </div>
+  </div>
+  <div class="game-instructions">Drag the scrambled pieces from the tray (right / below) onto the outlined board (left / above). Pieces snap into place when dropped close to their correct slot. Choose a piece count and hit "New Puzzle" for a freshly generated colorful scene. Complete the picture as fast as you can!</div>
+</div>
+<script>
+const board=document.getElementById('board'),tray=document.getElementById('tray');
+const pieceCountSel=document.getElementById('pieceCount');
+const newPuzzleBtn=document.getElementById('newPuzzle');
+const shuffleBtn=document.getElementById('shuffleBtn');
+const placedCountEl=document.getElementById('placedCount');
+const totalCountEl=document.getElementById('totalCount');
+const timerEl=document.getElementById('timer');
+const winEl=document.getElementById('win');
+
+const BOARD_W=420, BOARD_H=420;
+const SNAP_DIST=26;
+
+let cols,rows,pieceW,pieceH,pieces,placedCount,startTime,timerInterval,solved;
+
+// ---- generate a colorful scene as a data URL using an offscreen canvas ----
+function generateSceneDataURL(seed){
+  const cv=document.createElement('canvas');
+  cv.width=BOARD_W; cv.height=BOARD_H;
+  const g=cv.getContext('2d');
+  const r=mulberry32(seed);
+
+  const palettes=[
+    ['#1a2980','#26d0ce','#ffd194','#ff6e7f'],
+    ['#0f2027','#2c5364','#f7971e','#ffd200'],
+    ['#360033','#0b8793','#f9d423','#ff4e50'],
+    ['#1d2b64','#f8cdda','#43cea2','#185a9d'],
+    ['#3a1c71','#d76d77','#ffaf7b','#43e97b']
+  ];
+  const pal=palettes[Math.floor(r()*palettes.length)];
+
+  // sky gradient
+  const skyGrad=g.createLinearGradient(0,0,0,BOARD_H*0.65);
+  skyGrad.addColorStop(0,pal[0]);
+  skyGrad.addColorStop(1,pal[1]);
+  g.fillStyle=skyGrad;
+  g.fillRect(0,0,BOARD_W,BOARD_H*0.65);
+
+  // sun/moon
+  g.fillStyle=pal[2];
+  g.beginPath();g.arc(BOARD_W*(0.25+r()*0.5),BOARD_H*0.28,46,0,Math.PI*2);g.fill();
+
+  // ground gradient
+  const groundGrad=g.createLinearGradient(0,BOARD_H*0.6,0,BOARD_H);
+  groundGrad.addColorStop(0,pal[3]);
+  groundGrad.addColorStop(1,pal[1]);
+  g.fillStyle=groundGrad;
+  g.fillRect(0,BOARD_H*0.6,BOARD_W,BOARD_H*0.4);
+
+  // mountains / hills (triangles)
+  for(let i=0;i<4;i++){
+    g.fillStyle=`rgba(255,255,255,${0.05+r()*0.12})`;
+    const baseY=BOARD_H*0.6;
+    const peakX=r()*BOARD_W;
+    const w=80+r()*140;
+    const h=40+r()*90;
+    g.beginPath();
+    g.moveTo(peakX-w/2,baseY);
+    g.lineTo(peakX,baseY-h);
+    g.lineTo(peakX+w/2,baseY);
+    g.closePath();g.fill();
+  }
+
+  // geometric shapes scattered (circles, triangles, rects) for texture & color variety
+  for(let i=0;i<14;i++){
+    const x=r()*BOARD_W, y=r()*BOARD_H;
+    const size=10+r()*40;
+    const hue=Math.floor(r()*360);
+    g.fillStyle=`hsla(${hue},70%,60%,${0.18+r()*0.25})`;
+    const shape=Math.floor(r()*3);
+    if(shape===0){ g.beginPath();g.arc(x,y,size/2,0,Math.PI*2);g.fill(); }
+    else if(shape===1){ g.beginPath();g.moveTo(x,y-size/2);g.lineTo(x+size/2,y+size/2);g.lineTo(x-size/2,y+size/2);g.closePath();g.fill(); }
+    else { g.fillRect(x-size/2,y-size/2,size,size); }
+  }
+
+  // sun rays
+  g.strokeStyle='rgba(255,255,255,.12)';
+  g.lineWidth=2;
+  for(let i=0;i<8;i++){
+    g.beginPath();
+    g.moveTo(BOARD_W*0.5,BOARD_H*0.28);
+    g.lineTo(BOARD_W*0.5+Math.cos(i/8*Math.PI*2)*220,BOARD_H*0.28+Math.sin(i/8*Math.PI*2)*220);
+    g.stroke();
+  }
+
+  return cv.toDataURL();
+}
+
+function mulberry32(a){
+  return function(){
+    a|=0; a=a+0x6D2B79F5|0;
+    let t=Math.imul(a^a>>>15,1|a);
+    t=t+Math.imul(t^t>>>7,61|t)^t;
+    return ((t^t>>>14)>>>0)/4294967296;
+  };
+}
+
+let currentImageURL='';
+let dragState=null;
+
+function gridFor(count){
+  // pick cols x rows close to count, roughly matching board aspect (1:1 here)
+  const map={12:[4,3],24:[6,4],48:[8,6]};
+  return map[count]||[6,4];
+}
+
+function buildPuzzle(){
+  const count=parseInt(pieceCountSel.value,10);
+  [cols,rows]=gridFor(count);
+  pieceW=BOARD_W/cols;
+  pieceH=BOARD_H/rows;
+  currentImageURL=generateSceneDataURL(Math.floor(Math.random()*1e9));
+
+  board.style.width=BOARD_W+'px';
+  board.style.height=BOARD_H+'px';
+  board.innerHTML='';
+  tray.innerHTML='';
+
+  // board slot outlines
+  for(let ry=0;ry<rows;ry++){
+    for(let rx=0;rx<cols;rx++){
+      const cell=document.createElement('div');
+      cell.className='cell';
+      cell.style.left=(rx*pieceW)+'px';
+      cell.style.top=(ry*pieceH)+'px';
+      cell.style.width=pieceW+'px';
+      cell.style.height=pieceH+'px';
+      board.appendChild(cell);
+    }
+  }
+
+  // tray sizing: width matches a reasonable area, scale based on viewport
+  const trayCols=Math.min(cols, 6);
+  const trayW=Math.max(BOARD_W, trayCols*(pieceW+10));
+  const trayPieceMargin=10;
+  const trayRowsNeeded=Math.ceil((cols*rows)/trayCols);
+  tray.style.width=Math.min(trayW, 480)+'px';
+  const effectiveTrayCols=Math.max(1,Math.floor((Math.min(trayW,480))/(pieceW+trayPieceMargin)));
+  const trayRows=Math.ceil((cols*rows)/effectiveTrayCols);
+  tray.style.height=Math.max(BOARD_H, trayRows*(pieceH+trayPieceMargin)+trayPieceMargin)+'px';
+
+  pieces=[];
+  let idx=0;
+  const positions=[];
+  for(let ry=0;ry<rows;ry++) for(let rx=0;rx<cols;rx++) positions.push({rx,ry});
+  // shuffle order for tray placement
+  const shuffled=[...positions].sort(()=>Math.random()-0.5);
+
+  shuffled.forEach((pos,i)=>{
+    const piece=document.createElement('div');
+    piece.className='piece';
+    piece.style.width=pieceW+'px';
+    piece.style.height=pieceH+'px';
+    piece.style.backgroundImage=`url(${currentImageURL})`;
+    piece.style.backgroundSize=`${BOARD_W}px ${BOARD_H}px`;
+    piece.style.backgroundPosition=`-${pos.rx*pieceW}px -${pos.ry*pieceH}px`;
+    piece.dataset.rx=pos.rx;
+    piece.dataset.ry=pos.ry;
+    piece.dataset.placed='0';
+
+    // place in tray grid
+    const tc=i % effectiveTrayCols;
+    const tr=Math.floor(i/effectiveTrayCols);
+    const tx=trayPieceMargin + tc*(pieceW+trayPieceMargin);
+    const ty=trayPieceMargin + tr*(pieceH+trayPieceMargin);
+    piece.style.left=tx+'px';
+    piece.style.top=ty+'px';
+    piece.dataset.parent='tray';
+
+    tray.appendChild(piece);
+    pieces.push(piece);
+    attachDrag(piece);
+    idx++;
+  });
+
+  placedCount=0;
+  solved=false;
+  placedCountEl.textContent='0';
+  totalCountEl.textContent=String(cols*rows);
+  winEl.style.display='none';
+  startTimer();
+}
+
+function attachDrag(piece){
+  function onDown(e){
+    if(piece.dataset.placed==='1') {
+      // allow re-picking up a placed piece (in case user wants to adjust)
+    }
+    e.preventDefault();
+    const pt=e.touches?e.touches[0]:e;
+    const parentRect=piece.parentElement.getBoundingClientRect();
+    const pieceRect=piece.getBoundingClientRect();
+    dragState={
+      piece,
+      offsetX: pt.clientX-pieceRect.left,
+      offsetY: pt.clientY-pieceRect.top,
+    };
+    piece.classList.add('dragging');
+    // move piece to body-level absolute positioning relative to viewport using fixed
+    document.body.appendChild(piece);
+    piece.style.position='fixed';
+    piece.style.left=(pieceRect.left)+'px';
+    piece.style.top=(pieceRect.top)+'px';
+    piece.style.width=pieceW+'px';
+    piece.style.height=pieceH+'px';
+    if(piece.dataset.placed==='1'){
+      placedCount--;
+      placedCountEl.textContent=String(placedCount);
+      piece.dataset.placed='0';
+      piece.classList.remove('placed');
+    }
+    document.addEventListener('mousemove',onMove);
+    document.addEventListener('mouseup',onUp);
+    document.addEventListener('touchmove',onMove,{passive:false});
+    document.addEventListener('touchend',onUp,{passive:false});
+  }
+  function onMove(e){
+    if(!dragState)return;
+    e.preventDefault();
+    const pt=e.touches?e.touches[0]:e;
+    dragState.piece.style.left=(pt.clientX-dragState.offsetX)+'px';
+    dragState.piece.style.top=(pt.clientY-dragState.offsetY)+'px';
+  }
+  function onUp(e){
+    if(!dragState)return;
+    const piece=dragState.piece;
+    piece.classList.remove('dragging');
+    const pieceRect=piece.getBoundingClientRect();
+    const boardRect=board.getBoundingClientRect();
+
+    // compute piece center relative to board
+    const cx=pieceRect.left+pieceRect.width/2 - boardRect.left;
+    const cy=pieceRect.top+pieceRect.height/2 - boardRect.top;
+
+    const targetCx=(parseInt(piece.dataset.rx,10)+0.5)*pieceW;
+    const targetCy=(parseInt(piece.dataset.ry,10)+0.5)*pieceH;
+
+    const within = cx>=-20 && cy>=-20 && cx<=BOARD_W+20 && cy<=BOARD_H+20;
+    const dist=Math.hypot(cx-targetCx,cy-targetCy);
+
+    document.removeEventListener('mousemove',onMove);
+    document.removeEventListener('mouseup',onUp);
+    document.removeEventListener('touchmove',onMove);
+    document.removeEventListener('touchend',onUp);
+    dragState=null;
+
+    if(within && dist<SNAP_DIST){
+      // snap into board
+      board.appendChild(piece);
+      piece.style.position='absolute';
+      piece.style.left=(parseInt(piece.dataset.rx,10)*pieceW)+'px';
+      piece.style.top=(parseInt(piece.dataset.ry,10)*pieceH)+'px';
+      piece.style.width=pieceW+'px';
+      piece.style.height=pieceH+'px';
+      piece.dataset.placed='1';
+      piece.classList.add('placed');
+      placedCount++;
+      placedCountEl.textContent=String(placedCount);
+      checkWin();
+    } else {
+      // drop back into tray at the dropped location (clamped within tray)
+      tray.appendChild(piece);
+      const trayRect=tray.getBoundingClientRect();
+      let left=pieceRect.left-trayRect.left;
+      let top=pieceRect.top-trayRect.top;
+      left=Math.max(0,Math.min(left, tray.clientWidth-pieceW));
+      top=Math.max(0,Math.min(top, tray.clientHeight-pieceH));
+      piece.style.position='absolute';
+      piece.style.left=left+'px';
+      piece.style.top=top+'px';
+      piece.style.width=pieceW+'px';
+      piece.style.height=pieceH+'px';
+    }
+  }
+  piece.addEventListener('mousedown',onDown);
+  piece.addEventListener('touchstart',onDown,{passive:false});
+}
+
+function checkWin(){
+  if(placedCount>=cols*rows && !solved){
+    solved=true;
+    stopTimer();
+    winEl.style.display='block';
+    winEl.textContent=`🎉 Puzzle complete in ${timerEl.textContent}! 🎉`;
+    // little celebration: flash border
+    let flashes=0;
+    const fl=setInterval(()=>{
+      board.style.borderColor = flashes%2===0 ? '#e94560' : 'rgba(255,255,255,.15)';
+      flashes++;
+      if(flashes>8){ clearInterval(fl); board.style.borderColor='rgba(255,255,255,.15)'; }
+    },200);
+  }
+}
+
+function startTimer(){
+  stopTimer();
+  startTime=Date.now();
+  timerEl.textContent='0:00';
+  timerInterval=setInterval(()=>{
+    const secs=Math.floor((Date.now()-startTime)/1000);
+    const m=Math.floor(secs/60), s=secs%60;
+    timerEl.textContent=`${m}:${s.toString().padStart(2,'0')}`;
+  },1000);
+}
+function stopTimer(){ if(timerInterval) clearInterval(timerInterval); }
+
+function reshuffleTray(){
+  // Move all unplaced pieces back to tray with shuffled positions; placed ones stay
+  const unplaced=pieces.filter(p=>p.dataset.placed!=='1');
+  const trayPieceMargin=10;
+  const effectiveTrayCols=Math.max(1,Math.floor(tray.clientWidth/(pieceW+trayPieceMargin)));
+  const shuffled=[...unplaced].sort(()=>Math.random()-0.5);
+  shuffled.forEach((piece,i)=>{
+    tray.appendChild(piece);
+    const tc=i % effectiveTrayCols;
+    const tr=Math.floor(i/effectiveTrayCols);
+    piece.style.position='absolute';
+    piece.style.left=(trayPieceMargin + tc*(pieceW+trayPieceMargin))+'px';
+    piece.style.top=(trayPieceMargin + tr*(pieceH+trayPieceMargin))+'px';
+    piece.style.width=pieceW+'px';
+    piece.style.height=pieceH+'px';
+  });
+}
+
+newPuzzleBtn.addEventListener('click',buildPuzzle);
+shuffleBtn.addEventListener('click',reshuffleTray);
+pieceCountSel.addEventListener('change',buildPuzzle);
+
+buildPuzzle();
+</script></body></html>

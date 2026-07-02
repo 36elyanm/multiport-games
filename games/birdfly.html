@@ -1,0 +1,83 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"><title>Bird Fly</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>body{background:#08080f}#c{display:block;border-radius:8px}#ui{color:#87ceeb;text-align:center;padding:8px;font-size:1.1rem;font-weight:700}</style>
+</head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Bird Fly</div>
+  <div class="game-frame">
+    <div id="ui">Distance: 0m | Best: 0m</div>
+    <canvas id="c" width="600" height="340"></canvas>
+  </div>
+  <div class="game-instructions">Hold <b>Space</b>/click to flap and fly up. Collect feathers for bonus distance!</div>
+</div>
+<script>
+const c=document.getElementById('c'),ctx=c.getContext('2d');
+let bird,obstacles,feathers,dist,best=0,state,frame,spd,keys={};
+
+function start(){bird={x:80,y:170,vy:0,w:36,h:22,flapAnim:0};obstacles=[];feathers=[];dist=0;state='play';frame=0;spd=3;}
+
+let pressing=false;
+document.addEventListener('keydown',e=>{if(e.code==='Space'){e.preventDefault();pressing=true;}if(!pressing&&state!=='play')start();});
+document.addEventListener('keyup',e=>{if(e.code==='Space')pressing=false;});
+c.addEventListener('mousedown',()=>{pressing=true;if(state!=='play')start();});
+document.addEventListener('mouseup',()=>pressing=false);
+c.addEventListener('touchstart',e=>{e.preventDefault();pressing=true;if(state!=='play')start();},{passive:false});
+document.addEventListener('touchend',()=>pressing=false,{passive:true});
+
+const clouds=Array.from({length:5},()=>({x:Math.random()*600,y:20+Math.random()*80,w:60+Math.random()*80,speed:Math.random()*.5+.3}));
+
+function loop(){
+  // Sky gradient
+  const sky=ctx.createLinearGradient(0,0,0,c.height);sky.addColorStop(0,'#0277bd');sky.addColorStop(1,'#87ceeb');
+  ctx.fillStyle=sky;ctx.fillRect(0,0,c.width,c.height);
+  // Clouds
+  clouds.forEach(cl=>{cl.x-=cl.speed;if(cl.x+cl.w<0)cl.x=c.width;ctx.fillStyle='rgba(255,255,255,.7)';ctx.beginPath();ctx.ellipse(cl.x,cl.y,cl.w/2,18,0,0,Math.PI*2);ctx.ellipse(cl.x+cl.w*.3,cl.y-10,cl.w*.4,22,0,0,Math.PI*2);ctx.fill();});
+  // Ground
+  ctx.fillStyle='#5d4037';ctx.fillRect(0,320,c.width,20);ctx.fillStyle='#388e3c';ctx.fillRect(0,316,c.width,8);
+
+  if(state!=='play'){
+    ctx.fillStyle='rgba(0,0,0,.55)';ctx.fillRect(0,0,c.width,c.height);
+    ctx.fillStyle='#87ceeb';ctx.font='bold 32px Arial';ctx.textAlign='center';ctx.fillText('GAME OVER',300,150);
+    ctx.fillStyle='#fff';ctx.font='20px Arial';ctx.fillText(`${dist}m  Best: ${best}m`,300,188);ctx.fillText('Click/Space to retry',300,222);
+    requestAnimationFrame(loop);return;
+  }
+
+  frame++;dist++;spd=3+dist/600;if(dist>best)best=dist;
+
+  bird.vy+=pressing?-.35:.4;bird.vy=Math.max(-8,Math.min(9,bird.vy));
+  bird.y+=bird.vy;bird.flapAnim=pressing?(bird.flapAnim+2)%8:0;
+
+  if(bird.y+bird.h>315||bird.y<0)state='dead';
+
+  if(frame%120===0)obstacles.push({x:c.width,h:60+Math.random()*120,w:28});
+  if(frame%80===0)feathers.push({x:c.width,y:40+Math.random()*260,r:8});
+
+  obstacles=obstacles.filter(o=>o.x>-30);
+  obstacles.forEach(o=>{o.x-=spd;
+    ctx.fillStyle='#5d4037';ctx.fillRect(o.x,0,o.w,o.h);ctx.fillRect(o.x,c.height-o.h*.8,o.w,o.h*.8);
+    ctx.fillStyle='#388e3c';ctx.fillRect(o.x-5,o.h-12,o.w+10,12);ctx.fillRect(o.x-5,c.height-o.h*.8-12,o.w+10,12);
+    if(bird.x+bird.w>o.x&&bird.x<o.x+o.w&&(bird.y<o.h||bird.y+bird.h>c.height-o.h*.8))state='dead';
+  });
+
+  feathers=feathers.filter(f=>f.x>-20);
+  feathers.forEach(f=>{f.x-=spd;
+    ctx.fillStyle='#fff';ctx.beginPath();ctx.ellipse(f.x,f.y,f.r,f.r*.5,-.3,0,Math.PI*2);ctx.fill();
+    if(Math.hypot(bird.x+bird.w/2-f.x,bird.y+bird.h/2-f.y)<f.r+bird.h/2){dist+=50;f.x=-99;}
+  });
+
+  // Bird
+  ctx.save();ctx.translate(bird.x,bird.y);ctx.rotate(bird.vy*.04);
+  const wingY=pressing?-8+bird.flapAnim:0;
+  ctx.fillStyle='#ff6b35';ctx.beginPath();ctx.ellipse(0,wingY,bird.w/2*.9,12,-.2,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#ffab40';ctx.beginPath();ctx.ellipse(2,2,bird.w/2,bird.h/2,0,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(bird.w/2-4,-4,6,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#333';ctx.beginPath();ctx.arc(bird.w/2-2,-4,3,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#ff9800';ctx.beginPath();ctx.moveTo(bird.w/2+4,-2);ctx.lineTo(bird.w/2+12,0);ctx.lineTo(bird.w/2+4,3);ctx.fill();
+  ctx.restore();
+
+  document.getElementById('ui').textContent=`Distance: ${dist}m | Best: ${best}m`;
+  requestAnimationFrame(loop);
+}
+start();loop();
+</script></body></html>

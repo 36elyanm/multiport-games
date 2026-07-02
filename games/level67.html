@@ -1,0 +1,159 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"><title>Level 67</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+body{background:#0a0a0a}
+#c{display:block;border-radius:8px}
+#ui{color:#00ff64;text-align:center;padding:8px;font-size:1.1rem;font-weight:700;text-shadow:0 0 8px #00ff64}
+</style>
+</head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title" style="color:#00ff64;text-shadow:0 0 12px #00ff64">Level 67</div>
+  <div class="game-frame" style="background:#0a0a0a">
+    <div id="ui">0m | Best: 0m</div>
+    <canvas id="c" width="600" height="380"></canvas>
+  </div>
+  <div class="game-instructions">Press <b>Space</b>, click, or tap to jump. Land on platforms, avoid all spikes!</div>
+</div>
+<script>
+const c=document.getElementById('c'),ctx=c.getContext('2d');
+const W=600,H=380,FLOOR=H-52,CEIL=52,SZ=32,SPK=36;
+const SPEED=6.5,GRAV=0.68,JUMP=-14;
+let px,py,pvy,angle,camX,spikes,frame,score,state,hi=0,nextSpawn;
+
+function reset(){
+  px=90;py=FLOOR-SZ;pvy=0;angle=0;
+  camX=0;spikes=[];frame=0;score=0;state='play';nextSpawn=380;
+}
+
+function jump(){
+  if(py+SZ>=FLOOR-1){pvy=JUMP;}
+}
+
+function handleInput(){
+  if(state!=='play'){reset();}else jump();
+}
+document.addEventListener('keydown',e=>{if(e.code==='Space'||e.code==='ArrowUp'){e.preventDefault();handleInput();}});
+c.addEventListener('click',handleInput);
+c.addEventListener('touchstart',e=>{e.preventDefault();handleInput();},{passive:false});
+
+function spawnPattern(wx){
+  const r=Math.random();
+  if(r<0.22){// single floor spike
+    spikes.push({x:wx,floor:true});
+  } else if(r<0.42){// double floor
+    spikes.push({x:wx,floor:true});spikes.push({x:wx+SPK,floor:true});
+  } else if(r<0.56){// triple floor
+    for(let i=0;i<3;i++)spikes.push({x:wx+i*SPK,floor:true});
+  } else if(r<0.68){// ceiling spike
+    spikes.push({x:wx,floor:false});
+  } else if(r<0.80){// floor + ceiling offset
+    spikes.push({x:wx,floor:true});spikes.push({x:wx+110,floor:false});
+  } else if(r<0.90){// double floor + ceiling above
+    spikes.push({x:wx,floor:true});spikes.push({x:wx+SPK,floor:true});
+    spikes.push({x:wx+SPK*.5,floor:false});
+  } else {// ceiling pair
+    spikes.push({x:wx,floor:false});spikes.push({x:wx+SPK,floor:false});
+  }
+}
+
+function genSpikes(){
+  while(nextSpawn<camX+W+300){
+    spawnPattern(nextSpawn);
+    nextSpawn+=95+Math.random()*130;
+  }
+}
+
+function hitTest(){
+  for(const s of spikes){
+    const sx=s.x-camX;
+    if(sx>W+SPK||sx<-SPK)continue;
+    const sy=s.floor?FLOOR:CEIL;
+    // Reduced hitbox: middle 55% of spike width, 75% of height
+    const hx=(s.x-camX)+SPK*.22,hw=SPK*.55;
+    const hy=s.floor?(FLOOR-SPK*.75):CEIL,hh=SPK*.75;
+    if(px+SZ>hx&&px<hx+hw&&py+SZ>hy&&py<hy+hh)return true;
+  }
+  return false;
+}
+
+function drawSpike(sx,floor){
+  ctx.shadowColor='#00ff64';ctx.shadowBlur=12;
+  ctx.fillStyle='#00ff64';
+  ctx.beginPath();
+  if(floor){ctx.moveTo(sx,FLOOR);ctx.lineTo(sx+SPK,FLOOR);ctx.lineTo(sx+SPK/2,FLOOR-SPK);}
+  else{ctx.moveTo(sx,CEIL);ctx.lineTo(sx+SPK,CEIL);ctx.lineTo(sx+SPK/2,CEIL+SPK);}
+  ctx.closePath();ctx.fill();
+  // inner lighter triangle
+  ctx.fillStyle='rgba(255,255,255,0.25)';
+  ctx.beginPath();
+  if(floor){ctx.moveTo(sx+SPK*.3,FLOOR-4);ctx.lineTo(sx+SPK*.7,FLOOR-4);ctx.lineTo(sx+SPK/2,FLOOR-SPK+8);}
+  else{ctx.moveTo(sx+SPK*.3,CEIL+4);ctx.lineTo(sx+SPK*.7,CEIL+4);ctx.lineTo(sx+SPK/2,CEIL+SPK-8);}
+  ctx.closePath();ctx.fill();
+  ctx.shadowBlur=0;
+}
+
+function drawPlayer(){
+  ctx.save();ctx.translate(px+SZ/2,py+SZ/2);ctx.rotate(angle);
+  ctx.shadowColor='#e94560';ctx.shadowBlur=14;
+  ctx.fillStyle='#e94560';ctx.fillRect(-SZ/2,-SZ/2,SZ,SZ);
+  ctx.fillStyle='rgba(255,255,255,0.3)';ctx.fillRect(-SZ/2,-SZ/2,SZ/2,SZ/2);
+  ctx.fillStyle='#ff8a80';
+  ctx.beginPath();ctx.moveTo(-SZ/4,-SZ/4);ctx.lineTo(SZ/4,-SZ/4);ctx.lineTo(0,SZ/4);ctx.fill();
+  ctx.shadowBlur=0;ctx.restore();
+}
+
+function loop(){
+  ctx.fillStyle='#0a0a0a';ctx.fillRect(0,0,W,H);
+  // Grid
+  ctx.strokeStyle='rgba(0,255,100,0.06)';ctx.lineWidth=1;
+  const gx=60-(camX%60);
+  for(let x=gx;x<W;x+=60){ctx.beginPath();ctx.moveTo(x,CEIL);ctx.lineTo(x,FLOOR);ctx.stroke();}
+  for(let y=CEIL;y<=FLOOR;y+=60){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+
+  if(state!=='play'){
+    ctx.fillStyle='rgba(0,0,0,0.72)';ctx.fillRect(0,0,W,H);
+    ctx.textAlign='center';
+    if(state==='idle'){
+      ctx.shadowColor='#00ff64';ctx.shadowBlur=20;
+      ctx.fillStyle='#00ff64';ctx.font='bold 50px Arial';ctx.fillText('LEVEL 67',W/2,H/2-28);
+      ctx.shadowBlur=0;ctx.fillStyle='#aaa';ctx.font='19px Arial';
+      ctx.fillText('Space / Click / Tap to jump',W/2,H/2+20);
+    } else {
+      ctx.fillStyle='#e94560';ctx.font='bold 44px Arial';ctx.fillText('DEAD',W/2,H/2-45);
+      ctx.fillStyle='#fff';ctx.font='24px Arial';ctx.fillText(`${score}m`,W/2,H/2);
+      ctx.fillStyle='#aaa';ctx.font='17px Arial';ctx.fillText(`Best: ${hi}m`,W/2,H/2+34);
+      ctx.fillText('Space / Click / Tap to retry',W/2,H/2+62);
+    }
+    requestAnimationFrame(loop);return;
+  }
+
+  // Physics
+  pvy+=GRAV;py+=pvy;camX+=SPEED;
+  angle+=SPEED*0.045;frame++;
+  score=Math.floor(camX/10);if(score>hi)hi=score;
+
+  if(py+SZ>=FLOOR){py=FLOOR-SZ;pvy=0;angle=Math.round(angle/(Math.PI/2))*(Math.PI/2);}
+  if(py<=CEIL){state='dead';}
+
+  genSpikes();
+  spikes=spikes.filter(s=>s.x>camX-SPK*2);
+
+  // Floor/ceiling panels
+  ctx.fillStyle='#111';ctx.fillRect(0,FLOOR,W,H-FLOOR);ctx.fillRect(0,0,W,CEIL);
+  // Glow lines
+  ctx.shadowColor='#00ff64';ctx.shadowBlur=18;
+  ctx.fillStyle='#00ff64';ctx.fillRect(0,FLOOR,W,3);ctx.fillRect(0,CEIL-3,W,3);
+  ctx.shadowBlur=0;
+
+  spikes.forEach(s=>drawSpike(s.x-camX,s.floor));
+  if(hitTest())state='dead';
+  drawPlayer();
+
+  document.getElementById('ui').textContent=`${score}m | Best: ${hi}m`;
+  requestAnimationFrame(loop);
+}
+
+state='idle';loop();
+</script>
+</body></html>

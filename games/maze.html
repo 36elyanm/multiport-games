@@ -1,0 +1,80 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"><title>Maze Runner</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>body{background:#08080f}#c{display:block;border-radius:8px;margin:0 auto}#ui{color:#78909c;text-align:center;padding:8px;font-size:1.1rem;font-weight:700}</style>
+</head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Maze Runner</div>
+  <div class="game-frame" style="padding:10px">
+    <div id="ui">Find the exit! Time: 0s</div>
+    <canvas id="c" width="400" height="400"></canvas>
+  </div>
+  <div class="game-instructions"><b>Arrow Keys</b> or swipe to navigate. Reach the green exit!</div>
+</div>
+<script>
+const c=document.getElementById('c'),ctx=c.getContext('2d');
+const N=15,SZ=Math.floor(400/N);
+let grid,player,endCell,timer,seconds,solved;
+
+function Cell(r,col){this.r=r;this.c=col;this.visited=false;this.walls={N:true,S:true,E:true,W:true};}
+
+function generate(){
+  grid=Array.from({length:N},(_,r)=>Array.from({length:N},(_,c)=>new Cell(r,c)));
+  const stack=[];const start=grid[0][0];start.visited=true;stack.push(start);
+  while(stack.length){
+    const cur=stack[stack.length-1];
+    const neighbors=[];
+    const dirs=[[0,-1,'N','S'],[-1,0,'W','E'],[0,1,'S','N'],[1,0,'E','W']];
+    dirs.forEach(([dc,dr,wa,wb])=>{const nc=cur.c+dc,nr=cur.r+dr;if(nc>=0&&nc<N&&nr>=0&&nr<N&&!grid[nr][nc].visited)neighbors.push([grid[nr][nc],wa,wb]);});
+    if(neighbors.length){const [next,wa,wb]=neighbors[Math.floor(Math.random()*neighbors.length)];cur.walls[wa]=false;next.walls[wb]=false;next.visited=true;stack.push(next);}
+    else stack.pop();
+  }
+}
+
+function start(){
+  generate();player={r:0,c:0};endCell={r:N-1,c:N-1};seconds=0;solved=false;
+  clearInterval(timer);timer=setInterval(()=>{if(!solved){seconds++;document.getElementById('ui').textContent=`Time: ${seconds}s | Reach the green exit!`;}},1000);
+  draw();
+}
+
+function move(dr,dc){
+  if(solved)return;
+  const {r,c}=player;const dirMap={[-1]:{'0':'N'},[1]:{'0':'S'},[0]:{[-1]:'W',1:'E'}};
+  const dir=(dr===0?{[-1]:'W',1:'E'}:dr===-1?{0:'N'}:{0:'S'})[dc??0]||(dr===-1?'N':dr===1?'S':dc===-1?'W':'E');
+  const wallKey=dr===-1?'N':dr===1?'S':dc===-1?'W':'E';
+  if(!grid[r][c].walls[wallKey]){player.r+=dr;player.c+=dc;}
+  if(player.r===endCell.r&&player.c===endCell.c){solved=true;clearInterval(timer);document.getElementById('ui').textContent=`🎉 Solved in ${seconds}s! Click to new maze`;}
+  draw();
+}
+
+document.addEventListener('keydown',e=>{
+  const map={ArrowUp:[-1,0],ArrowDown:[1,0],ArrowLeft:[0,-1],ArrowRight:[0,1]};
+  if(map[e.code]){e.preventDefault();move(...map[e.code]);}
+  if(solved)start();
+});
+c.addEventListener('click',()=>{if(solved)start();});
+
+let swipeX,swipeY;
+c.addEventListener('touchstart',e=>{swipeX=e.touches[0].clientX;swipeY=e.touches[0].clientY;},{passive:true});
+c.addEventListener('touchend',e=>{
+  const dx=e.changedTouches[0].clientX-swipeX,dy=e.changedTouches[0].clientY-swipeY;
+  if(Math.abs(dx)>Math.abs(dy)){move(0,dx>0?1:-1);}else{move(dy>0?1:-1,0);}
+},{passive:true});
+
+function draw(){
+  ctx.fillStyle='#1e2d3d';ctx.fillRect(0,0,c.width,c.height);
+  ctx.strokeStyle='#546e7a';ctx.lineWidth=2;
+  for(let r=0;r<N;r++)for(let cc=0;cc<N;cc++){
+    const cell=grid[r][cc];const x=cc*SZ,y=r*SZ;
+    if(cell.walls.N){ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+SZ,y);ctx.stroke();}
+    if(cell.walls.S){ctx.beginPath();ctx.moveTo(x,y+SZ);ctx.lineTo(x+SZ,y+SZ);ctx.stroke();}
+    if(cell.walls.W){ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x,y+SZ);ctx.stroke();}
+    if(cell.walls.E){ctx.beginPath();ctx.moveTo(x+SZ,y);ctx.lineTo(x+SZ,y+SZ);ctx.stroke();}
+  }
+  // End
+  ctx.fillStyle='#00e676';ctx.fillRect(endCell.c*SZ+3,endCell.r*SZ+3,SZ-6,SZ-6);
+  // Player
+  ctx.fillStyle='#e94560';ctx.beginPath();ctx.arc(player.c*SZ+SZ/2,player.r*SZ+SZ/2,SZ/2-4,0,Math.PI*2);ctx.fill();
+}
+start();
+</script></body></html>

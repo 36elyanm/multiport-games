@@ -1,0 +1,133 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"><title>Sword Duel</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>body{background:#08080f}#c{display:block;border-radius:8px;margin:0 auto}#ui{color:#cfd8dc;text-align:center;padding:8px;font-size:1.1rem;font-weight:700}</style>
+</head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Sword Duel</div>
+  <div class="game-frame" style="padding:10px">
+    <div id="ui">HP: ❤️❤️❤️ | Round 1</div>
+    <canvas id="c" width="500" height="380"></canvas>
+  </div>
+  <div style="display:flex;gap:8px;justify-content:center;padding:8px">
+    <button ontouchstart="playerAttack('normal')" onmousedown="playerAttack('normal')" style="padding:12px 22px;background:rgba(207,216,220,.12);border:1px solid rgba(207,216,220,.3);border-radius:12px;color:#cfd8dc;font-size:1rem;font-weight:700;cursor:pointer">⚔️ Attack</button>
+    <button ontouchstart="touchBlock(true)" ontouchend="touchBlock(false)" onmousedown="touchBlock(true)" onmouseup="touchBlock(false)" style="padding:12px 22px;background:rgba(21,101,192,.18);border:1px solid rgba(21,101,192,.4);border-radius:12px;color:#90caf9;font-size:1rem;font-weight:700;cursor:pointer">🛡️ Block</button>
+    <button ontouchstart="playerAttack('special')" onmousedown="playerAttack('special')" style="padding:12px 22px;background:rgba(233,69,96,.15);border:1px solid rgba(233,69,96,.35);border-radius:12px;color:#ff8fa3;font-size:1rem;font-weight:700;cursor:pointer">✨ Special</button>
+  </div>
+  <div class="game-instructions"><b>A</b> = attack · <b>D</b> = block · <b>S</b> = special (costs 2 stamina) · or use buttons above</div>
+</div>
+<script>
+const c=document.getElementById('c'),ctx=c.getContext('2d');
+let player,enemy,frame,state,round,keys={};
+
+function start(){
+  player={x:80,y:180,hp:5,stamina:5,blocking:false,attacking:false,atkTimer:0,hitFlash:0};
+  enemy={x:380,y:180,hp:5,aiTimer:60,action:null,atkTimer:0,hitFlash:0,dir:-1};
+  frame=0;state='play';round=1;
+}
+
+document.addEventListener('keydown',e=>{
+  keys[e.code]=true;
+  if(state!=='play')return;
+  if(e.code==='KeyA')playerAttack('normal');
+  if(e.code==='KeyS')playerAttack('special');
+  if(e.code==='KeyD')player.blocking=true;
+});
+document.addEventListener('keyup',e=>{keys[e.code]=false;if(e.code==='KeyD')player.blocking=false;});
+c.addEventListener('click',()=>{if(state!=='play')start();});
+function touchBlock(on){if(state==='play')player.blocking=on;}
+
+function playerAttack(type){
+  if(player.atkTimer>0)return;
+  if(type==='special'&&player.stamina<2)return;
+  player.attacking=true;player.atkTimer=25+(type==='special'?10:0);
+  if(type==='special')player.stamina-=2;
+  const dmg=type==='special'?2:1;
+  setTimeout(()=>{
+    if(state!=='play')return;
+    if(!enemy.blocking){enemy.hp-=dmg;enemy.hitFlash=15;}
+    else{enemy.blocking=false;}
+    if(enemy.hp<=0)endRound('win');
+  },200);
+}
+
+function enemyAI(){
+  enemy.aiTimer--;
+  if(enemy.aiTimer<=0){
+    enemy.aiTimer=40+Math.random()*40;
+    const r=Math.random();
+    if(r<.4){// Attack
+      enemy.action='attack';enemy.atkTimer=25;
+      setTimeout(()=>{
+        if(state!=='play')return;
+        if(!player.blocking){player.hp--;player.hitFlash=15;}
+        if(player.hp<=0)endRound('lose');
+      },220);
+    } else if(r<.7){enemy.action='block';enemy.blocking=true;setTimeout(()=>{enemy.blocking=false;enemy.action=null;},400);}
+    else enemy.action=null;
+  }
+}
+
+function endRound(result){
+  state=result==='win'?'win':'lose';
+  setTimeout(()=>{
+    if(result==='win'){round++;if(round>5){state='victory';return;}enemy.hp=5;enemy.aiTimer=30;player.atkTimer=0;state='play';}
+    else{state='gameover';}
+  },1200);
+}
+
+function drawFighter(f,flip,label){
+  ctx.save();ctx.translate(f.x,f.y);if(flip)ctx.scale(-1,1);
+  // Hit flash
+  if(f.hitFlash>0){ctx.fillStyle=`rgba(255,100,100,${f.hitFlash/15*.5})`;ctx.fillRect(-30,-80,60,120);f.hitFlash--;}
+  // Body
+  ctx.fillStyle=f.blocking?'#546e7a':'#37474f';ctx.fillRect(-15,-60,30,60);
+  // Head
+  ctx.fillStyle='#ffcc80';ctx.beginPath();ctx.arc(0,-75,18,0,Math.PI*2);ctx.fill();
+  // Eyes
+  ctx.fillStyle='#333';ctx.fillRect(-7,-78,5,5);ctx.fillRect(3,-78,5,5);
+  // Sword arm
+  const swingAng=f.attacking||f.atkTimer>0?(Math.random()*.4-.8):(f.blocking?-.3:-.5);
+  ctx.save();ctx.rotate(swingAng);ctx.fillStyle='#90a4ae';ctx.fillRect(20,-80,8,50);ctx.fillStyle='#cfd8dc';ctx.fillRect(16,-82,16,8);ctx.restore();
+  // Shield when blocking
+  if(f.blocking){ctx.fillStyle='#1565c0';ctx.fillRect(-35,-60,20,50);ctx.fillStyle='#1976d2';ctx.fillRect(-32,-55,14,40);}
+  // HP bar
+  ctx.fillStyle='#333';ctx.fillRect(-25,-100,50,8);ctx.fillStyle='#f44336';ctx.fillRect(-25,-100,50*(f.hp/5),8);
+  ctx.fillStyle='#fff';ctx.font='10px Arial';ctx.textAlign='center';ctx.fillText(label,0,-88);
+  ctx.restore();
+}
+
+function loop(){
+  const bg=ctx.createLinearGradient(0,0,0,380);
+  bg.addColorStop(0,'#263238');bg.addColorStop(1,'#37474f');
+  ctx.fillStyle=bg;ctx.fillRect(0,0,500,380);
+  // Floor
+  ctx.fillStyle='#5d4037';ctx.fillRect(0,250,500,130);ctx.fillStyle='#4e342e';ctx.fillRect(0,250,500,8);
+  // Torches
+  [[60,200],[440,200]].forEach(([x,y])=>{ctx.fillStyle='#8d6e63';ctx.fillRect(x-4,y,8,30);ctx.fillStyle='#ff6e40';ctx.beginPath();ctx.arc(x,y,8+Math.sin(frame*.2)*3,0,Math.PI*2);ctx.fill();});
+
+  if(state==='play'){frame++;if(player.atkTimer>0)player.atkTimer--;enemyAI();if(enemy.atkTimer>0)enemy.atkTimer--;}
+  drawFighter(player,false,'YOU');drawFighter(enemy,true,'CPU');
+
+  // Stamina
+  ctx.fillStyle='rgba(0,0,0,.4)';ctx.fillRect(10,10,100,14);
+  ctx.fillStyle='#66bb6a';ctx.fillRect(10,10,player.stamina*20,14);
+  ctx.fillStyle='#fff';ctx.font='11px Arial';ctx.textAlign='left';ctx.fillText('Stamina',12,22);
+
+  // Controls hint
+  ctx.fillStyle='rgba(255,255,255,.4)';ctx.font='12px Arial';ctx.textAlign='center';
+  ctx.fillText('A=Attack  D=Block  S=Special',250,370);
+
+  if(state!=='play'){
+    ctx.fillStyle='rgba(0,0,0,.6)';ctx.fillRect(0,0,500,380);
+    const msg=state==='win'?'Round Clear! ⚔️':state==='victory'?'CHAMPION! 🏆':state==='gameover'?'DEFEATED! 💀':'...';
+    ctx.fillStyle='#cfd8dc';ctx.font='bold 30px Arial';ctx.textAlign='center';ctx.fillText(msg,250,170);
+    ctx.fillStyle='#fff';ctx.font='16px Arial';ctx.fillText('Click to retry',250,210);
+  }
+
+  document.getElementById('ui').textContent=`HP: ${'❤️'.repeat(Math.max(0,player.hp))} | Round ${round}/5`;
+  requestAnimationFrame(loop);
+}
+start();loop();
+setInterval(()=>{if(player&&player.stamina<5&&state==='play')player.stamina=Math.min(5,player.stamina+.02);},100);
+</script></body></html>

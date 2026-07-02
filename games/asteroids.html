@@ -1,0 +1,132 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"><title>Space Rocks</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>body{background:#0d0d2b}#c{display:block;border-radius:8px}#ui{color:#4fc3f7;font-size:1.1rem;font-weight:700;text-align:center;padding:8px}
+.ast-pad{display:flex;justify-content:space-between;align-items:center;padding:8px 16px;gap:8px;max-width:600px;margin:0 auto}
+.ast-pad button{padding:10px 18px;background:rgba(79,195,247,.12);border:1px solid rgba(79,195,247,.3);border-radius:12px;color:#4fc3f7;font-size:1.3rem;cursor:pointer;user-select:none;-webkit-user-select:none}
+.ast-pad button:active{background:rgba(79,195,247,.28)}
+</style>
+</head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Space Rocks</div>
+  <div class="game-frame">
+    <div id="ui">Score: 0 | Lives: 3</div>
+    <canvas id="c" width="600" height="500"></canvas>
+  </div>
+  <div class="ast-pad">
+    <button ontouchstart="keys['ArrowLeft']=true" ontouchend="keys['ArrowLeft']=false" onmousedown="keys['ArrowLeft']=true" onmouseup="keys['ArrowLeft']=false">↺</button>
+    <button ontouchstart="keys['ArrowUp']=true" ontouchend="keys['ArrowUp']=false" onmousedown="keys['ArrowUp']=true" onmouseup="keys['ArrowUp']=false">🚀 Thrust</button>
+    <button ontouchstart="shoot()" ontouchend="" onmousedown="shoot()">💥 Fire</button>
+    <button ontouchstart="keys['ArrowRight']=true" ontouchend="keys['ArrowRight']=false" onmousedown="keys['ArrowRight']=true" onmouseup="keys['ArrowRight']=false">↻</button>
+  </div>
+  <div class="game-instructions"><b>←→</b> rotate · <b>↑</b> thrust · <b>Space</b> shoot · or use buttons above</div>
+</div>
+<script>
+const c=document.getElementById('c'),ctx=c.getContext('2d');
+let ship,bullets,asteroids,score,lives,state,iframes,keys={};
+
+function makeShip(){return{x:300,y:250,angle:0,vx:0,vy:0,r:14};}
+function makeAsteroid(x,y,size){
+  const angle=Math.random()*Math.PI*2,speed=1+Math.random()*(4-size*.5);
+  const pts=[];for(let i=0;i<12;i++)pts.push((size*18+Math.random()*size*6)*([1]));
+  return{x,y,vx:Math.cos(angle)*speed,vy:Math.sin(angle)*speed,size,r:size*18,angle:0,spin:(Math.random()-.5)*.05,pts:Array.from({length:12},(_,i)=>size*18+Math.random()*size*8)};
+}
+
+function start(){
+  ship=makeShip();bullets=[];score=0;lives=3;iframes=0;
+  asteroids=[];for(let i=0;i<5;i++){let x,y;do{x=Math.random()*600;y=Math.random()*500;}while(Math.hypot(x-300,y-250)<120);asteroids.push(makeAsteroid(x,y,3));}
+  state='play';
+}
+
+document.addEventListener('keydown',e=>{keys[e.code]=true;if(e.code==='Space'){e.preventDefault();if(state==='play')shoot();}if(e.code==='Enter'&&state!=='play')start();});
+document.addEventListener('keyup',e=>keys[e.code]=false);
+c.addEventListener('click',()=>{if(state!=='play')start();});
+
+function shoot(){
+  if(bullets.length>5)return;
+  bullets.push({x:ship.x+Math.sin(ship.angle)*20,y:ship.y-Math.cos(ship.angle)*20,vx:Math.sin(ship.angle)*10,vy:-Math.cos(ship.angle)*10,life:60});
+}
+
+function wrap(obj){
+  if(obj.x<0)obj.x=c.width;if(obj.x>c.width)obj.x=0;
+  if(obj.y<0)obj.y=c.height;if(obj.y>c.height)obj.y=0;
+}
+
+function loop(){
+  ctx.fillStyle='#0d0d2b';ctx.fillRect(0,0,c.width,c.height);
+  // Stars
+  ctx.fillStyle='rgba(255,255,255,.4)';
+  for(let s of stars)ctx.fillRect(s[0],s[1],1.5,1.5);
+
+  if(state!=='play'){
+    ctx.fillStyle='#4fc3f7';ctx.font='bold 32px Arial';ctx.textAlign='center';
+    ctx.fillText(state==='win'?'LEVEL CLEAR!':'GAME OVER',300,220);
+    ctx.fillStyle='#fff';ctx.font='18px Arial';ctx.fillText(`Score: ${score}`,300,260);
+    ctx.fillText('Click / Enter to play',300,295);
+    requestAnimationFrame(loop);return;
+  }
+
+  if(iframes>0)iframes--;
+
+  // Rotate & thrust
+  if(keys['ArrowLeft'])ship.angle-=0.06;
+  if(keys['ArrowRight'])ship.angle+=0.06;
+  if(keys['ArrowUp']){ship.vx+=Math.sin(ship.angle)*.25;ship.vy-=Math.cos(ship.angle)*.25;}
+  ship.vx*=.985;ship.vy*=.985;
+  ship.x+=ship.vx;ship.y+=ship.vy;wrap(ship);
+
+  // Bullets
+  bullets=bullets.filter(b=>b.life>0);
+  bullets.forEach(b=>{b.x+=b.vx;b.y+=b.vy;b.life--;wrap(b);
+    ctx.fillStyle='#ffff00';ctx.shadowBlur=6;ctx.shadowColor='#ff0';
+    ctx.beginPath();ctx.arc(b.x,b.y,3,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
+  });
+
+  // Asteroids
+  asteroids.forEach(a=>{a.x+=a.vx;a.y+=a.vy;a.angle+=a.spin;wrap(a);
+    ctx.strokeStyle='#4fc3f7';ctx.lineWidth=2;ctx.beginPath();
+    a.pts.forEach((r,i)=>{const ang=a.angle+i*Math.PI*2/a.pts.length;const px=a.x+r*Math.cos(ang),py=a.y+r*Math.sin(ang);i===0?ctx.moveTo(px,py):ctx.lineTo(px,py);});
+    ctx.closePath();ctx.stroke();
+  });
+
+  // Collision: bullets vs asteroids
+  for(let b=bullets.length-1;b>=0;b--){
+    for(let a=asteroids.length-1;a>=0;a--){
+      if(Math.hypot(bullets[b].x-asteroids[a].x,bullets[b].y-asteroids[a].y)<asteroids[a].r){
+        score+=[0,20,50,100][asteroids[a].size];
+        if(score>hiScore)hiScore=score;
+        bullets.splice(b,1);
+        const {x,y,size}=asteroids[a];asteroids.splice(a,1);
+        if(size>1){asteroids.push(makeAsteroid(x+20,y,size-1));asteroids.push(makeAsteroid(x-20,y,size-1));}
+        break;
+      }
+    }
+  }
+
+  // Ship vs asteroids
+  if(iframes===0)for(const a of asteroids){
+    if(Math.hypot(ship.x-a.x,ship.y-a.y)<a.r+ship.r){
+      lives--;iframes=120;ship.vx=ship.vy=0;ship.x=300;ship.y=250;
+      if(lives<=0)state='over';break;
+    }
+  }
+
+  if(asteroids.length===0)state='win';
+
+  // Draw ship
+  ctx.save();ctx.translate(ship.x,ship.y);ctx.rotate(ship.angle);
+  if(iframes===0||Math.floor(iframes/6)%2===0){
+    ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.beginPath();
+    ctx.moveTo(0,-18);ctx.lineTo(12,14);ctx.lineTo(0,8);ctx.lineTo(-12,14);ctx.closePath();ctx.stroke();
+    if(keys['ArrowUp']){ctx.fillStyle='#ff6e40';ctx.beginPath();ctx.moveTo(-6,10);ctx.lineTo(0,22+Math.random()*8);ctx.lineTo(6,10);ctx.fill();}
+  }
+  ctx.restore();
+
+  document.getElementById('ui').textContent=`Score: ${score} | Lives: ${'❤️'.repeat(lives)}`;
+  requestAnimationFrame(loop);
+}
+
+const stars=Array.from({length:80},()=>[Math.random()*600,Math.random()*500]);
+let hiScore=0;
+start();loop();
+</script></body></html>

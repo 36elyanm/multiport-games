@@ -1,0 +1,278 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Word Guess</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+#wordle-wrap{display:flex;flex-direction:column;align-items:center;gap:12px;padding:10px 8px}
+#stats-bar{display:flex;gap:20px;font-size:.85rem;color:rgba(255,255,255,.55);font-weight:600;letter-spacing:.5px}
+#stats-bar span b{color:#fff}
+#board{display:grid;grid-template-rows:repeat(6,1fr);gap:6px}
+.row{display:flex;gap:6px}
+.tile{
+  width:58px;height:58px;
+  border:2px solid #3a3a3c;
+  display:flex;align-items:center;justify-content:center;
+  font-size:2rem;font-weight:800;color:#fff;
+  text-transform:uppercase;
+  background:#121213;
+  user-select:none;
+  transition:border-color .1s;
+}
+.tile.filled{border-color:#565758;animation:tpop .1s ease}
+@keyframes tpop{0%{transform:scale(1)}50%{transform:scale(1.12)}100%{transform:scale(1)}}
+@keyframes flip{
+  0%{transform:rotateX(0);background:#121213;border-color:#565758}
+  49%{transform:rotateX(-90deg);background:#121213}
+  50%{transform:rotateX(-90deg);background:var(--fc);border-color:var(--fc)}
+  100%{transform:rotateX(0);background:var(--fc);border-color:var(--fc);color:#fff}
+}
+.tile.correct{--fc:#538d4e;background:#538d4e;border-color:#538d4e}
+.tile.present{--fc:#b59f3b;background:#b59f3b;border-color:#b59f3b}
+.tile.absent{--fc:#3a3a3c;background:#3a3a3c;border-color:#3a3a3c}
+.tile.revealing{animation:flip .5s ease forwards}
+.row.shake{animation:rshake .5s ease}
+@keyframes rshake{
+  0%,100%{transform:translateX(0)}
+  15%{transform:translateX(-8px)}30%{transform:translateX(8px)}
+  45%{transform:translateX(-6px)}60%{transform:translateX(6px)}
+  75%{transform:translateX(-3px)}90%{transform:translateX(3px)}
+}
+#message{min-height:28px;font-size:.95rem;font-weight:700;color:#fff;text-align:center;letter-spacing:.3px}
+#keyboard{display:flex;flex-direction:column;align-items:center;gap:7px;width:100%;max-width:500px}
+.kb-row{display:flex;gap:6px;justify-content:center}
+.key{
+  height:56px;min-width:43px;max-width:43px;
+  padding:0 4px;border:none;border-radius:6px;
+  background:#818384;color:#fff;
+  font-family:inherit;font-size:.88rem;font-weight:700;
+  cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  text-transform:uppercase;
+  transition:background .15s,transform .1s;
+  flex:1;
+  user-select:none;
+  -webkit-tap-highlight-color:transparent;
+}
+.key.wide{min-width:65px;max-width:65px;font-size:.75rem}
+.key:active{transform:scale(.94)}
+.key.correct{background:#538d4e}
+.key.present{background:#b59f3b}
+.key.absent{background:#3a3a3c}
+#confetti-container{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;overflow:hidden;z-index:9999}
+.confetti-piece{position:absolute;width:10px;height:14px;opacity:0;animation:cfall 3s ease-out forwards}
+@keyframes cfall{0%{opacity:1;transform:translateY(-20px) rotate(0)}100%{opacity:0;transform:translateY(100vh) rotate(720deg)}}
+@media(max-width:480px){
+  .tile{width:48px;height:48px;font-size:1.6rem}
+  .key{height:48px;min-width:34px;max-width:34px;font-size:.78rem}
+  .key.wide{min-width:54px;max-width:54px}
+}
+</style>
+</head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Word Guess</div>
+  <div class="game-frame" style="padding:16px">
+    <div id="wordle-wrap">
+      <div id="stats-bar">
+        <span>🔥 Streak: <b id="streak-val">0</b></span>
+        <span>🏆 Best: <b id="best-val">0</b></span>
+      </div>
+      <div id="message"></div>
+      <div id="board"></div>
+      <div id="keyboard"></div>
+    </div>
+  </div>
+  <div class="game-instructions">
+    Guess the 5-letter word in 6 tries. After each guess:
+    <span style="color:#538d4e;font-weight:700">Green</span> = correct spot &nbsp;
+    <span style="color:#b59f3b;font-weight:700">Yellow</span> = wrong spot &nbsp;
+    <span style="color:#818384;font-weight:700">Gray</span> = not in word.
+    A new word every day!
+  </div>
+</div>
+<div id="confetti-container"></div>
+<script>
+const WORDS = `APPLE BRAVE CRANE DANCE EAGLE FLAME GRACE HEART IMAGE JUDGE KNIFE LAUGH MAGIC NIGHT OCEAN PIANO QUEEN RIVER STONE TIGER UNITY VIVID WATER YACHT ZEBRA ADORE BLAZE CHESS DWARF ELBOW FROST GLOBE HAVEN IRONY JOKER KARMA LEMON MAPLE NOBLE ORBIT PRIME QUOTA REALM SHADE THYME ULTRA VALVE WHALE YIELD ANGEL BENCH CANDY DRAMA EVERY FABLE GRAND HONEY IVORY JEWEL KNEEL LUNAR MONEY NAIVE OLIVE QUICK RAISE SMILE TOAST UNDER VOICE WITCH EXTRA YOUNG GHOST HUMAN INPUT LIGHT MUSIC PLANT ROUND SANDY TRAIL UPPER VIDEO WORRY BLANK CLOWN DEPOT EMBER FORCE GREET HARSH JUMBO KAYAK LOVER MIXED NEWER PATCH QUEST RELAY SIREN THICK VENOM WORST EXPEL CRISP FLESH GLOOM SCONE SPICE TROUT BROTH FUNGI TAPIR CHIME FLINT GRAIL USHER ABBEY BRISK CLEFT DOWNY FILTH GRIPE KUDOS LAPEL MUDDY NUDGE OPTIC PLUCK QUIRK RASPY SCRUM SWOOP TIMID UNWED VIPER WALTZ MAXIM OZONE PIXEL QUAIL RIVET SKIMP SQUAB TWINE PETAL SLUNK THONG TRYST VYING ZILCH BOOZE CAULK FIZZY GLAZE JALAP JAZZY PLUMB PSYCH SQUAW ZAPPY BEGOT CROUP DROIT FLUNG ICING KNAVE LYRIC PARKA SQUIB WRUNG AGING ARROW BOXER CEDAR CINCH COMET DECOR FIELD GUILE HIPPO INFER LILAC NINTH OAKEN PERCH PSALM ROGUE STUNT TRICE VICAR AFOOT BRAWL DUCHY FLOSS GROIN JUMPY KAZOO MOLDY NOTCH OLIVE PRISM SCOFF TOXIC UNFIT VAPID WAXEN YODEL ZINGY ALOFT BLOOD CLUMP DOWEL FLECK GRUFF JAUNT KNACK LIBEL MOTIF NINNY OCTET PIPET QUIRK RHYME SKIMP THRUM VOILE YUCKY ZLOTY ABYSS BLIMP CROAK DULLY FEMUR GNASH JOUST LINGO MAXIM NIPPY ONION PURER RISKY SHOWY SQUAB PLUMB ROGUE`.trim().split(/\s+/);
+
+const WORD = WORDS[Math.floor(Date.now() / 86400000) % WORDS.length];
+const ROWS = 6, COLS = 5;
+let currentRow = 0, currentCol = 0, currentGuess = [], gameOver = false, revealing = false;
+const tileEls = [], keyEls = {}, keyState = {};
+
+// Stats
+let stats = JSON.parse(localStorage.getItem('wordle-stats2') || '{"streak":0,"best":0,"lastDay":-1}');
+const todayDay = Math.floor(Date.now() / 86400000);
+if (stats.lastDay !== todayDay - 1 && stats.lastDay !== todayDay) { stats.streak = 0; }
+document.getElementById('streak-val').textContent = stats.streak;
+document.getElementById('best-val').textContent = stats.best;
+
+// Build board
+const board = document.getElementById('board');
+for (let r = 0; r < ROWS; r++) {
+  const row = document.createElement('div');
+  row.className = 'row';
+  row.id = 'row-' + r;
+  tileEls[r] = [];
+  for (let c = 0; c < COLS; c++) {
+    const tile = document.createElement('div');
+    tile.className = 'tile';
+    row.appendChild(tile);
+    tileEls[r][c] = tile;
+  }
+  board.appendChild(row);
+}
+
+// Build keyboard
+const KB_ROWS = [
+  ['Q','W','E','R','T','Y','U','I','O','P'],
+  ['A','S','D','F','G','H','J','K','L'],
+  ['ENTER','Z','X','C','V','B','N','M','DEL']
+];
+const kb = document.getElementById('keyboard');
+KB_ROWS.forEach(row => {
+  const div = document.createElement('div');
+  div.className = 'kb-row';
+  row.forEach(k => {
+    const btn = document.createElement('button');
+    btn.className = 'key' + (k === 'ENTER' || k === 'DEL' ? ' wide' : '');
+    btn.textContent = k === 'DEL' ? '⌫' : k;
+    btn.addEventListener('click', () => handleKey(k));
+    btn.addEventListener('touchend', e => { e.preventDefault(); handleKey(k); });
+    div.appendChild(btn);
+    if (k !== 'ENTER' && k !== 'DEL') keyEls[k] = btn;
+  });
+  kb.appendChild(div);
+});
+
+function setMsg(txt) { document.getElementById('message').textContent = txt; }
+
+function handleKey(k) {
+  if (gameOver || revealing) return;
+  if (k === 'DEL') {
+    if (currentCol > 0) {
+      currentCol--;
+      currentGuess.pop();
+      tileEls[currentRow][currentCol].textContent = '';
+      tileEls[currentRow][currentCol].classList.remove('filled');
+    }
+  } else if (k === 'ENTER') {
+    submitGuess();
+  } else if (/^[A-Z]$/.test(k) && currentCol < COLS) {
+    const t = tileEls[currentRow][currentCol];
+    t.textContent = k;
+    t.classList.add('filled');
+    currentGuess.push(k);
+    currentCol++;
+  }
+}
+
+document.addEventListener('keydown', e => {
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  const k = e.key.toUpperCase();
+  if (k === 'BACKSPACE') handleKey('DEL');
+  else if (k === 'ENTER') handleKey('ENTER');
+  else if (/^[A-Z]$/.test(k)) handleKey(k);
+});
+
+function submitGuess() {
+  if (currentCol < COLS) { shakeRow(currentRow); setMsg('Not enough letters'); setTimeout(() => setMsg(''), 1400); return; }
+  const guess = currentGuess.join('');
+  if (guess.length !== COLS) { shakeRow(currentRow); setMsg('Not enough letters'); setTimeout(() => setMsg(''), 1400); return; }
+
+  const result = scoreGuess(guess);
+  revealing = true;
+
+  result.forEach((res, i) => {
+    const tile = tileEls[currentRow][i];
+    setTimeout(() => {
+      tile.style.setProperty('--fc', res === 'correct' ? '#538d4e' : res === 'present' ? '#b59f3b' : '#3a3a3c');
+      tile.classList.remove('filled');
+      tile.classList.add('revealing', res);
+      tile.addEventListener('animationend', () => tile.classList.remove('revealing'), { once: true });
+    }, i * 300);
+  });
+
+  setTimeout(() => {
+    // Update keyboard
+    result.forEach((res, i) => {
+      const letter = guess[i];
+      if (!keyEls[letter]) return;
+      const prev = keyState[letter] || '';
+      if (res === 'correct') { keyState[letter] = 'correct'; keyEls[letter].className = 'key correct'; }
+      else if (res === 'present' && prev !== 'correct') { keyState[letter] = 'present'; keyEls[letter].className = 'key present'; }
+      else if (res === 'absent' && !prev) { keyState[letter] = 'absent'; keyEls[letter].className = 'key absent'; }
+    });
+    revealing = false;
+
+    const won = result.every(r => r === 'correct');
+    if (won) {
+      gameOver = true;
+      stats.streak++;
+      if (stats.streak > stats.best) stats.best = stats.streak;
+      stats.lastDay = todayDay;
+      localStorage.setItem('wordle-stats2', JSON.stringify(stats));
+      document.getElementById('streak-val').textContent = stats.streak;
+      document.getElementById('best-val').textContent = stats.best;
+      const msgs = ['Genius!','Magnificent!','Impressive!','Splendid!','Great!','Phew!'];
+      setMsg(msgs[Math.min(currentRow, 5)]);
+      setTimeout(launchConfetti, 300);
+    } else {
+      currentRow++;
+      currentCol = 0;
+      currentGuess = [];
+      if (currentRow >= ROWS) {
+        gameOver = true;
+        setMsg('The word was ' + WORD);
+        stats.streak = 0;
+        stats.lastDay = todayDay;
+        localStorage.setItem('wordle-stats2', JSON.stringify(stats));
+        document.getElementById('streak-val').textContent = 0;
+      }
+    }
+  }, COLS * 300 + 350);
+}
+
+function scoreGuess(guess) {
+  const answer = WORD.split('');
+  const result = Array(COLS).fill('absent');
+  const used = Array(COLS).fill(false);
+  for (let i = 0; i < COLS; i++) {
+    if (guess[i] === answer[i]) { result[i] = 'correct'; used[i] = true; }
+  }
+  for (let i = 0; i < COLS; i++) {
+    if (result[i] === 'correct') continue;
+    for (let j = 0; j < COLS; j++) {
+      if (!used[j] && guess[i] === answer[j] && result[j] !== 'correct') {
+        result[i] = 'present'; used[j] = true; break;
+      }
+    }
+  }
+  return result;
+}
+
+function shakeRow(r) {
+  const row = document.getElementById('row-' + r);
+  row.classList.remove('shake');
+  void row.offsetWidth;
+  row.classList.add('shake');
+  row.addEventListener('animationend', () => row.classList.remove('shake'), { once: true });
+}
+
+function launchConfetti() {
+  const container = document.getElementById('confetti-container');
+  const colors = ['#538d4e','#b59f3b','#e94560','#5e72eb','#fff','#ff8fa3'];
+  for (let i = 0; i < 90; i++) {
+    const p = document.createElement('div');
+    p.className = 'confetti-piece';
+    p.style.left = Math.random() * 100 + '%';
+    p.style.top = '-20px';
+    p.style.background = colors[Math.floor(Math.random() * colors.length)];
+    p.style.borderRadius = Math.random() > .5 ? '50%' : '2px';
+    p.style.animationDelay = Math.random() * 1.5 + 's';
+    p.style.animationDuration = (2 + Math.random() * 2) + 's';
+    p.style.width = (7 + Math.random() * 8) + 'px';
+    p.style.height = (7 + Math.random() * 10) + 'px';
+    container.appendChild(p);
+    setTimeout(() => p.remove(), 4500);
+  }
+}
+</script>
+</body></html>

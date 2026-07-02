@@ -1,0 +1,70 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"><title>Number Guess</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+body{background:#08080f}
+#game-area{max-width:420px;margin:0 auto;padding:24px;text-align:center}
+#guess-input{padding:12px 20px;font-size:1.4rem;border-radius:8px;border:2px solid #4a148c;background:#0d1a2e;color:#fff;outline:none;width:140px;text-align:center}
+#guess-input:focus{border-color:#ba68c8}
+#submit-btn{padding:12px 24px;font-size:1.1rem;background:#9c27b0;border:none;border-radius:8px;color:#fff;cursor:pointer;margin-left:10px}
+#history{margin-top:16px;display:flex;flex-direction:column;gap:6px}
+.guess-item{padding:8px 16px;border-radius:8px;font-size:1rem;font-weight:700}
+.too-low{background:#1565c0;color:#fff}.too-high{background:#b71c1c;color:#fff}.correct{background:#2e7d32;color:#fff}
+#feedback{font-size:1.3rem;font-weight:700;margin:14px 0;min-height:2rem;color:#ce93d8}
+#tries{color:#aaa;margin:6px 0}
+</style></head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Number Guess</div>
+  <div class="game-frame">
+    <div id="game-area">
+      <p style="color:#aaa">I'm thinking of a number between <b style="color:#ce93d8">1 and 100</b></p>
+      <div id="feedback">Make your first guess!</div>
+      <div id="tries">Tries: 0 / 10</div>
+      <div style="margin:12px 0">
+        <input id="guess-input" type="number" min="1" max="100" placeholder="??">
+        <button id="submit-btn" onclick="guess()">Guess!</button>
+      </div>
+      <div id="history"></div>
+      <button id="new-btn" onclick="newGame()" style="margin-top:14px;padding:8px 20px;background:#e94560;border:none;border-radius:20px;color:#fff;cursor:pointer">New Game</button>
+    </div>
+  </div>
+  <div class="game-instructions">Guess the secret number in 10 tries. Hot/Cold hints guide you!</div>
+</div>
+<script>
+let secret,tries,over,best=999;
+
+function newGame(){
+  secret=Math.floor(Math.random()*100)+1;tries=0;over=false;
+  document.getElementById('feedback').textContent='Make your first guess!';
+  document.getElementById('tries').textContent='Tries: 0 / 10';
+  document.getElementById('history').innerHTML='';
+  document.getElementById('guess-input').value='';document.getElementById('guess-input').disabled=false;
+  document.getElementById('guess-input').focus();
+}
+
+function guess(){
+  if(over)return;
+  const v=parseInt(document.getElementById('guess-input').value);
+  if(!v||v<1||v>100){document.getElementById('feedback').textContent='Enter 1-100!';return;}
+  tries++;
+  const diff=Math.abs(v-secret);
+  const hist=document.getElementById('history');
+  const d=document.createElement('div');d.className='guess-item';
+  if(v===secret){
+    d.className+=' correct';d.textContent=`✓ ${v} — Correct!`;hist.prepend(d);
+    over=true;document.getElementById('guess-input').disabled=true;
+    if(tries<best)best=tries;
+    document.getElementById('feedback').textContent=`🎉 Got it in ${tries} tries! (Best: ${best})`;
+  } else {
+    const dir=v<secret?'📈 Too low':'📉 Too high';
+    const heat=diff<5?'🔥 Very hot!':diff<15?'♨️ Hot':diff<30?'😐 Warm':'🧊 Cold';
+    d.className+=v<secret?' too-low':' too-high';d.textContent=`${v} — ${dir} ${heat}`;hist.prepend(d);
+    document.getElementById('feedback').textContent=`${dir} ${heat}`;
+    if(tries>=10){over=true;document.getElementById('guess-input').disabled=true;document.getElementById('feedback').textContent=`💀 Out of tries! It was ${secret}`;}}
+  document.getElementById('tries').textContent=`Tries: ${tries} / 10`;
+  document.getElementById('guess-input').value='';
+}
+
+document.getElementById('guess-input').addEventListener('keydown',e=>{if(e.code==='Enter')guess();});
+newGame();
+</script></body></html>

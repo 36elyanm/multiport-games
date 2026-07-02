@@ -1,0 +1,102 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"><title>Minesweeper</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+body{background:#08080f}
+#board{display:inline-grid;gap:2px;background:#222;padding:6px;border-radius:8px;user-select:none}
+.cell{width:34px;height:34px;display:flex;align-items:center;justify-content:center;font-size:1rem;font-weight:700;border-radius:4px;cursor:pointer;background:#424242;transition:background .1s}
+.cell:hover{background:#555}
+.cell.revealed{background:#1a1a1a;cursor:default}
+.cell.mine{background:#b71c1c}
+.cell.flagged{background:#37474f}
+#ui{color:#eee;text-align:center;padding:10px;font-size:1rem}
+#restart{padding:8px 20px;background:#e94560;border:none;border-radius:20px;color:#fff;cursor:pointer;font-size:1rem;margin-top:8px}
+</style></head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Minesweeper</div>
+  <div class="game-frame" style="text-align:center;padding:20px">
+    <div id="ui">💣 Mines: 20 | ⏱ 0s</div>
+    <div id="board"></div>
+    <button id="restart" onclick="init()">New Game</button>
+  </div>
+  <div class="game-instructions">Left-click to reveal, <b>Right-click</b> (or long-press) to flag mines.</div>
+</div>
+<script>
+const ROWS=10,COLS=10,MINES=20;
+let grid,revealed,flagged,firstClick,gameOver,timer,seconds;
+
+const numColors=['','#2979ff','#388e3c','#f44336','#1a237e','#b71c1c','#00838f','#212121','#757575'];
+
+function init(){
+  grid=Array.from({length:ROWS},()=>Array(COLS).fill(0));
+  revealed=Array.from({length:ROWS},()=>Array(COLS).fill(false));
+  flagged=Array.from({length:ROWS},()=>Array(COLS).fill(false));
+  firstClick=true;gameOver=false;seconds=0;
+  clearInterval(timer);
+  document.getElementById('ui').textContent='💣 Mines: 20 | ⏱ 0s';
+  render();
+}
+
+function placeMines(sr,sc){
+  let placed=0;
+  while(placed<MINES){
+    const r=Math.floor(Math.random()*ROWS),c=Math.floor(Math.random()*COLS);
+    if(grid[r][c]===-1||(Math.abs(r-sr)<=1&&Math.abs(c-sc)<=1))continue;
+    grid[r][c]=-1;placed++;
+  }
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+    if(grid[r][c]===-1)continue;
+    let cnt=0;
+    for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++){
+      const nr=r+dr,nc=c+dc;
+      if(nr>=0&&nr<ROWS&&nc>=0&&nc<COLS&&grid[nr][nc]===-1)cnt++;
+    }
+    grid[r][c]=cnt;
+  }
+}
+
+function flood(r,c){
+  if(r<0||r>=ROWS||c<0||c>=COLS||revealed[r][c]||flagged[r][c])return;
+  revealed[r][c]=true;
+  if(grid[r][c]===0)for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++)flood(r+dr,c+dc);
+}
+
+function reveal(r,c){
+  if(gameOver||revealed[r][c]||flagged[r][c])return;
+  if(firstClick){firstClick=false;placeMines(r,c);timer=setInterval(()=>{seconds++;document.getElementById('ui').textContent=`💣 ${MINES-flagged.flat().filter(Boolean).length} | ⏱ ${seconds}s`;},1000);}
+  if(grid[r][c]===-1){
+    revealed[r][c]=true;gameOver=true;clearInterval(timer);
+    for(let i=0;i<ROWS;i++)for(let j=0;j<COLS;j++)if(grid[i][j]===-1)revealed[i][j]=true;
+    render();setTimeout(()=>alert('💥 BOOM! Game Over!'),50);return;
+  }
+  flood(r,c);
+  const total=ROWS*COLS-MINES;
+  if(revealed.flat().filter(Boolean).length>=total){gameOver=true;clearInterval(timer);render();setTimeout(()=>alert(`🎉 You won in ${seconds}s!`),50);return;}
+  render();
+}
+
+function flag(e,r,c){e.preventDefault();if(gameOver||revealed[r][c])return;flagged[r][c]=!flagged[r][c];render();}
+
+function render(){
+  const board=document.getElementById('board');
+  board.style.gridTemplateColumns=`repeat(${COLS},34px)`;
+  board.innerHTML='';
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+    const div=document.createElement('div');
+    div.className='cell';
+    const R=r,C=c;
+    div.onclick=()=>reveal(R,C);
+    div.oncontextmenu=e=>flag(e,R,C);
+    let longTimer;
+    div.addEventListener('touchstart',()=>{longTimer=setTimeout(()=>flag({preventDefault:()=>{}},R,C),500);},{passive:true});
+    div.addEventListener('touchend',()=>clearTimeout(longTimer),{passive:true});
+    if(revealed[r][c]){
+      div.classList.add('revealed');
+      if(grid[r][c]===-1){div.classList.add('mine');div.textContent='💣';}
+      else if(grid[r][c]>0){div.textContent=grid[r][c];div.style.color=numColors[grid[r][c]];}
+    } else if(flagged[r][c]){div.classList.add('flagged');div.textContent='🚩';}
+    board.appendChild(div);
+  }
+}
+init();
+</script></body></html>

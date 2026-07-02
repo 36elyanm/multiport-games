@@ -1,0 +1,72 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"><title>Tic Tac Toe</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+body{background:#08080f}
+#board{display:grid;grid-template-columns:repeat(3,110px);gap:8px;justify-content:center}
+.cell{width:110px;height:110px;background:#16213e;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:3rem;cursor:pointer;border:2px solid #333;transition:background .15s}
+.cell:hover{background:#1e2a4a}
+.cell.x{color:#ef9a9a}.cell.o{color:#90caf9}
+#ui{text-align:center;padding:12px;font-size:1.1rem;font-weight:700;color:#eee}
+</style></head><body>
+<div class="game-page">
+  <a href="../index.html" class="back-btn">← Back</a>
+  <div class="game-title">Tic Tac Toe</div>
+  <div class="game-frame" style="padding:20px">
+    <div id="ui">Your turn (X)</div>
+    <div id="board"></div>
+    <button onclick="newGame()" style="margin-top:14px;padding:8px 24px;background:#e94560;border:none;border-radius:20px;color:#fff;cursor:pointer;font-size:1rem">New Game</button>
+  </div>
+  <div class="game-instructions">You are X, AI is O. Get 3 in a row to win!</div>
+</div>
+<script>
+let board,over;
+const WINS=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+
+function newGame(){board=Array(9).fill('');over=false;render();}
+
+function check(b){
+  for(const w of WINS)if(b[w[0]]&&b[w[0]]===b[w[1]]&&b[w[0]]===b[w[2]])return b[w[0]];
+  if(b.every(c=>c))return 'draw';
+  return null;
+}
+
+function minimax(b,isMax){
+  const r=check(b);
+  if(r==='X')return -10;if(r==='O')return 10;if(r==='draw')return 0;
+  const scores=[];
+  b.forEach((v,i)=>{if(!v){const nb=[...b];nb[i]=isMax?'O':'X';scores.push(minimax(nb,!isMax));}});
+  return isMax?Math.max(...scores):Math.min(...scores);
+}
+
+function bestMove(){
+  let best=-Infinity,move=0;
+  board.forEach((v,i)=>{if(!v){const nb=[...board];nb[i]='O';const s=minimax(nb,false);if(s>best){best=s;move=i;}}});
+  return move;
+}
+
+function cellClick(i){
+  if(over||board[i])return;
+  board[i]='X';
+  const r=check(board);
+  if(r){over=true;render(r);return;}
+  render();
+  setTimeout(()=>{
+    board[bestMove()]='O';
+    const r2=check(board);
+    if(r2){over=true;render(r2);return;}
+    render();
+  },350);
+}
+
+function render(result){
+  document.getElementById('board').innerHTML=board.map((v,i)=>
+    `<div class="cell ${v.toLowerCase()}" onclick="cellClick(${i})">${v==='X'?'✕':v==='O'?'○':''}</div>`
+  ).join('');
+  const ui=document.getElementById('ui');
+  if(result==='draw')ui.textContent="It's a draw! 🤝";
+  else if(result==='X')ui.textContent='You win! 🎉';
+  else if(result==='O')ui.textContent='AI wins! 🤖';
+  else ui.textContent='Your turn (X)';
+}
+newGame();
+</script></body></html>
