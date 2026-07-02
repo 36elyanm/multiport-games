@@ -1,5 +1,7 @@
 export async function onRequestGet({ request, env }) {
-  const response = await env.ASSETS.fetch(request);
+  const url = new URL(request.url);
+  url.pathname = '/sitemap-content.xml';
+  const response = await env.ASSETS.fetch(new Request(url.toString(), request));
   return new Response(response.body, {
     status: response.status,
     headers: {
