@@ -52,12 +52,12 @@ if(sessionStorage.getItem('captcha_ok')||screen.width<200){
 <header>
   <h1>Multiport<span>Games</span></h1>
   <input id="search-bar" type="text" placeholder="Search games…" oninput="filterGames()">
-  <div style="display:flex;gap:8px;align-items:center;flex-shrink:0">
+  <div id="header-actions" style="display:flex;gap:8px;align-items:center;flex-shrink:0">
     <div id="streak-badge"></div>
     <button class="icon-btn" id="achievements-btn" title="Achievements" onclick="openAchievements()">🏆</button>
     <button class="icon-btn" id="theme-btn" title="Theme" onclick="toggleThemePanel()">🎨</button>
-    <a href="bug-report.html" class="auth-pill outline">🐛 Report Bug</a>
-    <a href="admin.html" class="auth-pill outline" style="position:relative">Admin<span id="admin-badge" style="display:none;position:absolute;top:-6px;right:-6px;background:#e94560;color:#fff;font-size:.65rem;font-weight:800;line-height:1;min-width:16px;height:16px;border-radius:50%;align-items:center;justify-content:center;padding:2px;box-shadow:0 0 0 2px #0f0f1e"></span></a>
+    <a href="bug-report.html" class="auth-pill outline">🐛<span class="pill-label"> Report Bug</span></a>
+    <a href="admin.html" class="auth-pill outline" style="position:relative"><span class="pill-label">Admin</span><span id="admin-badge" style="display:none;position:absolute;top:-6px;right:-6px;background:#e94560;color:#fff;font-size:.65rem;font-weight:800;line-height:1;min-width:16px;height:16px;border-radius:50%;align-items:center;justify-content:center;padding:2px;box-shadow:0 0 0 2px #0f0f1e"></span></a>
     <div id="auth-btns" style="display:flex;gap:8px;align-items:center"></div>
   </div>
 </header>
