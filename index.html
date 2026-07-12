@@ -52,12 +52,12 @@ if(sessionStorage.getItem('captcha_ok')||screen.width<200){
 <header>
   <h1>Multiport<span>Games</span></h1>
   <input id="search-bar" type="text" placeholder="Search games…" oninput="filterGames()">
-  <div style="display:flex;gap:8px;align-items:center;flex-shrink:0">
+  <div id="header-actions" style="display:flex;gap:8px;align-items:center;flex-shrink:0">
     <div id="streak-badge"></div>
     <button class="icon-btn" id="achievements-btn" title="Achievements" onclick="openAchievements()">🏆</button>
     <button class="icon-btn" id="theme-btn" title="Theme" onclick="toggleThemePanel()">🎨</button>
-    <a href="bug-report.html" class="auth-pill outline">🐛 Report Bug</a>
-    <a href="admin.html" class="auth-pill outline" style="position:relative">Admin<span id="admin-badge" style="display:none;position:absolute;top:-6px;right:-6px;background:#e94560;color:#fff;font-size:.65rem;font-weight:800;line-height:1;min-width:16px;height:16px;border-radius:50%;align-items:center;justify-content:center;padding:2px;box-shadow:0 0 0 2px #0f0f1e"></span></a>
+    <a href="bug-report.html" class="auth-pill outline">🐛<span class="pill-label"> Report Bug</span></a>
+    <a href="admin.html" class="auth-pill outline" style="position:relative"><span class="pill-label">Admin</span><span id="admin-badge" style="display:none;position:absolute;top:-6px;right:-6px;background:#e94560;color:#fff;font-size:.65rem;font-weight:800;line-height:1;min-width:16px;height:16px;border-radius:50%;align-items:center;justify-content:center;padding:2px;box-shadow:0 0 0 2px #0f0f1e"></span></a>
     <div id="auth-btns" style="display:flex;gap:8px;align-items:center"></div>
   </div>
 </header>
@@ -89,16 +89,22 @@ if(sessionStorage.getItem('captcha_ok')||screen.width<200){
   <button class="cat-btn" onclick="filterCat('edu',this)">🎓 Education</button>
 </div>
 
-<div style="display:flex;gap:12px;justify-content:center;align-items:center;flex-wrap:wrap;padding:14px 16px 6px">
-  <a href="/downloads/MultiportGames-Windows.zip" download style="display:inline-flex;align-items:center;gap:8px;padding:10px 20px;border-radius:50px;background:linear-gradient(135deg,#0078d4,#005a9e);color:#fff;font-family:-apple-system,BlinkMacSystemFont,system-ui,sans-serif;font-size:.9rem;font-weight:700;text-decoration:none;box-shadow:0 2px 12px rgba(0,120,212,.35);transition:opacity .18s" onmouseover="this.style.opacity='.82'" onmouseout="this.style.opacity='1'">
+<div id="download-btns" style="display:flex;gap:12px;justify-content:center;align-items:center;flex-wrap:wrap;padding:14px 16px 6px">
+  <a href="/downloads/MultiportGamesSetup.exe" download style="display:inline-flex;align-items:center;gap:8px;padding:10px 20px;border-radius:50px;background:linear-gradient(135deg,#0078d4,#005a9e);color:#fff;font-family:-apple-system,BlinkMacSystemFont,system-ui,sans-serif;font-size:.9rem;font-weight:700;text-decoration:none;box-shadow:0 2px 12px rgba(0,120,212,.35);transition:opacity .18s" onmouseover="this.style.opacity='.82'" onmouseout="this.style.opacity='1'">
     <svg width="16" height="16" viewBox="0 0 88 88" fill="currentColor"><path d="M0 12.4L36 7.1v34.8H0V12.4zm40 -5.8L88 0v41.9H40V6.6zM0 45.9h36v34.8L0 75.6V45.9zm40 .3h48V88L40 81.4V46.2z"/></svg>
     Download for Windows
   </a>
-  <span style="display:inline-flex;align-items:center;gap:8px;padding:10px 20px;border-radius:50px;background:rgba(255,255,255,.07);color:rgba(255,255,255,.4);font-family:-apple-system,BlinkMacSystemFont,system-ui,sans-serif;font-size:.9rem;font-weight:700;border:1px solid rgba(255,255,255,.1);cursor:not-allowed">
-    <svg width="16" height="16" viewBox="0 0 814 1000" fill="currentColor"><path d="M788.1 340.9c-5.8 4.5-108.2 62.2-108.2 190.5 0 148.4 130.3 200.9 134.2 202.2-.6 3.2-20.7 71.9-68.7 141.9-42.8 61.6-87.5 123.1-155.5 123.1s-85.5-39.5-164-39.5c-76 0-103.7 40.8-165.9 40.8s-105-42.8-155.5-111.2C115.4 714 65 557.1 65 407.5c0-237.8 155.5-363.8 308.4-363.8 79 0 144.8 51.8 194.1 51.8 46.6 0 120.6-55 210.7-55 33.7 0 135.7 3.2 210.3 111.1zm-184-180.6C662.7 96.8 695.5 40 695.5 -4c0-6.4-.6-12.8-1.9-18.5-72.6 2.6-158.5 48.3-211.4 110.6-41.5 48-78.7 121.4-78.7 196 0 7.1 1.3 14.2 1.9 16.5 4.5.6 11.6 1.3 18.7 1.3 65.4 0 146.8-43.4 197.6-131.6z"/></svg>
-    Mac — Coming Soon
-  </span>
+  <a href="/downloads/MultiportGames-Mac.dmg" download style="display:inline-flex;align-items:center;gap:8px;padding:10px 20px;border-radius:50px;background:linear-gradient(135deg,#555,#333);color:#fff;font-family:-apple-system,BlinkMacSystemFont,system-ui,sans-serif;font-size:.9rem;font-weight:700;text-decoration:none;box-shadow:0 2px 12px rgba(0,0,0,.35);transition:opacity .18s" onmouseover="this.style.opacity='.82'" onmouseout="this.style.opacity='1'">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
+    Download for Mac
+  </a>
 </div>
+<script>
+if(/Electron/.test(navigator.userAgent)){
+  var d=document.getElementById('download-btns');
+  if(d) d.style.display='none';
+}
+</script>
 
 <div class="section-title">🎮 All Games</div>
 

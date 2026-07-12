@@ -1,4 +1,5 @@
 * { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { overflow-x: hidden; max-width: 100%; }
 
 :root {
   --accent-rgb: 233,69,96;
@@ -501,6 +502,21 @@ footer {
   .games-grid { grid-template-columns: repeat(auto-fill, minmax(155px, 1fr)); gap: 14px; }
 }
 
+/* ── iPad / mid-size ────────────────────────── */
+@media (max-width: 850px) {
+  header {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 12px 20px;
+  }
+  header h1 { order: 1; flex: 1; }
+  #header-actions { order: 2; flex-shrink: 0; gap: 6px; }
+  #auth-btns { order: 2; flex-shrink: 0; }
+  #search-bar { order: 3; width: 100%; }
+  .pill-label { display: none; }
+  .auth-pill { padding: 7px 11px; font-size: .82rem; }
+}
+
 /* ── Mobile ────────────────────────────────── */
 @media (max-width: 600px) {
   header {
@@ -509,10 +525,12 @@ footer {
     padding: 12px 16px;
   }
   header h1 { font-size: 1.35rem; order: 1; flex: 1; }
+  #header-actions { order: 2; flex-shrink: 0; gap: 5px; }
   #auth-btns { order: 2; flex-shrink: 0; }
   #search-bar { order: 3; width: 100%; }
 
-  .auth-pill { padding: 6px 12px; font-size: .8rem; }
+  .pill-label { display: none; }
+  .auth-pill { padding: 7px 10px; font-size: .85rem; }
   .auth-user { font-size: .8rem; }
 
   .categories { padding: 12px 14px 6px; gap: 6px; }
