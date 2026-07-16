@@ -3,17 +3,17 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Multiport Games – 104 Free Games</title>
-<meta name="description" content="Play 104 free browser games instantly — no downloads, no signup. Arcade classics, puzzles, sports, and educational games for kids and adults, all in your browser.">
+<title>Multiport Games – 103 Free Games</title>
+<meta name="description" content="Play 103 free browser games instantly — no downloads, no signup. Arcade classics, puzzles, sports, and educational games for kids and adults, all in your browser.">
 <link rel="canonical" href="https://multiportgames.pages.dev/">
 <meta property="og:type" content="website">
-<meta property="og:title" content="Multiport Games – 104 Free Browser Games">
-<meta property="og:description" content="Play 104 free browser games instantly — no downloads, no signup. Arcade classics, puzzles, sports, and educational games for everyone.">
+<meta property="og:title" content="Multiport Games – 103 Free Browser Games">
+<meta property="og:description" content="Play 103 free browser games instantly — no downloads, no signup. Arcade classics, puzzles, sports, and educational games for everyone.">
 <meta property="og:url" content="https://multiportgames.pages.dev/">
 <meta property="og:image" content="https://multiportgames.pages.dev/apple-touch-icon.png">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="Multiport Games – 104 Free Browser Games">
-<meta name="twitter:description" content="Play 104 free browser games instantly — no downloads, no signup.">
+<meta name="twitter:title" content="Multiport Games – 103 Free Browser Games">
+<meta name="twitter:description" content="Play 103 free browser games instantly — no downloads, no signup.">
 <meta name="twitter:image" content="https://multiportgames.pages.dev/apple-touch-icon.png">
 <meta name="msvalidate.01" content="50BC95CD29BDA9BC07C511EE7760E1B4" />
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -56,7 +56,8 @@ if(sessionStorage.getItem('captcha_ok')||screen.width<200){
     <div id="streak-badge"></div>
     <button class="icon-btn" id="achievements-btn" title="Achievements" onclick="openAchievements()">🏆</button>
     <button class="icon-btn" id="theme-btn" title="Theme" onclick="toggleThemePanel()">🎨</button>
-    <a href="bug-report.html" class="auth-pill outline">🐛<span class="pill-label"> Report Bug</span></a>
+    <button class="auth-pill outline" id="tour-btn" onclick="startTour()">🧭<span class="pill-label"> Take a Tour</span></button>
+    <a href="bug-report.html" id="bug-report-btn" class="auth-pill outline">🐛<span class="pill-label"> Report Bug</span></a>
     <a href="admin.html" class="auth-pill outline" style="position:relative"><span class="pill-label">Admin</span><span id="admin-badge" style="display:none;position:absolute;top:-6px;right:-6px;background:#e94560;color:#fff;font-size:.65rem;font-weight:800;line-height:1;min-width:16px;height:16px;border-radius:50%;align-items:center;justify-content:center;padding:2px;box-shadow:0 0 0 2px #0f0f1e"></span></a>
     <div id="auth-btns" style="display:flex;gap:8px;align-items:center"></div>
   </div>
@@ -65,6 +66,20 @@ if(sessionStorage.getItem('captcha_ok')||screen.width<200){
 <div id="theme-panel">
   <h3>🎨 Accent Color</h3>
   <div class="swatch-row" id="swatch-row"></div>
+</div>
+
+<div id="tour-overlay">
+  <div id="tour-highlight"></div>
+  <div id="tour-tooltip">
+    <div id="tour-step-count"></div>
+    <div id="tour-text"></div>
+    <div id="tour-actions">
+      <button id="tour-skip" onclick="endTour()">Skip</button>
+      <div style="flex:1"></div>
+      <button id="tour-prev" onclick="tourStep(-1)">Back</button>
+      <button id="tour-next" onclick="tourStep(1)">Next</button>
+    </div>
+  </div>
 </div>
 
 <div id="achievements-overlay">
@@ -100,10 +115,20 @@ if(sessionStorage.getItem('captcha_ok')||screen.width<200){
   </a>
 </div>
 <script>
-if(/Electron/.test(navigator.userAgent)){
-  var d=document.getElementById('download-btns');
-  if(d) d.style.display='none';
-}
+(function(){
+  var params = new URLSearchParams(location.search);
+  if(params.get('desktop')==='1'){
+    localStorage.setItem('mp_desktop_app','1');
+    params.delete('desktop');
+    var qs = params.toString();
+    history.replaceState(null,'',location.pathname + (qs?'?'+qs:'') + location.hash);
+  }
+  var isDesktopApp = /Electron/.test(navigator.userAgent) || localStorage.getItem('mp_desktop_app')==='1';
+  if(isDesktopApp){
+    var d=document.getElementById('download-btns');
+    if(d) d.style.display='none';
+  }
+})();
 </script>
 
 <div class="section-title">🎮 All Games</div>
@@ -112,7 +137,7 @@ if(/Electron/.test(navigator.userAgent)){
 
 <footer>
   <div style="color:rgba(255,255,255,.3);font-size:.78rem;margin-bottom:8px;letter-spacing:.2px">🔒 Secure (HTTPS) &nbsp;·&nbsp; No downloads or installs &nbsp;·&nbsp; Family-friendly &nbsp;·&nbsp; No ad trackers</div>
-  Multiport Games &copy; 2026 – 104 Free Browser Games &nbsp;·&nbsp; <a href="bug-report.html" style="color:rgba(255,255,255,.35);text-decoration:none;transition:color .18s" onmouseover="this.style.color='#e94560'" onmouseout="this.style.color='rgba(255,255,255,.35)'">🐛 Report a Bug</a> &nbsp;·&nbsp; <a href="mailto:michaelrelyan1@gmail.com" style="color:rgba(255,255,255,.35);text-decoration:none;transition:color .18s" onmouseover="this.style.color='#e94560'" onmouseout="this.style.color='rgba(255,255,255,.35)'">✉️ Contact Developer</a> &nbsp;·&nbsp; <a href="privacy.html" style="color:rgba(255,255,255,.35);text-decoration:none;transition:color .18s" onmouseover="this.style.color='#e94560'" onmouseout="this.style.color='rgba(255,255,255,.35)'">Privacy</a> &nbsp;·&nbsp; <a href="terms.html" style="color:rgba(255,255,255,.35);text-decoration:none;transition:color .18s" onmouseover="this.style.color='#e94560'" onmouseout="this.style.color='rgba(255,255,255,.35)'">Terms</a> &nbsp;·&nbsp; <a href="https://github.com/36elyanm/multiport-games/tree/claude/mini-games-website-Nscyd" target="_blank" rel="noopener noreferrer" style="color:rgba(255,255,255,.35);text-decoration:none;transition:color .18s" onmouseover="this.style.color='#e94560'" onmouseout="this.style.color='rgba(255,255,255,.35)'">GitHub</a> &nbsp;·&nbsp; <a href="admin.html" style="color:rgba(255,255,255,.35);text-decoration:none;transition:color .18s;position:relative" onmouseover="this.style.color='#e94560'" onmouseout="this.style.color='rgba(255,255,255,.35)'">Admin<span id="admin-badge-footer" style="display:none;position:absolute;top:-8px;right:-12px;background:#e94560;color:#fff;font-size:.6rem;font-weight:800;line-height:1;min-width:15px;height:15px;border-radius:50%;align-items:center;justify-content:center;padding:2px;box-shadow:0 0 0 2px #0f0f1e"></span></a>
+  Multiport Games &copy; 2026 – 103 Free Browser Games &nbsp;·&nbsp; <a href="bug-report.html" style="color:rgba(255,255,255,.35);text-decoration:none;transition:color .18s" onmouseover="this.style.color='#e94560'" onmouseout="this.style.color='rgba(255,255,255,.35)'">🐛 Report a Bug</a> &nbsp;·&nbsp; <a href="mailto:michaelrelyan1@gmail.com" style="color:rgba(255,255,255,.35);text-decoration:none;transition:color .18s" onmouseover="this.style.color='#e94560'" onmouseout="this.style.color='rgba(255,255,255,.35)'">✉️ Contact Developer</a> &nbsp;·&nbsp; <a href="privacy.html" style="color:rgba(255,255,255,.35);text-decoration:none;transition:color .18s" onmouseover="this.style.color='#e94560'" onmouseout="this.style.color='rgba(255,255,255,.35)'">Privacy</a> &nbsp;·&nbsp; <a href="terms.html" style="color:rgba(255,255,255,.35);text-decoration:none;transition:color .18s" onmouseover="this.style.color='#e94560'" onmouseout="this.style.color='rgba(255,255,255,.35)'">Terms</a> &nbsp;·&nbsp; <a href="https://github.com/36elyanm/multiport-games/tree/claude/mini-games-website-Nscyd" target="_blank" rel="noopener noreferrer" style="color:rgba(255,255,255,.35);text-decoration:none;transition:color .18s" onmouseover="this.style.color='#e94560'" onmouseout="this.style.color='rgba(255,255,255,.35)'">GitHub</a> &nbsp;·&nbsp; <a href="admin.html" style="color:rgba(255,255,255,.35);text-decoration:none;transition:color .18s;position:relative" onmouseover="this.style.color='#e94560'" onmouseout="this.style.color='rgba(255,255,255,.35)'">Admin<span id="admin-badge-footer" style="display:none;position:absolute;top:-8px;right:-12px;background:#e94560;color:#fff;font-size:.6rem;font-weight:800;line-height:1;min-width:15px;height:15px;border-radius:50%;align-items:center;justify-content:center;padding:2px;box-shadow:0 0 0 2px #0f0f1e"></span></a>
 </footer>
 
 <script>
@@ -168,7 +193,6 @@ const GAMES = [
   { id:'numguess',    name:'Number Guess',      tag:'puzzle', emoji:'🔍', c1:'#4a148c',c2:'#ba68c8' },
   { id:'blockslide',  name:'Block Slide',       tag:'puzzle', emoji:'🔲', c1:'#1b2838',c2:'#66c0f4' },
   { id:'ballpit',     name:'Ball Pit',          tag:'arcade', emoji:'🎱', c1:'#880e4f',c2:'#f48fb1' },
-  { id:'sasquatch',   name:'Sneaky Sasquatch',  tag:'action', emoji:'🦶', c1:'#1b4d1e',c2:'#8b5e3c' },
   { id:'knifecut',    name:'Knife Smash',       tag:'skill',  emoji:'🔪', c1:'#bf360c',c2:'#ffcc80' },
   { id:'level67',    name:'Level 67',          tag:'action', emoji:'💀', c1:'#0d0d1a',c2:'#e94560' },
   { id:'memetash',   name:'Meme Tash',         tag:'action', emoji:'😎', c1:'#1a1a2e',c2:'#ffcc00' },
@@ -426,6 +450,70 @@ fetch('/api/bug-count').then(r=>r.json()).then(d=>{
     el.style.display='flex';
   });
 }).catch(()=>{});
+
+/* ── Site tour ─────────────────────────────── */
+const TOUR_STEPS = [
+  { sel: 'header h1', text: "Welcome to Multiport Games! Let's take a quick tour of what you can do here." },
+  { sel: '#search-bar', text: 'Use the search bar to instantly find any game by name.' },
+  { sel: '.categories', text: 'Filter games by category — Arcade, Puzzle, Action, Racing, Sports, Skill, or Education.' },
+  { sel: '#download-btns', text: 'Prefer a desktop app? Download Multiport Games for Windows or Mac here.' },
+  { sel: '#achievements-btn', text: 'Track your progress and unlock achievements as you play.' },
+  { sel: '#theme-btn', text: 'Pick your favorite accent color to personalize the site.' },
+  { sel: '#bug-report-btn', text: 'Found something broken? Use Report Bug to let us know.' },
+  { sel: '.games-grid', text: 'Browse all the games here — just click any tile to start playing!' },
+];
+let tourIdx = 0;
+function getTourStepEl(i){
+  const s = TOUR_STEPS[i];
+  const el = document.querySelector(s.sel);
+  if(el && el.offsetParent === null) return null;
+  return el;
+}
+function startTour(){
+  tourIdx = 0;
+  document.getElementById('tour-overlay').classList.add('open');
+  showTourStep();
+}
+function endTour(){
+  document.getElementById('tour-overlay').classList.remove('open');
+  document.getElementById('tour-highlight').style.opacity = '0';
+}
+function tourStep(dir){
+  let next = tourIdx + dir;
+  while(next >= 0 && next < TOUR_STEPS.length && !getTourStepEl(next)) next += dir;
+  if(next < 0 || next >= TOUR_STEPS.length){ if(dir>0) endTour(); return; }
+  tourIdx = next;
+  showTourStep();
+}
+function showTourStep(){
+  const el = getTourStepEl(tourIdx);
+  if(!el){ tourStep(1); return; }
+  el.scrollIntoView({behavior:'smooth', block:'center'});
+  setTimeout(() => {
+    const r = el.getBoundingClientRect();
+    const pad = 8;
+    const hl = document.getElementById('tour-highlight');
+    hl.style.opacity = '1';
+    hl.style.left = (r.left - pad) + 'px';
+    hl.style.top = (r.top - pad) + 'px';
+    hl.style.width = (r.width + pad*2) + 'px';
+    hl.style.height = (r.height + pad*2) + 'px';
+
+    const tip = document.getElementById('tour-tooltip');
+    document.getElementById('tour-step-count').textContent = `Step ${tourIdx+1} of ${TOUR_STEPS.length}`;
+    document.getElementById('tour-text').textContent = TOUR_STEPS[tourIdx].text;
+    document.getElementById('tour-prev').style.visibility = tourIdx === 0 ? 'hidden' : 'visible';
+    document.getElementById('tour-next').textContent = tourIdx === TOUR_STEPS.length - 1 ? 'Finish' : 'Next';
+
+    const tipW = 300, tipH = tip.offsetHeight || 140;
+    let top = r.bottom + 16;
+    if (top + tipH > window.innerHeight) top = Math.max(16, r.top - tipH - 16);
+    let left = r.left + r.width/2 - tipW/2;
+    left = Math.max(16, Math.min(left, window.innerWidth - tipW - 16));
+    tip.style.top = top + 'px';
+    tip.style.left = left + 'px';
+  }, 320);
+}
 </script>
 </body>
 </html>

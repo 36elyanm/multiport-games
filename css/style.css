@@ -565,3 +565,81 @@ footer {
   .cat-btn { padding: 5px 10px; font-size: .74rem; }
   .game-page { padding: 8px; }
 }
+
+/* ── Site tour ──────────────────────────────── */
+#tour-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  background: transparent;
+}
+#tour-overlay.open { display: block; }
+#tour-highlight {
+  position: fixed;
+  border: 2px solid rgb(var(--accent-rgb));
+  border-radius: 14px;
+  box-shadow: 0 0 0 4000px rgba(4,4,10,0.72), 0 0 24px rgba(var(--accent-rgb),0.5);
+  transition: all .32s ease;
+  opacity: 0;
+  pointer-events: none;
+}
+#tour-tooltip {
+  position: fixed;
+  width: 300px;
+  background: #16161f;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 16px;
+  padding: 18px;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+  transition: top .32s ease, left .32s ease;
+  font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+}
+#tour-step-count {
+  font-size: .72rem;
+  font-weight: 700;
+  letter-spacing: .4px;
+  color: rgb(var(--accent-rgb));
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+#tour-text {
+  font-size: .92rem;
+  line-height: 1.45;
+  color: #f0f0f5;
+  margin-bottom: 14px;
+}
+#tour-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+#tour-actions button {
+  font-family: inherit;
+  font-size: .82rem;
+  font-weight: 700;
+  padding: 7px 14px;
+  border-radius: 50px;
+  border: none;
+  cursor: pointer;
+  transition: opacity .15s;
+}
+#tour-skip {
+  background: transparent;
+  color: rgba(255,255,255,0.45);
+}
+#tour-skip:hover { color: rgba(255,255,255,0.8); }
+#tour-prev {
+  background: rgba(255,255,255,0.08);
+  color: #fff;
+}
+#tour-prev:hover { background: rgba(255,255,255,0.14); }
+#tour-next {
+  background: linear-gradient(135deg, rgb(var(--accent-rgb)), var(--accent2));
+  color: #fff;
+}
+#tour-next:hover { opacity: .88; }
+
+@media (max-width: 600px) {
+  #tour-tooltip { width: calc(100% - 32px); }
+}
