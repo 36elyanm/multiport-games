@@ -115,10 +115,20 @@ if(sessionStorage.getItem('captcha_ok')||screen.width<200){
   </a>
 </div>
 <script>
-if(/Electron/.test(navigator.userAgent)){
-  var d=document.getElementById('download-btns');
-  if(d) d.style.display='none';
-}
+(function(){
+  var params = new URLSearchParams(location.search);
+  if(params.get('desktop')==='1'){
+    localStorage.setItem('mp_desktop_app','1');
+    params.delete('desktop');
+    var qs = params.toString();
+    history.replaceState(null,'',location.pathname + (qs?'?'+qs:'') + location.hash);
+  }
+  var isDesktopApp = /Electron/.test(navigator.userAgent) || localStorage.getItem('mp_desktop_app')==='1';
+  if(isDesktopApp){
+    var d=document.getElementById('download-btns');
+    if(d) d.style.display='none';
+  }
+})();
 </script>
 
 <div class="section-title">🎮 All Games</div>
@@ -456,6 +466,7 @@ let tourIdx = 0;
 function getTourStepEl(i){
   const s = TOUR_STEPS[i];
   const el = document.querySelector(s.sel);
+  if(el && el.offsetParent === null) return null;
   return el;
 }
 function startTour(){
