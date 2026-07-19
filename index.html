@@ -255,7 +255,7 @@ let currentCat = 'all';
 function renderGames(list) {
   const grid = document.getElementById('games-grid');
   grid.innerHTML = list.map(g => `
-    <a class="game-card" href="${g.url||('games/'+g.id+'.html')}" data-id="${g.id}" style="--c1:${g.c1};--c2:${g.c2}"${g.url?' target="_blank" rel="noopener noreferrer"':''}>
+    <a class="game-card" href="${g.url||('games/'+g.id)}" data-id="${g.id}" style="--c1:${g.c1};--c2:${g.c2}"${g.url?' target="_blank" rel="noopener noreferrer"':''}>
       <div class="thumb">${g.emoji}</div>
       <div class="info">
         <div class="name">${g.name}${g.url?' <span style="opacity:.5;font-size:.75em">↗</span>':''}</div>
@@ -375,7 +375,7 @@ function dayIndex(len) {
 function renderFeatured() {
   const game = GAMES[dayIndex(GAMES.length)];
   document.getElementById('featured-wrap').innerHTML = `
-    <a class="featured-banner" href="${game.url || ('games/' + game.id + '.html')}" data-id="${game.id}" style="--fc1:${game.c1};--fc2:${game.c2}"${game.url ? ' target="_blank" rel="noopener noreferrer"' : ''}>
+    <a class="featured-banner" href="${game.url || ('games/' + game.id)}" data-id="${game.id}" style="--fc1:${game.c1};--fc2:${game.c2}"${game.url ? ' target="_blank" rel="noopener noreferrer"' : ''}>
       <div class="f-emoji">${game.emoji}</div>
       <div class="f-info">
         <div class="f-label">🌟 Game of the Day</div>
