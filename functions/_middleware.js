@@ -51,7 +51,13 @@ export async function onRequest(context) {
     });
   }
 
-  const passthrough = new Response(response.body, {
+  // Each HTML response embeds a fresh, unique nonce, so it must never be
+  // cached (by the browser, a CDN, or Cloudflare's own edge cache) — a
+  // cached copy's baked-in nonce would stop matching future CSP headers.
+  newHeaders.set('Cache-Control', 'no-store');
+
+  const html = await response.text();
+  const passthrough = new Response(html, {
     status: response.status,
     statusText: response.statusText,
     headers: newHeaders
