@@ -60,7 +60,7 @@ if(sessionStorage.getItem('captcha_ok')||screen.width<200){
     <button class="icon-btn" id="theme-btn" title="Theme" onclick="toggleThemePanel()">🎨</button>
     <button class="auth-pill outline" id="tour-btn" onclick="startTour()">🧭<span class="pill-label"> Take a Tour</span></button>
     <a href="bug-report.html" id="bug-report-btn" class="auth-pill outline">🐛<span class="pill-label"> Report Bug</span></a>
-    <a href="admin.html" class="auth-pill outline" style="position:relative"><span class="pill-label">Admin</span><span id="admin-badge" style="display:none;position:absolute;top:-6px;right:-6px;background:#e94560;color:#fff;font-size:.65rem;font-weight:800;line-height:1;min-width:16px;height:16px;border-radius:50%;align-items:center;justify-content:center;padding:2px;box-shadow:0 0 0 2px #0f0f1e"></span></a>
+    <a href="admin.html" class="auth-pill outline" style="position:relative">🛠️<span class="pill-label"> Admin</span><span id="admin-badge" style="display:none;position:absolute;top:-6px;right:-6px;background:#e94560;color:#fff;font-size:.65rem;font-weight:800;line-height:1;min-width:16px;height:16px;border-radius:50%;align-items:center;justify-content:center;padding:2px;box-shadow:0 0 0 2px #0f0f1e"></span></a>
     <div id="auth-btns" style="display:flex;gap:8px;align-items:center"></div>
   </div>
 </header>
@@ -288,11 +288,18 @@ renderGames(GAMES);
   const el=document.getElementById('auth-btns');
   if(session){
     const {username}=JSON.parse(session);
-    el.innerHTML=`<span class="auth-user">👋 ${username}</span>
-      <button class="auth-pill outline" onclick="logout()">Log out</button>`;
+    const nameSpan=document.createElement('span');
+    nameSpan.className='auth-user';
+    nameSpan.textContent='👋 '+username;
+    const logoutBtn=document.createElement('button');
+    logoutBtn.className='auth-pill outline';
+    logoutBtn.onclick=logout;
+    logoutBtn.innerHTML='👋<span class="pill-label"> Log out</span>';
+    el.appendChild(nameSpan);
+    el.appendChild(logoutBtn);
   } else {
-    el.innerHTML=`<a href="login.html" class="auth-pill outline">Log in</a>
-      <a href="signup.html" class="auth-pill solid">Sign up</a>`;
+    el.innerHTML=`<a href="login.html" class="auth-pill outline">👤<span class="pill-label"> Log in</span></a>
+      <a href="signup.html" class="auth-pill solid">🚀<span class="pill-label"> Sign up</span></a>`;
   }
 })();
 function logout(){localStorage.removeItem('miniarcade_session');location.reload();}
