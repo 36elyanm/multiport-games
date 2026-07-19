@@ -48,8 +48,12 @@ function renderGrid(){
 }
 
 function renderPalette(){
-  document.getElementById('palette').innerHTML=COLORS.map((c,i)=>`<div class="pal-btn" style="background:${c}" onclick="flood('${c}')"></div>`).join('');
+  document.getElementById('palette').innerHTML=COLORS.map((c,i)=>`<div class="pal-btn" style="background:${c}" data-color="${c}"></div>`).join('');
 }
+document.getElementById('palette').addEventListener('click', e => {
+  const btn = e.target.closest('.pal-btn');
+  if (btn) flood(btn.dataset.color);
+});
 
 function updateUI(){document.getElementById('ui').textContent=`Moves: ${moves} / ${MAX}`;}
 newGame();

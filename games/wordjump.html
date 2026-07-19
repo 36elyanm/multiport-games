@@ -67,8 +67,12 @@ function render(){
   document.getElementById('scrambled').textContent=scrambled;
   document.getElementById('build').textContent=built||'_';
   document.getElementById('hint').textContent='';
-  document.getElementById('letters').innerHTML=scrambled.split('').map((l,i)=>`<span class="letter-btn${usedIdx.has(i)?' used':''}" onclick="clickLetter(${i})">${l}</span>`).join('');
+  document.getElementById('letters').innerHTML=scrambled.split('').map((l,i)=>`<span class="letter-btn${usedIdx.has(i)?' used':''}" data-idx="${i}">${l}</span>`).join('');
 }
+document.getElementById('letters').addEventListener('click', e => {
+  const btn = e.target.closest('.letter-btn');
+  if (btn) clickLetter(Number(btn.dataset.idx));
+});
 
 score=0;level=1;newWord();
 </script></body></html>

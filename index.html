@@ -255,7 +255,7 @@ let currentCat = 'all';
 function renderGames(list) {
   const grid = document.getElementById('games-grid');
   grid.innerHTML = list.map(g => `
-    <a class="game-card" href="${g.url||('games/'+g.id+'.html')}" style="--c1:${g.c1};--c2:${g.c2}"${g.url?' target="_blank" rel="noopener noreferrer"':''} onclick="recordPlay('${g.id}')">
+    <a class="game-card" href="${g.url||('games/'+g.id+'.html')}" data-id="${g.id}" style="--c1:${g.c1};--c2:${g.c2}"${g.url?' target="_blank" rel="noopener noreferrer"':''}>
       <div class="thumb">${g.emoji}</div>
       <div class="info">
         <div class="name">${g.name}${g.url?' <span style="opacity:.5;font-size:.75em">↗</span>':''}</div>
@@ -263,6 +263,10 @@ function renderGames(list) {
       </div>
     </a>`).join('');
 }
+document.getElementById('games-grid').addEventListener('click', e => {
+  const card = e.target.closest('.game-card');
+  if (card) recordPlay(card.dataset.id);
+});
 
 function filterGames() {
   const q = document.getElementById('search-bar').value.toLowerCase();
@@ -333,9 +337,13 @@ function renderSwatches() {
   const saved = JSON.parse(localStorage.getItem('theme_accent') || 'null');
   document.getElementById('swatch-row').innerHTML = THEMES.map(t => {
     const active = saved ? saved.rgb === t.rgb : t.name === 'Crimson';
-    return `<div class="swatch${active ? ' active' : ''}" style="background:rgb(${t.rgb})" title="${t.name}" onclick="selectTheme('${t.rgb}','${t.c2}')"></div>`;
+    return `<div class="swatch${active ? ' active' : ''}" style="background:rgb(${t.rgb})" title="${t.name}" data-rgb="${t.rgb}" data-c2="${t.c2}"></div>`;
   }).join('');
 }
+document.getElementById('swatch-row').addEventListener('click', e => {
+  const sw = e.target.closest('.swatch');
+  if (sw) selectTheme(sw.dataset.rgb, sw.dataset.c2);
+});
 function selectTheme(rgb, c2) {
   applyTheme(rgb, c2, true);
   renderSwatches();
@@ -367,7 +375,7 @@ function dayIndex(len) {
 function renderFeatured() {
   const game = GAMES[dayIndex(GAMES.length)];
   document.getElementById('featured-wrap').innerHTML = `
-    <a class="featured-banner" href="${game.url || ('games/' + game.id + '.html')}" style="--fc1:${game.c1};--fc2:${game.c2}" onclick="markDailyPlayed('${game.id}')"${game.url ? ' target="_blank" rel="noopener noreferrer"' : ''}>
+    <a class="featured-banner" href="${game.url || ('games/' + game.id + '.html')}" data-id="${game.id}" style="--fc1:${game.c1};--fc2:${game.c2}"${game.url ? ' target="_blank" rel="noopener noreferrer"' : ''}>
       <div class="f-emoji">${game.emoji}</div>
       <div class="f-info">
         <div class="f-label">🌟 Game of the Day</div>
@@ -376,6 +384,10 @@ function renderFeatured() {
       <div class="f-cta">Play Now →</div>
     </a>`;
 }
+document.getElementById('featured-wrap').addEventListener('click', e => {
+  const banner = e.target.closest('.featured-banner');
+  if (banner) markDailyPlayed(banner.dataset.id);
+});
 function markDailyPlayed(id) {
   localStorage.setItem('ach_daily_played', '1');
   recordPlay(id);

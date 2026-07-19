@@ -134,7 +134,7 @@ function renderReports(){
           <span class="game-tag">${esc(r.game)}</span>
           <span class="report-date">${new Date(r.created_at).toLocaleString()}</span>
         </div>
-        <button class="fix-btn ${r.fixed?'done':'open'}" onclick="toggleFixed(${r.id},${r.fixed?0:1})">
+        <button class="fix-btn ${r.fixed?'done':'open'}" data-id="${r.id}" data-fixed="${r.fixed?0:1}">
           ${r.fixed?'✓ Fixed':'Mark Fixed'}
         </button>
       </div>
@@ -143,6 +143,10 @@ function renderReports(){
     </div>`).join('');
 }
 
+document.getElementById('reports-list').addEventListener('click', e => {
+  const btn = e.target.closest('.fix-btn');
+  if (btn) toggleFixed(Number(btn.dataset.id), Number(btn.dataset.fixed));
+});
 async function toggleFixed(id,fixed){
   await fetch('/api/admin-reports?key='+encodeURIComponent(adminKey),{
     method:'POST',headers:{'Content-Type':'application/json'},
