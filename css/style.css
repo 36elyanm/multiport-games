@@ -497,6 +497,14 @@ footer {
 }
 #achievements-close:hover { background: rgba(255,255,255,0.16); }
 
+/* ── Small laptop / iPad landscape ───────────── */
+@media (max-width: 1250px) {
+  .pill-label { display: none; }
+  .auth-pill { padding: 7px 11px; font-size: .82rem; }
+  #header-actions { gap: 6px; }
+  #search-bar { width: clamp(120px, 15vw, 200px); }
+}
+
 /* ── Tablet ─────────────────────────────────── */
 @media (max-width: 900px) {
   .games-grid { grid-template-columns: repeat(auto-fill, minmax(155px, 1fr)); gap: 14px; }
