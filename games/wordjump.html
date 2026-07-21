@@ -17,7 +17,7 @@ body{background:#08080f}
 #build{font-size:1.6rem;letter-spacing:4px;min-height:44px;color:#fff;font-weight:700;margin:8px 0}
 </style></head><body>
 <div class="game-page">
-  <a href="../index.html" class="back-btn">← Back</a>
+  <a href="../" class="back-btn">← Back</a>
   <div class="game-title">Word Jump</div>
   <div class="game-frame">
     <div id="game-area">
@@ -67,8 +67,12 @@ function render(){
   document.getElementById('scrambled').textContent=scrambled;
   document.getElementById('build').textContent=built||'_';
   document.getElementById('hint').textContent='';
-  document.getElementById('letters').innerHTML=scrambled.split('').map((l,i)=>`<span class="letter-btn${usedIdx.has(i)?' used':''}" onclick="clickLetter(${i})">${l}</span>`).join('');
+  document.getElementById('letters').innerHTML=scrambled.split('').map((l,i)=>`<span class="letter-btn${usedIdx.has(i)?' used':''}" data-idx="${i}">${l}</span>`).join('');
 }
+document.getElementById('letters').addEventListener('click', e => {
+  const btn = e.target.closest('.letter-btn');
+  if (btn) clickLetter(Number(btn.dataset.idx));
+});
 
 score=0;level=1;newWord();
 </script></body></html>

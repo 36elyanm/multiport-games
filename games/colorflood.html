@@ -10,7 +10,7 @@ body{background:#08080f}
 #ui{color:#f48fb1;text-align:center;padding:8px;font-size:1.1rem;font-weight:700}
 </style></head><body>
 <div class="game-page">
-  <a href="../index.html" class="back-btn">← Back</a>
+  <a href="../" class="back-btn">← Back</a>
   <div class="game-title">Color Flood</div>
   <div class="game-frame" style="padding:16px;text-align:center">
     <div id="ui">Moves: 0 / 25</div>
@@ -48,8 +48,12 @@ function renderGrid(){
 }
 
 function renderPalette(){
-  document.getElementById('palette').innerHTML=COLORS.map((c,i)=>`<div class="pal-btn" style="background:${c}" onclick="flood('${c}')"></div>`).join('');
+  document.getElementById('palette').innerHTML=COLORS.map((c,i)=>`<div class="pal-btn" style="background:${c}" data-color="${c}"></div>`).join('');
 }
+document.getElementById('palette').addEventListener('click', e => {
+  const btn = e.target.closest('.pal-btn');
+  if (btn) flood(btn.dataset.color);
+});
 
 function updateUI(){document.getElementById('ui').textContent=`Moves: ${moves} / ${MAX}`;}
 newGame();

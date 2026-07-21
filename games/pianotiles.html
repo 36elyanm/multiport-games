@@ -3,7 +3,7 @@
 <style>body{background:#08080f}#c{display:block;border-radius:8px;touch-action:none}#ui{color:#e94560;font-size:1.1rem;font-weight:700;text-align:center;padding:8px}</style>
 </head><body>
 <div class="game-page">
-  <a href="../index.html" class="back-btn">← Back</a>
+  <a href="../" class="back-btn">← Back</a>
   <div class="game-title">Key Tap</div>
   <div class="game-frame">
     <div id="ui">Score: 0 | Combo: 0</div>
@@ -127,9 +127,9 @@ function update(){
     }
   }
   tiles=tiles.filter(t=>t.y<H+TILE_H);
-  // spawn new tiles to maintain spacing
-  while(tiles.length===0||Math.max(...tiles.map(t=>t.y))<spawnGap-TILE_H+0){
-    const minY=tiles.length?Math.min(...tiles.map(t=>t.y)):-TILE_H;
+  // spawn a new tile once the topmost one has scrolled close enough to the top
+  const minY=tiles.length?Math.min(...tiles.map(t=>t.y)):-TILE_H;
+  if(minY>-spawnGap){
     spawnTile(minY-spawnGap);
   }
 }

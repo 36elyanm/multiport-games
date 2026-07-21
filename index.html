@@ -3,28 +3,30 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Multiport Games – 103 Free Games</title>
+<title>Multiport Games™ – 103 Free Games</title>
 <meta name="description" content="Play 103 free browser games instantly — no downloads, no signup. Arcade classics, puzzles, sports, and educational games for kids and adults, all in your browser.">
-<link rel="canonical" href="https://multiportgames.pages.dev/">
+<link rel="canonical" href="https://games.multiportllc.com/">
 <meta property="og:type" content="website">
-<meta property="og:title" content="Multiport Games – 103 Free Browser Games">
+<meta property="og:title" content="Multiport Games™ – 103 Free Browser Games">
 <meta property="og:description" content="Play 103 free browser games instantly — no downloads, no signup. Arcade classics, puzzles, sports, and educational games for everyone.">
-<meta property="og:url" content="https://multiportgames.pages.dev/">
-<meta property="og:image" content="https://multiportgames.pages.dev/apple-touch-icon.png">
+<meta property="og:url" content="https://games.multiportllc.com/">
+<meta property="og:image" content="https://games.multiportllc.com/apple-touch-icon.png">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="Multiport Games – 103 Free Browser Games">
+<meta name="twitter:title" content="Multiport Games™ – 103 Free Browser Games">
 <meta name="twitter:description" content="Play 103 free browser games instantly — no downloads, no signup.">
-<meta name="twitter:image" content="https://multiportgames.pages.dev/apple-touch-icon.png">
+<meta name="twitter:image" content="https://games.multiportllc.com/apple-touch-icon.png">
 <meta name="msvalidate.01" content="50BC95CD29BDA9BC07C511EE7760E1B4" />
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="apple-touch-icon.png">
+<link rel="icon" href="favicon.ico">
 <link rel="manifest" href="manifest.json">
 <link rel="stylesheet" href="css/style.css">
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 <style>
 #captcha-gate{position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;
   background:rgba(8,8,15,0.97);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);}
-#captcha-gate h2{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display',system-ui,sans-serif;font-size:1.6rem;font-weight:800;color:#fff;letter-spacing:-.5px;}
-#captcha-gate p{color:rgba(255,255,255,.5);font-family:-apple-system,BlinkMacSystemFont,system-ui,sans-serif;font-size:.95rem;}
+#captcha-gate h2{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Inter',system-ui,sans-serif;font-size:1.6rem;font-weight:800;color:#fff;letter-spacing:-.5px;}
+#captcha-gate p{color:rgba(255,255,255,.5);font-family:-apple-system,BlinkMacSystemFont,'Inter',system-ui,sans-serif;font-size:.95rem;}
 .auth-pill{padding:7px 16px;border-radius:50px;font-family:inherit;font-size:.85rem;font-weight:600;cursor:pointer;transition:all .18s;text-decoration:none;display:inline-block;letter-spacing:.1px}
 .auth-pill.outline{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);color:rgba(255,255,255,.8)}
 .auth-pill.outline:hover{background:rgba(255,255,255,.14);color:#fff}
@@ -50,7 +52,7 @@ if(sessionStorage.getItem('captcha_ok')||screen.width<200){
 </script>
 
 <header>
-  <h1>Multiport<span>Games</span></h1>
+  <h1>Multiport<span>Games</span><span style="font-size:.5em;vertical-align:super;opacity:.6;margin-left:2px">™</span></h1>
   <input id="search-bar" type="text" placeholder="Search games…" oninput="filterGames()">
   <div id="header-actions" style="display:flex;gap:8px;align-items:center;flex-shrink:0">
     <div id="streak-badge"></div>
@@ -58,7 +60,7 @@ if(sessionStorage.getItem('captcha_ok')||screen.width<200){
     <button class="icon-btn" id="theme-btn" title="Theme" onclick="toggleThemePanel()">🎨</button>
     <button class="auth-pill outline" id="tour-btn" onclick="startTour()">🧭<span class="pill-label"> Take a Tour</span></button>
     <a href="bug-report.html" id="bug-report-btn" class="auth-pill outline">🐛<span class="pill-label"> Report Bug</span></a>
-    <a href="admin.html" class="auth-pill outline" style="position:relative"><span class="pill-label">Admin</span><span id="admin-badge" style="display:none;position:absolute;top:-6px;right:-6px;background:#e94560;color:#fff;font-size:.65rem;font-weight:800;line-height:1;min-width:16px;height:16px;border-radius:50%;align-items:center;justify-content:center;padding:2px;box-shadow:0 0 0 2px #0f0f1e"></span></a>
+    <a href="admin.html" class="auth-pill outline" style="position:relative">🛠️<span class="pill-label"> Admin</span><span id="admin-badge" style="display:none;position:absolute;top:-6px;right:-6px;background:#e94560;color:#fff;font-size:.65rem;font-weight:800;line-height:1;min-width:16px;height:16px;border-radius:50%;align-items:center;justify-content:center;padding:2px;box-shadow:0 0 0 2px #0f0f1e"></span></a>
     <div id="auth-btns" style="display:flex;gap:8px;align-items:center"></div>
   </div>
 </header>
@@ -105,11 +107,11 @@ if(sessionStorage.getItem('captcha_ok')||screen.width<200){
 </div>
 
 <div id="download-btns" style="display:flex;gap:12px;justify-content:center;align-items:center;flex-wrap:wrap;padding:14px 16px 6px">
-  <a href="/downloads/MultiportGamesSetup.exe" download style="display:inline-flex;align-items:center;gap:8px;padding:10px 20px;border-radius:50px;background:linear-gradient(135deg,#0078d4,#005a9e);color:#fff;font-family:-apple-system,BlinkMacSystemFont,system-ui,sans-serif;font-size:.9rem;font-weight:700;text-decoration:none;box-shadow:0 2px 12px rgba(0,120,212,.35);transition:opacity .18s" onmouseover="this.style.opacity='.82'" onmouseout="this.style.opacity='1'">
+  <a href="/downloads/MultiportGamesSetup.exe" download style="display:inline-flex;align-items:center;gap:8px;padding:10px 20px;border-radius:50px;background:linear-gradient(135deg,#0078d4,#005a9e);color:#fff;font-family:-apple-system,BlinkMacSystemFont,'Inter',system-ui,sans-serif;font-size:.9rem;font-weight:700;text-decoration:none;box-shadow:0 2px 12px rgba(0,120,212,.35);transition:opacity .18s" onmouseover="this.style.opacity='.82'" onmouseout="this.style.opacity='1'">
     <svg width="16" height="16" viewBox="0 0 88 88" fill="currentColor"><path d="M0 12.4L36 7.1v34.8H0V12.4zm40 -5.8L88 0v41.9H40V6.6zM0 45.9h36v34.8L0 75.6V45.9zm40 .3h48V88L40 81.4V46.2z"/></svg>
     Download for Windows
   </a>
-  <a href="/downloads/MultiportGames-Mac.dmg" download style="display:inline-flex;align-items:center;gap:8px;padding:10px 20px;border-radius:50px;background:linear-gradient(135deg,#555,#333);color:#fff;font-family:-apple-system,BlinkMacSystemFont,system-ui,sans-serif;font-size:.9rem;font-weight:700;text-decoration:none;box-shadow:0 2px 12px rgba(0,0,0,.35);transition:opacity .18s" onmouseover="this.style.opacity='.82'" onmouseout="this.style.opacity='1'">
+  <a href="/downloads/MultiportGames-Mac.dmg" download style="display:inline-flex;align-items:center;gap:8px;padding:10px 20px;border-radius:50px;background:linear-gradient(135deg,#555,#333);color:#fff;font-family:-apple-system,BlinkMacSystemFont,'Inter',system-ui,sans-serif;font-size:.9rem;font-weight:700;text-decoration:none;box-shadow:0 2px 12px rgba(0,0,0,.35);transition:opacity .18s" onmouseover="this.style.opacity='.82'" onmouseout="this.style.opacity='1'">
     <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
     Download for Mac
   </a>
@@ -137,18 +139,18 @@ if(sessionStorage.getItem('captcha_ok')||screen.width<200){
 
 <footer>
   <div style="color:rgba(255,255,255,.3);font-size:.78rem;margin-bottom:8px;letter-spacing:.2px">🔒 Secure (HTTPS) &nbsp;·&nbsp; No downloads or installs &nbsp;·&nbsp; Family-friendly &nbsp;·&nbsp; No ad trackers</div>
-  Multiport Games &copy; 2026 – 103 Free Browser Games &nbsp;·&nbsp; <a href="bug-report.html" style="color:rgba(255,255,255,.35);text-decoration:none;transition:color .18s" onmouseover="this.style.color='#e94560'" onmouseout="this.style.color='rgba(255,255,255,.35)'">🐛 Report a Bug</a> &nbsp;·&nbsp; <a href="mailto:michaelrelyan1@gmail.com" style="color:rgba(255,255,255,.35);text-decoration:none;transition:color .18s" onmouseover="this.style.color='#e94560'" onmouseout="this.style.color='rgba(255,255,255,.35)'">✉️ Contact Developer</a> &nbsp;·&nbsp; <a href="privacy.html" style="color:rgba(255,255,255,.35);text-decoration:none;transition:color .18s" onmouseover="this.style.color='#e94560'" onmouseout="this.style.color='rgba(255,255,255,.35)'">Privacy</a> &nbsp;·&nbsp; <a href="terms.html" style="color:rgba(255,255,255,.35);text-decoration:none;transition:color .18s" onmouseover="this.style.color='#e94560'" onmouseout="this.style.color='rgba(255,255,255,.35)'">Terms</a> &nbsp;·&nbsp; <a href="https://github.com/36elyanm/multiport-games/tree/claude/mini-games-website-Nscyd" target="_blank" rel="noopener noreferrer" style="color:rgba(255,255,255,.35);text-decoration:none;transition:color .18s" onmouseover="this.style.color='#e94560'" onmouseout="this.style.color='rgba(255,255,255,.35)'">GitHub</a> &nbsp;·&nbsp; <a href="admin.html" style="color:rgba(255,255,255,.35);text-decoration:none;transition:color .18s;position:relative" onmouseover="this.style.color='#e94560'" onmouseout="this.style.color='rgba(255,255,255,.35)'">Admin<span id="admin-badge-footer" style="display:none;position:absolute;top:-8px;right:-12px;background:#e94560;color:#fff;font-size:.6rem;font-weight:800;line-height:1;min-width:15px;height:15px;border-radius:50%;align-items:center;justify-content:center;padding:2px;box-shadow:0 0 0 2px #0f0f1e"></span></a>
+  Copyright Multiport LLC &copy; 2026 – 103 Free Browser Games &nbsp;·&nbsp; <a href="bug-report.html" style="color:rgba(255,255,255,.35);text-decoration:none;transition:color .18s" onmouseover="this.style.color='#e94560'" onmouseout="this.style.color='rgba(255,255,255,.35)'">🐛 Report a Bug</a> &nbsp;·&nbsp; <a href="https://support.multiportllc.com" target="_blank" rel="noopener noreferrer" style="color:rgba(255,255,255,.35);text-decoration:none;transition:color .18s" onmouseover="this.style.color='#e94560'" onmouseout="this.style.color='rgba(255,255,255,.35)'">💬 Support</a> &nbsp;·&nbsp; <a href="privacy.html" style="color:rgba(255,255,255,.35);text-decoration:none;transition:color .18s" onmouseover="this.style.color='#e94560'" onmouseout="this.style.color='rgba(255,255,255,.35)'">Privacy</a> &nbsp;·&nbsp; <a href="terms.html" style="color:rgba(255,255,255,.35);text-decoration:none;transition:color .18s" onmouseover="this.style.color='#e94560'" onmouseout="this.style.color='rgba(255,255,255,.35)'">Terms</a> &nbsp;·&nbsp; <a href="https://github.com/36elyanm/multiport-games/tree/claude/mini-games-website-Nscyd" target="_blank" rel="noopener noreferrer" style="color:rgba(255,255,255,.35);text-decoration:none;transition:color .18s" onmouseover="this.style.color='#e94560'" onmouseout="this.style.color='rgba(255,255,255,.35)'">GitHub</a> &nbsp;·&nbsp; <a href="admin.html" style="color:rgba(255,255,255,.35);text-decoration:none;transition:color .18s;position:relative" onmouseover="this.style.color='#e94560'" onmouseout="this.style.color='rgba(255,255,255,.35)'">Admin<span id="admin-badge-footer" style="display:none;position:absolute;top:-8px;right:-12px;background:#e94560;color:#fff;font-size:.6rem;font-weight:800;line-height:1;min-width:15px;height:15px;border-radius:50%;align-items:center;justify-content:center;padding:2px;box-shadow:0 0 0 2px #0f0f1e"></span></a>
 </footer>
 
 <script>
 const GAMES = [
   { id:'dino',        name:'Dino Run',         tag:'arcade', emoji:'🦕', c1:'#2d5a27',c2:'#7ec850' },
-  { id:'flappy',      name:'Flappy Bird',       tag:'arcade', emoji:'🐦', c1:'#1a6db5',c2:'#56cfe1' },
+  { id:'flappy',      name:'Wing Dash',       tag:'arcade', emoji:'🐦', c1:'#1a6db5',c2:'#56cfe1' },
   { id:'snake',       name:'Snake',             tag:'arcade', emoji:'🐍', c1:'#155724',c2:'#28a745' },
   { id:'tetris',      name:'Block Drop',        tag:'puzzle', emoji:'🟦', c1:'#0d47a1',c2:'#42a5f5' },
-  { id:'breakout',    name:'Breakout',          tag:'arcade', emoji:'🧱', c1:'#6a0572',c2:'#e040fb' },
-  { id:'pong',        name:'Pong',              tag:'sports', emoji:'🏓', c1:'#1b2838',c2:'#66c0f4' },
-  { id:'minesweeper', name:'Minesweeper',       tag:'puzzle', emoji:'💣', c1:'#424242',c2:'#9e9e9e' },
+  { id:'breakout',    name:'Brick Breaker',          tag:'arcade', emoji:'🧱', c1:'#6a0572',c2:'#e040fb' },
+  { id:'pong',        name:'Paddle Bounce',              tag:'sports', emoji:'🏓', c1:'#1b2838',c2:'#66c0f4' },
+  { id:'minesweeper', name:'Mine Hunter',       tag:'puzzle', emoji:'💣', c1:'#424242',c2:'#9e9e9e' },
   { id:'2048',        name:'2048',              tag:'puzzle', emoji:'🔢', c1:'#f57c00',c2:'#ffcc02' },
   { id:'memory',      name:'Memory Match',      tag:'puzzle', emoji:'🃏', c1:'#4a148c',c2:'#ce93d8' },
   { id:'tictactoe',   name:'Tic Tac Toe',       tag:'puzzle', emoji:'❌', c1:'#b71c1c',c2:'#ef9a9a' },
@@ -159,12 +161,12 @@ const GAMES = [
   { id:'racer',       name:'Top-Down Racer',    tag:'racing', emoji:'🏎️', c1:'#880e4f',c2:'#f48fb1' },
   { id:'jumper',      name:'High Jumper',       tag:'skill',  emoji:'🤸', c1:'#006064',c2:'#4dd0e1' },
   { id:'catching',    name:'Fruit Catch',       tag:'skill',  emoji:'🍎', c1:'#4e342e',c2:'#ff7043' },
-  { id:'whackamole',  name:'Whack-a-Mole',      tag:'arcade', emoji:'🔨', c1:'#33691e',c2:'#cddc39' },
+  { id:'whackamole',  name:'Mole Bash',      tag:'arcade', emoji:'🔨', c1:'#33691e',c2:'#cddc39' },
   { id:'typing',      name:'Type Rush',         tag:'skill',  emoji:'⌨️', c1:'#01579b',c2:'#81d4fa' },
   { id:'simon',       name:'Color Memory',      tag:'puzzle', emoji:'🔵', c1:'#1a237e',c2:'#7986cb' },
   { id:'reaction',    name:'Reaction Test',     tag:'skill',  emoji:'⏱️', c1:'#37474f',c2:'#90a4ae' },
-  { id:'clicker',     name:'Cookie Clicker',    tag:'arcade', emoji:'🍪', c1:'#5d4037',c2:'#a1887f' },
-  { id:'maze',        name:'Maze Runner',       tag:'puzzle', emoji:'🌀', c1:'#263238',c2:'#78909c', url:'https://mazegame23.pages.dev' },
+  { id:'clicker',     name:'Cookie Tap',    tag:'arcade', emoji:'🍪', c1:'#5d4037',c2:'#a1887f' },
+  { id:'maze',        name:'Maze Dash',       tag:'puzzle', emoji:'🌀', c1:'#263238',c2:'#78909c', url:'https://mazegame23.pages.dev' },
   { id:'gravity',     name:'Gravity Flip',      tag:'skill',  emoji:'🌐', c1:'#4527a0',c2:'#9575cd' },
   { id:'pinball',     name:'Pinball',           tag:'arcade', emoji:'🔵', c1:'#b71c1c',c2:'#ef5350' },
   { id:'bubble',      name:'Bubble Shooter',    tag:'puzzle', emoji:'🫧', c1:'#006064',c2:'#26c6da' },
@@ -180,7 +182,7 @@ const GAMES = [
   { id:'brickroad',   name:'Brick Road',        tag:'racing', emoji:'🧱', c1:'#bf360c',c2:'#ff8a65' },
   { id:'swords',      name:'Sword Duel',        tag:'action', emoji:'⚔️', c1:'#37474f',c2:'#cfd8dc' },
   { id:'wordle',      name:'Word Guess',        tag:'puzzle', emoji:'🟩', c1:'#121213',c2:'#538d4e' },
-  { id:'strands',     name:'Word Strands',      tag:'puzzle', emoji:'🔤', c1:'#1a1a2e',c2:'#4e9af1' },
+  { id:'strands',     name:'Word Weave',      tag:'puzzle', emoji:'🔤', c1:'#1a1a2e',c2:'#4e9af1' },
   { id:'archery',     name:'Archery',           tag:'sports', emoji:'🏹', c1:'#1b5e20',c2:'#c8e6c9' },
   { id:'slots',       name:'Lucky Slots',       tag:'arcade', emoji:'🎰', c1:'#6a1b9a',c2:'#ce93d8' },
   { id:'fishing',     name:'Pixel Fishing',     tag:'skill',  emoji:'🎣', c1:'#0d47a1',c2:'#64b5f6' },
@@ -197,17 +199,17 @@ const GAMES = [
   { id:'level67',    name:'Level 67',          tag:'action', emoji:'💀', c1:'#0d0d1a',c2:'#e94560' },
   { id:'memetash',   name:'Meme Tash',         tag:'action', emoji:'😎', c1:'#1a1a2e',c2:'#ffcc00' },
   { id:'skyrace',    name:'Sky Race',          tag:'racing', emoji:'✈️', c1:'#0277bd',c2:'#56cfe1' },
-  { id:'flappydunk', name:'Flappy Dunk',       tag:'sports', emoji:'🏀', c1:'#7b3f00',c2:'#f4753a' },
+  { id:'flappydunk', name:'Bounce Dunk',       tag:'sports', emoji:'🏀', c1:'#7b3f00',c2:'#f4753a' },
   { id:'checkers',   name:'Checkers',          tag:'puzzle', emoji:'⚫', c1:'#1a1a2e',c2:'#e94560' },
   { id:'battleship', name:'Naval Strike',      tag:'puzzle', emoji:'🚢', c1:'#0d1b2e',c2:'#4fc3f7' },
   { id:'sudoku',     name:'Sudoku',            tag:'puzzle', emoji:'🔢', c1:'#1a1a2e',c2:'#a78bfa' },
   { id:'airhockey',  name:'Air Hockey',        tag:'sports', emoji:'🏒', c1:'#0a2540',c2:'#4fc3f7' },
   { id:'bowling',    name:'Bowling',           tag:'sports', emoji:'🎳', c1:'#3d1a00',c2:'#ffb74d' },
-  { id:'geometry',   name:'Geo Dash',          tag:'skill',  emoji:'⬛', c1:'#0a0a1a',c2:'#e94560' },
+  { id:'geometry',   name:'Cube Runner',          tag:'skill',  emoji:'⬛', c1:'#0a0a1a',c2:'#e94560' },
   { id:'crossy',     name:'Road Hopper',       tag:'action', emoji:'🐔', c1:'#2d5a27',c2:'#f7c948' },
-  { id:'candy',      name:'Candy Crush',       tag:'puzzle', emoji:'🍭', c1:'#6a0572',c2:'#f7c948' },
+  { id:'candy',      name:'Sweet Match',       tag:'puzzle', emoji:'🍭', c1:'#6a0572',c2:'#f7c948' },
   { id:'mathblast',  name:'Math Blast',        tag:'edu',    emoji:'🔢', c1:'#0d1b4a',c2:'#4fc3f7' },
-  { id:'spelling',   name:'Spelling Bee',      tag:'edu',    emoji:'🐝', c1:'#3d2800',c2:'#ffd600' },
+  { id:'spelling',   name:'Word Builder',      tag:'edu',    emoji:'🐝', c1:'#3d2800',c2:'#ffd600' },
   { id:'flags',      name:'World Flags',       tag:'edu',    emoji:'🌍', c1:'#1a237e',c2:'#64b5f6' },
   { id:'timestable', name:'Times Tables',      tag:'edu',    emoji:'✖️', c1:'#1b5e20',c2:'#69f0ae' },
   { id:'scramble',   name:'Word Scramble',     tag:'edu',    emoji:'🔤', c1:'#4a148c',c2:'#ea80fc' },
@@ -253,7 +255,7 @@ let currentCat = 'all';
 function renderGames(list) {
   const grid = document.getElementById('games-grid');
   grid.innerHTML = list.map(g => `
-    <a class="game-card" href="${g.url||('games/'+g.id+'.html')}" style="--c1:${g.c1};--c2:${g.c2}"${g.url?' target="_blank" rel="noopener noreferrer"':''} onclick="recordPlay('${g.id}')">
+    <a class="game-card" href="${g.url||('games/'+g.id)}" data-id="${g.id}" style="--c1:${g.c1};--c2:${g.c2}"${g.url?' target="_blank" rel="noopener noreferrer"':''}>
       <div class="thumb">${g.emoji}</div>
       <div class="info">
         <div class="name">${g.name}${g.url?' <span style="opacity:.5;font-size:.75em">↗</span>':''}</div>
@@ -261,6 +263,10 @@ function renderGames(list) {
       </div>
     </a>`).join('');
 }
+document.getElementById('games-grid').addEventListener('click', e => {
+  const card = e.target.closest('.game-card');
+  if (card) recordPlay(card.dataset.id);
+});
 
 function filterGames() {
   const q = document.getElementById('search-bar').value.toLowerCase();
@@ -286,11 +292,18 @@ renderGames(GAMES);
   const el=document.getElementById('auth-btns');
   if(session){
     const {username}=JSON.parse(session);
-    el.innerHTML=`<span class="auth-user">👋 ${username}</span>
-      <button class="auth-pill outline" onclick="logout()">Log out</button>`;
+    const nameSpan=document.createElement('span');
+    nameSpan.className='auth-user';
+    nameSpan.textContent='👋 '+username;
+    const logoutBtn=document.createElement('button');
+    logoutBtn.className='auth-pill outline';
+    logoutBtn.onclick=logout;
+    logoutBtn.innerHTML='👋<span class="pill-label"> Log out</span>';
+    el.appendChild(nameSpan);
+    el.appendChild(logoutBtn);
   } else {
-    el.innerHTML=`<a href="login.html" class="auth-pill outline">Log in</a>
-      <a href="signup.html" class="auth-pill solid">Sign up</a>`;
+    el.innerHTML=`<a href="login.html" class="auth-pill outline">👤<span class="pill-label"> Log in</span></a>
+      <a href="signup.html" class="auth-pill solid">🚀<span class="pill-label"> Sign up</span></a>`;
   }
 })();
 function logout(){localStorage.removeItem('miniarcade_session');location.reload();}
@@ -324,9 +337,13 @@ function renderSwatches() {
   const saved = JSON.parse(localStorage.getItem('theme_accent') || 'null');
   document.getElementById('swatch-row').innerHTML = THEMES.map(t => {
     const active = saved ? saved.rgb === t.rgb : t.name === 'Crimson';
-    return `<div class="swatch${active ? ' active' : ''}" style="background:rgb(${t.rgb})" title="${t.name}" onclick="selectTheme('${t.rgb}','${t.c2}')"></div>`;
+    return `<div class="swatch${active ? ' active' : ''}" style="background:rgb(${t.rgb})" title="${t.name}" data-rgb="${t.rgb}" data-c2="${t.c2}"></div>`;
   }).join('');
 }
+document.getElementById('swatch-row').addEventListener('click', e => {
+  const sw = e.target.closest('.swatch');
+  if (sw) selectTheme(sw.dataset.rgb, sw.dataset.c2);
+});
 function selectTheme(rgb, c2) {
   applyTheme(rgb, c2, true);
   renderSwatches();
@@ -358,7 +375,7 @@ function dayIndex(len) {
 function renderFeatured() {
   const game = GAMES[dayIndex(GAMES.length)];
   document.getElementById('featured-wrap').innerHTML = `
-    <a class="featured-banner" href="${game.url || ('games/' + game.id + '.html')}" style="--fc1:${game.c1};--fc2:${game.c2}" onclick="markDailyPlayed('${game.id}')"${game.url ? ' target="_blank" rel="noopener noreferrer"' : ''}>
+    <a class="featured-banner" href="${game.url || ('games/' + game.id)}" data-id="${game.id}" style="--fc1:${game.c1};--fc2:${game.c2}"${game.url ? ' target="_blank" rel="noopener noreferrer"' : ''}>
       <div class="f-emoji">${game.emoji}</div>
       <div class="f-info">
         <div class="f-label">🌟 Game of the Day</div>
@@ -367,6 +384,10 @@ function renderFeatured() {
       <div class="f-cta">Play Now →</div>
     </a>`;
 }
+document.getElementById('featured-wrap').addEventListener('click', e => {
+  const banner = e.target.closest('.featured-banner');
+  if (banner) markDailyPlayed(banner.dataset.id);
+});
 function markDailyPlayed(id) {
   localStorage.setItem('ach_daily_played', '1');
   recordPlay(id);

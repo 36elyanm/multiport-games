@@ -1,13 +1,21 @@
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html, body { overflow-x: hidden; max-width: 100%; }
 
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('../fonts/Inter-Variable.woff2') format('woff2-variations');
+}
+
 :root {
   --accent-rgb: 233,69,96;
   --accent2: #ff8fa3;
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', 'Inter', system-ui, sans-serif;
   background: #08080f;
   background-image:
     radial-gradient(ellipse 80% 55% at 12% 12%, rgba(var(--accent-rgb),0.22) 0%, transparent 58%),
@@ -497,6 +505,14 @@ footer {
 }
 #achievements-close:hover { background: rgba(255,255,255,0.16); }
 
+/* ── Small laptop / iPad landscape ───────────── */
+@media (max-width: 1250px) {
+  .pill-label { display: none; }
+  .auth-pill { padding: 7px 11px; font-size: .82rem; }
+  #header-actions { gap: 6px; }
+  #search-bar { width: clamp(120px, 15vw, 200px); }
+}
+
 /* ── Tablet ─────────────────────────────────── */
 @media (max-width: 900px) {
   .games-grid { grid-template-columns: repeat(auto-fill, minmax(155px, 1fr)); gap: 14px; }
@@ -593,7 +609,7 @@ footer {
   padding: 18px;
   box-shadow: 0 12px 40px rgba(0,0,0,0.5);
   transition: top .32s ease, left .32s ease;
-  font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Inter', system-ui, sans-serif;
 }
 #tour-step-count {
   font-size: .72rem;
