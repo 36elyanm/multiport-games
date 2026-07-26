@@ -1,6 +1,7 @@
 <!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Sign Up – Multiport Games™</title>
 <link rel="apple-touch-icon" href="apple-touch-icon.png"><link rel="manifest" href="manifest.json">
 <link rel="stylesheet" href="css/style.css">
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 <style>
 body{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px}
 .auth-card{width:100%;max-width:400px;background:rgba(255,255,255,0.07);backdrop-filter:blur(32px) saturate(180%);-webkit-backdrop-filter:blur(32px) saturate(180%);border:1px solid rgba(255,255,255,0.12);border-radius:24px;padding:36px 32px;box-shadow:0 24px 64px rgba(0,0,0,0.5),inset 0 1px 0 rgba(255,255,255,0.1);}
@@ -35,6 +36,7 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh;pad
     <div class="field"><label>Email</label><input id="email" type="email" placeholder="your@email.com" autocomplete="email"></div>
     <div class="field"><label>Password</label><input id="password" type="password" placeholder="At least 6 characters" autocomplete="new-password"></div>
     <div class="field"><label>Confirm Password</label><input id="confirm" type="password" placeholder="Repeat password" autocomplete="new-password"></div>
+    <div class="cf-turnstile" style="margin-bottom:16px" data-sitekey="0x4AAAAAADWNTS62UeiB1Gk3"></div>
     <button class="auth-btn" onclick="doSignup()">Create Account</button>
     <div class="auth-links">Already have an account? <a href="login.html">Sign in</a></div>
   </div>
@@ -53,20 +55,28 @@ async function doSignup(){
   if(p!==cf){err.textContent='Passwords do not match.';err.style.display='block';return;}
   if(!/\S+@\S+\.\S+/.test(e)){err.textContent='Please enter a valid email.';err.style.display='block';return;}
 
+  const turnstileToken=window.turnstile?turnstile.getResponse():'';
+  if(!turnstileToken){err.textContent='Please complete the human verification.';err.style.display='block';return;}
+
   const btn=document.querySelector('.auth-btn');
   btn.disabled=true;btn.textContent='Creating…';
 
   try{
     const res=await fetch('/api/signup',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({username:u,email:e,password:p})});
+      body:JSON.stringify({username:u,email:e,password:p,turnstileToken})});
     const data=await res.json();
-    if(!res.ok){err.textContent=data.error||'Sign up failed.';err.style.display='block';btn.disabled=false;btn.textContent='Create Account';return;}
+    if(!res.ok){
+      err.textContent=data.error||'Sign up failed.';err.style.display='block';btn.disabled=false;btn.textContent='Create Account';
+      if(window.turnstile)turnstile.reset();
+      return;
+    }
     localStorage.setItem('miniarcade_session',JSON.stringify({username:data.username}));
     ok.textContent='Account created! Redirecting…';ok.style.display='block';
     setTimeout(()=>location.href='index.html',800);
   }catch{
     err.textContent='Could not connect. Please try again.';err.style.display='block';
     btn.disabled=false;btn.textContent='Create Account';
+    if(window.turnstile)turnstile.reset();
   }
 }
 document.addEventListener('keydown',e=>{if(e.key==='Enter')doSignup();});
