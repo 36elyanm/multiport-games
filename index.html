@@ -49,6 +49,7 @@
     <div id="streak-badge"></div>
     <button class="icon-btn" id="achievements-btn" title="Achievements" onclick="openAchievements()">🏆</button>
     <button class="icon-btn" id="theme-btn" title="Theme" onclick="toggleThemePanel()">🎨</button>
+    <button class="icon-btn" id="changelog-btn" title="What's New" onclick="openChangelog()">📋</button>
     <button class="auth-pill outline" id="tour-btn" onclick="startTour()">🧭<span class="pill-label"> Take a Tour</span></button>
     <a href="bug-report.html" id="bug-report-btn" class="auth-pill outline">🐛<span class="pill-label"> Report Bug</span></a>
     <a href="admin.html" class="auth-pill outline" style="position:relative">🛠️<span class="pill-label"> Admin</span><span id="admin-badge" style="display:none;position:absolute;top:-6px;right:-6px;background:#e94560;color:#fff;font-size:.65rem;font-weight:800;line-height:1;min-width:16px;height:16px;border-radius:50%;align-items:center;justify-content:center;padding:2px;box-shadow:0 0 0 2px #0f0f1e"></span></a>
@@ -59,6 +60,15 @@
 <div id="theme-panel">
   <h3>🎨 Accent Color</h3>
   <div class="swatch-row" id="swatch-row"></div>
+</div>
+
+<div id="changelog-overlay">
+  <div id="changelog-modal">
+    <h2>📋 What's New</h2>
+    <div class="ach-sub">Recent changes to Multiport Games</div>
+    <div id="changelog-list"></div>
+    <button id="changelog-close" onclick="closeChangelog()">Close</button>
+  </div>
 </div>
 
 <div id="tour-overlay">
@@ -442,6 +452,54 @@ function closeAchievements() {
 }
 document.getElementById('achievements-overlay').addEventListener('click', e => {
   if (e.target.id === 'achievements-overlay') closeAchievements();
+});
+
+/* ── Changelog ────────────────────────────── */
+const CHANGELOG = [
+  { date: '2026-07-27', changes: [
+      "Simplified footer copyright to “Copyright Multiport”",
+      'Removed unregistered "LLC" business-entity claims from the copyright line, metadata, and structured data',
+      'Added structured data (JSON-LD) and clearer safety language to help search engines and AI tools describe the site accurately',
+    ] },
+  { date: '2026-07-26', changes: [
+      'Added Turnstile human verification to the login and signup pages, with real server-side token checks',
+      "Removed the homepage's custom “verify you're human” gate in favor of Cloudflare's edge-level Managed Challenge",
+    ] },
+  { date: '2026-07-24', changes: [
+      'Renamed 12 more games to reduce trademark risk (e.g. Flappy Bird → Wing Dash, Candy Crush → Sweet Match)',
+      'Added a self-hosted Inter font as the fallback on non-Apple devices',
+      'Added a TM symbol to the site branding',
+      'Replaced the "Contact Developer" footer link with a Support link',
+    ] },
+  { date: '2026-07-20', changes: [
+      'Switched all internal game links to clean URLs (e.g. /games/2048 instead of /games/2048.html)',
+      'Hardened the site’s Content-Security-Policy to remove unsafe-inline scripting',
+      'Fixed a caching bug that could intermittently break the captcha gate after navigating back to the homepage',
+      'Updated the site to the new games.multiportllc.com domain, with the old domain permanently redirecting',
+    ] },
+  { date: '2026-07-19', changes: [
+      'Added a guided "Take a Tour" walkthrough of the site',
+      'Fixed the mobile/tablet header layout jamming up at in-between screen widths',
+      'Fixed a bug in Key Tap that could freeze the game on load',
+      'Added Windows and Mac desktop app downloads',
+    ] },
+];
+function renderChangelog() {
+  document.getElementById('changelog-list').innerHTML = CHANGELOG.map(entry => `
+    <div class="changelog-entry">
+      <div class="changelog-date">${entry.date}</div>
+      <ul>${entry.changes.map(c => `<li>${c}</li>`).join('')}</ul>
+    </div>`).join('');
+}
+function openChangelog() {
+  renderChangelog();
+  document.getElementById('changelog-overlay').classList.add('open');
+}
+function closeChangelog() {
+  document.getElementById('changelog-overlay').classList.remove('open');
+}
+document.getElementById('changelog-overlay').addEventListener('click', e => {
+  if (e.target.id === 'changelog-overlay') closeChangelog();
 });
 
 fetch('/api/bug-count').then(r=>r.json()).then(d=>{
