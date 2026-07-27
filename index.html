@@ -21,12 +21,7 @@
 <link rel="icon" href="favicon.ico">
 <link rel="manifest" href="manifest.json">
 <link rel="stylesheet" href="css/style.css">
-<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 <style>
-#captcha-gate{position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;
-  background:rgba(8,8,15,0.97);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);}
-#captcha-gate h2{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Inter',system-ui,sans-serif;font-size:1.6rem;font-weight:800;color:#fff;letter-spacing:-.5px;}
-#captcha-gate p{color:rgba(255,255,255,.5);font-family:-apple-system,BlinkMacSystemFont,'Inter',system-ui,sans-serif;font-size:.95rem;}
 .auth-pill{padding:7px 16px;border-radius:50px;font-family:inherit;font-size:.85rem;font-weight:600;cursor:pointer;transition:all .18s;text-decoration:none;display:inline-block;letter-spacing:.1px}
 .auth-pill.outline{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);color:rgba(255,255,255,.8)}
 .auth-pill.outline:hover{background:rgba(255,255,255,.14);color:#fff}
@@ -37,19 +32,6 @@
 </head>
   <meta name="google-site-verification" content="65Oa_uiVGDzK8T2UYhr-qBkiv518mm2B1QY6KlibNJA" />
 <body>
-
-<div id="captcha-gate">
-  <h2>Multiport Games 🎮</h2>
-  <p>Please verify you're human to continue.</p>
-  <div class="cf-turnstile" data-sitekey="0x4AAAAAADWNTS62UeiB1Gk3" data-callback="onTurnstileSuccess"></div>
-</div>
-<script>
-// Skip CAPTCHA if already verified, or if screen is too small for the widget (e.g. Apple Watch)
-if(sessionStorage.getItem('captcha_ok')||screen.width<200){
-  document.getElementById('captcha-gate').style.display='none';
-  sessionStorage.setItem('captcha_ok','1');
-}
-</script>
 
 <header>
   <h1>Multiport<span>Games</span><span style="font-size:.5em;vertical-align:super;opacity:.6;margin-left:2px">™</span></h1>
@@ -307,14 +289,6 @@ renderGames(GAMES);
   }
 })();
 function logout(){localStorage.removeItem('miniarcade_session');location.reload();}
-
-function onTurnstileSuccess(token){
-  sessionStorage.setItem('captcha_ok','1');
-  const gate=document.getElementById('captcha-gate');
-  gate.style.transition='opacity .4s ease';
-  gate.style.opacity='0';
-  setTimeout(()=>gate.remove(),400);
-}
 
 // ── Theme Customizer ──────────────────────────
 const THEMES = [
