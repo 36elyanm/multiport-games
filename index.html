@@ -29,7 +29,7 @@
 <link rel="icon" type="image/png" href="apple-touch-icon.png">
 <link rel="icon" href="favicon.ico">
 <link rel="manifest" href="manifest.json">
-<link rel="stylesheet" href="css/style.css?v=4">
+<link rel="stylesheet" href="css/style.css?v=5">
 <style>
 .auth-pill{padding:7px 16px;border-radius:50px;font-family:inherit;font-size:.85rem;font-weight:600;cursor:pointer;transition:all .18s;text-decoration:none;display:inline-block;letter-spacing:.1px}
 .auth-pill.outline{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);color:rgba(255,255,255,.8)}
@@ -176,8 +176,8 @@
     </div>
     <div class="footer-col">
       <h4>Legal</h4>
-      <a href="privacy.html">Privacy Policy</a>
-      <a href="terms.html">Terms of Service</a>
+      <a href="privacy.html" class="legal-link" data-url="privacy">Privacy Policy</a>
+      <a href="terms.html" class="legal-link" data-url="terms">Terms of Service</a>
     </div>
     <div class="footer-col">
       <h4>Developer</h4>
@@ -189,9 +189,16 @@
   <div class="footer-tags">🔒 Secure (HTTPS) &nbsp;·&nbsp; No downloads or installs &nbsp;·&nbsp; Family-friendly &nbsp;·&nbsp; No ad trackers</div>
   <div class="footer-bottom">
     <span>Copyright Multiport &copy; 2026 – 103 Free Browser Games</span>
-    <span><a href="privacy.html">Privacy</a> | <a href="terms.html">Terms</a></span>
+    <span><a href="privacy.html" class="legal-link" data-url="privacy">Privacy</a> | <a href="terms.html" class="legal-link" data-url="terms">Terms</a></span>
   </div>
 </footer>
+
+<div id="legal-overlay">
+  <div id="legal-modal">
+    <button id="legal-modal-close">✕</button>
+    <div id="legal-modal-body"></div>
+  </div>
+</div>
 
 <script>
 const GAMES = [
@@ -380,6 +387,35 @@ function openAccountModal(username){
 function closeAccountModal(){
   document.getElementById('account-overlay').classList.remove('open');
 }
+
+// ── Legal mini-page modal ─────────────────────
+async function openLegalModal(url){
+  const body=document.getElementById('legal-modal-body');
+  body.innerHTML='<div style="padding:32px;text-align:center;color:rgba(255,255,255,.4)">Loading…</div>';
+  document.getElementById('legal-overlay').classList.add('open');
+  try{
+    const res=await fetch(url);
+    const html=await res.text();
+    const doc=new DOMParser().parseFromString(html,'text/html');
+    const content=doc.querySelector('.doc');
+    body.innerHTML=content?content.outerHTML:'<div style="padding:32px">Could not load content.</div>';
+  }catch{
+    body.innerHTML='<div style="padding:32px">Could not load content.</div>';
+  }
+}
+function closeLegalModal(){
+  document.getElementById('legal-overlay').classList.remove('open');
+}
+document.querySelectorAll('.legal-link').forEach(link=>{
+  link.addEventListener('click',e=>{
+    e.preventDefault();
+    openLegalModal(link.dataset.url);
+  });
+});
+document.getElementById('legal-modal-close').addEventListener('click',closeLegalModal);
+document.getElementById('legal-overlay').addEventListener('click',e=>{
+  if(e.target.id==='legal-overlay')closeLegalModal();
+});
 document.getElementById('account-overlay').addEventListener('click', e => {
   if (e.target.id === 'account-overlay') closeAccountModal();
 });

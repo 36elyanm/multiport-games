@@ -278,6 +278,68 @@ header h1 span {
   letter-spacing: 0.1px;
 }
 
+/* ── Legal doc pages (Terms / Privacy) ──────── */
+.doc { max-width: 760px; margin: 0 auto; padding: 32px 20px 60px; }
+.doc h1 { font-size: 1.9rem; font-weight: 800; color: #fff; margin-bottom: 6px; letter-spacing: -.6px; }
+.doc .updated { color: rgba(255,255,255,.35); font-size: .85rem; margin-bottom: 28px; }
+.doc h2 { font-size: 1.2rem; font-weight: 700; color: #fff; margin: 28px 0 10px; }
+.doc p, .doc li { color: rgba(255,255,255,.65); font-size: .95rem; line-height: 1.7; }
+.doc ul { margin: 8px 0 8px 20px; }
+.doc a { color: rgb(var(--accent-rgb)); text-decoration: none; font-weight: 600; }
+.doc a:hover { text-decoration: underline; }
+.back-home { display: inline-block; margin: 24px 0 0 20px; color: rgba(255,255,255,.4); font-size: .85rem; text-decoration: none; }
+.back-home:hover { color: #fff; }
+.card { background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.09); border-radius: 18px; padding: 8px 28px 24px; backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); }
+
+/* ── Legal modal (mini popup for Terms/Privacy) ── */
+#legal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 600;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  padding: 20px;
+}
+#legal-overlay.open { display: flex; }
+#legal-modal {
+  background: rgba(15,12,28,0.97);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 22px;
+  max-width: 640px;
+  width: 100%;
+  max-height: 84vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.55);
+  overflow: hidden;
+}
+#legal-modal-close {
+  align-self: flex-end;
+  margin: 14px 14px 0 0;
+  background: rgba(255,255,255,0.08);
+  border: none;
+  color: #fff;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background .15s;
+}
+#legal-modal-close:hover { background: rgba(255,255,255,0.16); }
+#legal-modal-body { overflow-y: auto; padding: 0 8px; }
+#legal-modal-body .doc { padding: 8px 20px 32px; }
+#legal-modal-body .card { padding: 4px 20px 20px; background: none; border: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
+#legal-modal-body .back-home { display: none; }
+
 /* ── Footer ────────────────────────────────── */
 footer {
   padding: 40px 28px 24px;
