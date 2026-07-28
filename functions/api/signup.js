@@ -1,3 +1,5 @@
+import { verifyTurnstile } from '../_lib/turnstile.js';
+
 async function sha256(str) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
   return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
@@ -6,8 +8,12 @@ async function sha256(str) {
 export async function onRequestPost({ request, env }) {
   const headers = { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' };
   try {
-    const { username, email, password } = await request.json();
+    const { username, email, password, turnstileToken } = await request.json();
     if (!username || !email || !password) return Response.json({ error: 'Missing fields' }, { status: 400, headers });
+
+    const ip = request.headers.get('CF-Connecting-IP');
+    const humanVerified = await verifyTurnstile(turnstileToken, env.TURNSTILE_SECRET_KEY, ip);
+    if (!humanVerified) return Response.json({ error: 'Human verification failed. Please try again.' }, { status: 400, headers });
     if (username.length < 3)  return Response.json({ error: 'Username must be at least 3 characters.' }, { status: 400, headers });
     if (password.length < 6)  return Response.json({ error: 'Password must be at least 6 characters.' }, { status: 400, headers });
     if (!/\S+@\S+\.\S+/.test(email)) return Response.json({ error: 'Invalid email address.' }, { status: 400, headers });

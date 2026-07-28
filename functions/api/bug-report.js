@@ -42,7 +42,7 @@ async function notifySubscribers(env, gameName, desc) {
     };
 
     await Promise.allSettled(subs.map(async (s) => {
-      const res = await sendWebPush(s, payload, vapidPublic, vapidPrivate, 'mailto:admin@multiportgames.pages.dev');
+      const res = await sendWebPush(s, payload, vapidPublic, vapidPrivate, 'mailto:admin@games.multiportllc.com');
       if (res.status === 404 || res.status === 410) {
         await env.DB.prepare('DELETE FROM push_subscriptions WHERE endpoint=?1').bind(s.endpoint).run();
       }

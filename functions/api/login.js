@@ -1,3 +1,5 @@
+import { verifyTurnstile } from '../_lib/turnstile.js';
+
 async function sha256(str) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
   return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
@@ -6,8 +8,12 @@ async function sha256(str) {
 export async function onRequestPost({ request, env }) {
   const headers = { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' };
   try {
-    const { username, password } = await request.json();
+    const { username, password, turnstileToken } = await request.json();
     if (!username || !password) return Response.json({ error: 'Please fill in all fields.' }, { status: 400, headers });
+
+    const ip = request.headers.get('CF-Connecting-IP');
+    const humanVerified = await verifyTurnstile(turnstileToken, env.TURNSTILE_SECRET_KEY, ip);
+    if (!humanVerified) return Response.json({ error: 'Human verification failed. Please try again.' }, { status: 400, headers });
 
     const hash = await sha256(password);
     const user = await env.DB.prepare(

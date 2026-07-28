@@ -3,4 +3,4 @@ Allow: /
 Disallow: /admin.html
 Disallow: /api/
 
-Sitemap: https://multiportgames.pages.dev/api/sitemap
+Sitemap: https://games.multiportllc.com/api/sitemap
