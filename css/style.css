@@ -397,11 +397,19 @@ footer {
 }
 #theme-panel.open { display: block; }
 #theme-panel h3 {
-  font-size: .85rem;
-  font-weight: 700;
+  font-size: .95rem;
+  font-weight: 800;
   color: #fff;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
   letter-spacing: .3px;
+}
+#theme-panel h4 {
+  font-size: .72rem;
+  font-weight: 700;
+  color: rgba(255,255,255,.45);
+  text-transform: uppercase;
+  letter-spacing: .6px;
+  margin-bottom: 10px;
 }
 .swatch-row {
   display: flex;
@@ -628,6 +636,104 @@ footer {
   font-family: inherit;
 }
 #changelog-close:hover { background: rgba(255,255,255,0.16); }
+
+/* ── Account modal ──────────────────────────── */
+#account-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  padding: 20px;
+}
+#account-overlay.open { display: flex; }
+#account-modal {
+  background: rgba(15,12,28,0.96);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 22px;
+  padding: 24px 26px;
+  max-width: 360px;
+  width: 100%;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.55);
+}
+#account-modal h2 {
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: #fff;
+  margin-bottom: 4px;
+  letter-spacing: -.3px;
+}
+.account-warning {
+  font-size: .82rem;
+  color: rgba(255,138,154,.9);
+  line-height: 1.5;
+  margin: 14px 0 10px;
+}
+#account-password {
+  width: 100%;
+  padding: 11px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,.13);
+  background: rgba(255,255,255,.08);
+  color: #fff;
+  font-family: inherit;
+  font-size: .9rem;
+  outline: none;
+  margin-bottom: 4px;
+}
+#account-password:focus {
+  border-color: rgba(233,69,96,.55);
+  background: rgba(255,255,255,.11);
+}
+.account-error {
+  color: #ff8a9a;
+  font-size: .82rem;
+  min-height: 1.1em;
+  margin: 8px 0 4px;
+}
+#account-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+}
+#account-delete-btn {
+  flex: 1;
+  padding: 11px;
+  border-radius: 50px;
+  border: 1px solid rgba(255,82,82,.35);
+  background: rgba(255,82,82,.15);
+  color: #ff8a8a;
+  font-weight: 700;
+  font-size: .85rem;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background .18s;
+}
+#account-delete-btn:hover { background: rgba(255,82,82,.25); }
+#account-delete-btn:disabled { opacity: .6; cursor: default; }
+#account-cancel-btn {
+  padding: 11px 18px;
+  border-radius: 50px;
+  border: none;
+  background: rgba(255,255,255,0.1);
+  color: #fff;
+  font-weight: 700;
+  font-size: .85rem;
+  cursor: pointer;
+  font-family: inherit;
+}
+#account-cancel-btn:hover { background: rgba(255,255,255,0.16); }
+.auth-user-btn {
+  border: none;
+  font-family: inherit;
+  cursor: pointer;
+  transition: color .15s;
+}
+.auth-user-btn:hover { color: rgb(var(--accent-rgb)); }
 
 /* ── Small laptop / iPad landscape ───────────── */
 @media (max-width: 1250px) {

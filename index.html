@@ -29,7 +29,7 @@
 <link rel="icon" type="image/png" href="apple-touch-icon.png">
 <link rel="icon" href="favicon.ico">
 <link rel="manifest" href="manifest.json">
-<link rel="stylesheet" href="css/style.css?v=3">
+<link rel="stylesheet" href="css/style.css?v=4">
 <style>
 .auth-pill{padding:7px 16px;border-radius:50px;font-family:inherit;font-size:.85rem;font-weight:600;cursor:pointer;transition:all .18s;text-decoration:none;display:inline-block;letter-spacing:.1px}
 .auth-pill.outline{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);color:rgba(255,255,255,.8)}
@@ -48,7 +48,7 @@
   <div id="header-actions" style="display:flex;gap:8px;align-items:center;flex-shrink:0">
     <div id="streak-badge"></div>
     <button class="icon-btn" id="achievements-btn" title="Achievements" onclick="openAchievements()">🏆</button>
-    <button class="icon-btn" id="theme-btn" title="Theme" onclick="toggleThemePanel()">🎨</button>
+    <button class="icon-btn" id="settings-btn" title="Settings" onclick="toggleThemePanel()">⚙️</button>
     <button class="icon-btn" id="changelog-btn" title="What's New" onclick="openChangelog()">📋</button>
     <button class="auth-pill outline" id="tour-btn" onclick="startTour()">🧭<span class="pill-label"> Take a Tour</span></button>
     <a href="bug-report.html" id="bug-report-btn" class="auth-pill outline">🐛<span class="pill-label"> Report Bug</span></a>
@@ -58,8 +58,25 @@
 </header>
 
 <div id="theme-panel">
-  <h3>🎨 Accent Color</h3>
+  <h3>⚙️ Settings</h3>
+  <h4>Accent Color</h4>
   <div class="swatch-row" id="swatch-row"></div>
+</div>
+
+<div id="account-overlay">
+  <div id="account-modal">
+    <h2>👤 Your Account</h2>
+    <div class="ach-sub" id="account-username"></div>
+    <div id="account-error" class="account-error"></div>
+    <div id="account-confirm" style="display:none">
+      <p class="account-warning">This permanently deletes your account. Enter your password to confirm.</p>
+      <input type="password" id="account-password" placeholder="Your password" autocomplete="current-password">
+    </div>
+    <div id="account-actions">
+      <button id="account-delete-btn">🗑️ Delete Account</button>
+      <button id="account-cancel-btn">Cancel</button>
+    </div>
+  </div>
 </div>
 
 <div id="changelog-overlay">
@@ -331,9 +348,11 @@ renderGames(GAMES);
   const el=document.getElementById('auth-btns');
   if(session){
     const {username}=JSON.parse(session);
-    const nameSpan=document.createElement('span');
-    nameSpan.className='auth-user';
+    const nameSpan=document.createElement('button');
+    nameSpan.className='auth-user auth-user-btn';
     nameSpan.textContent='👋 '+username;
+    nameSpan.title='Account settings';
+    nameSpan.onclick=()=>openAccountModal(username);
     const logoutBtn=document.createElement('button');
     logoutBtn.className='auth-pill outline';
     logoutBtn.onclick=logout;
@@ -346,6 +365,58 @@ renderGames(GAMES);
   }
 })();
 function logout(){localStorage.removeItem('miniarcade_session');location.reload();}
+
+// ── Account modal ─────────────────────────────
+let accountUsername = null;
+function openAccountModal(username){
+  accountUsername = username;
+  document.getElementById('account-username').textContent = 'Signed in as ' + username;
+  document.getElementById('account-error').textContent = '';
+  document.getElementById('account-confirm').style.display = 'none';
+  document.getElementById('account-password').value = '';
+  document.getElementById('account-delete-btn').textContent = '🗑️ Delete Account';
+  document.getElementById('account-overlay').classList.add('open');
+}
+function closeAccountModal(){
+  document.getElementById('account-overlay').classList.remove('open');
+}
+document.getElementById('account-overlay').addEventListener('click', e => {
+  if (e.target.id === 'account-overlay') closeAccountModal();
+});
+document.getElementById('account-cancel-btn').addEventListener('click', closeAccountModal);
+document.getElementById('account-delete-btn').addEventListener('click', async () => {
+  const confirmBox = document.getElementById('account-confirm');
+  const errEl = document.getElementById('account-error');
+  const btn = document.getElementById('account-delete-btn');
+  errEl.textContent = '';
+
+  if (confirmBox.style.display === 'none') {
+    confirmBox.style.display = 'block';
+    return;
+  }
+
+  const password = document.getElementById('account-password').value;
+  if (!password) { errEl.textContent = 'Please enter your password.'; return; }
+
+  btn.disabled = true; btn.textContent = 'Deleting…';
+  try {
+    const res = await fetch('/api/delete-account', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: accountUsername, password })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      errEl.textContent = data.error || 'Could not delete account.';
+      btn.disabled = false; btn.textContent = '🗑️ Delete Account';
+      return;
+    }
+    localStorage.removeItem('miniarcade_session');
+    location.reload();
+  } catch {
+    errEl.textContent = 'Could not connect. Please try again.';
+    btn.disabled = false; btn.textContent = '🗑️ Delete Account';
+  }
+});
 
 // ── Theme Customizer ──────────────────────────
 const THEMES = [
@@ -384,7 +455,7 @@ function toggleThemePanel() {
 }
 document.addEventListener('click', e => {
   const panel = document.getElementById('theme-panel');
-  if (panel.classList.contains('open') && !panel.contains(e.target) && e.target.id !== 'theme-btn') {
+  if (panel.classList.contains('open') && !panel.contains(e.target) && e.target.id !== 'settings-btn') {
     panel.classList.remove('open');
   }
 });
@@ -558,7 +629,7 @@ const TOUR_STEPS = [
   { sel: '.categories', text: 'Filter games by category — Arcade, Puzzle, Action, Racing, Sports, Skill, or Education.' },
   { sel: '#download-btns', text: 'Prefer a desktop app? Download Multiport Games for Windows or Mac here.' },
   { sel: '#achievements-btn', text: 'Track your progress and unlock achievements as you play.' },
-  { sel: '#theme-btn', text: 'Pick your favorite accent color to personalize the site.' },
+  { sel: '#settings-btn', text: 'Pick your favorite accent color and manage other settings here.' },
   { sel: '#bug-report-btn', text: 'Found something broken? Use Report Bug to let us know.' },
   { sel: '.games-grid', text: 'Browse all the games here — just click any tile to start playing!' },
 ];
