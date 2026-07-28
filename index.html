@@ -29,7 +29,7 @@
 <link rel="icon" type="image/png" href="apple-touch-icon.png">
 <link rel="icon" href="favicon.ico">
 <link rel="manifest" href="manifest.json">
-<link rel="stylesheet" href="css/style.css?v=2">
+<link rel="stylesheet" href="css/style.css?v=3">
 <style>
 .auth-pill{padding:7px 16px;border-radius:50px;font-family:inherit;font-size:.85rem;font-weight:600;cursor:pointer;transition:all .18s;text-decoration:none;display:inline-block;letter-spacing:.1px}
 .auth-pill.outline{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);color:rgba(255,255,255,.8)}
@@ -139,8 +139,41 @@
 <div class="games-grid" id="games-grid"></div>
 
 <footer>
-  <div style="color:rgba(255,255,255,.3);font-size:.78rem;margin-bottom:8px;letter-spacing:.2px">🔒 Secure (HTTPS) &nbsp;·&nbsp; No downloads or installs &nbsp;·&nbsp; Family-friendly &nbsp;·&nbsp; No ad trackers</div>
-  Copyright Multiport &copy; 2026 – 103 Free Browser Games &nbsp;·&nbsp; <a href="bug-report.html" style="color:rgba(255,255,255,.35);text-decoration:none;transition:color .18s" onmouseover="this.style.color='#e94560'" onmouseout="this.style.color='rgba(255,255,255,.35)'">🐛 Report a Bug</a> &nbsp;·&nbsp; <a href="https://support.multiportllc.com" target="_blank" rel="noopener noreferrer" style="color:rgba(255,255,255,.35);text-decoration:none;transition:color .18s" onmouseover="this.style.color='#e94560'" onmouseout="this.style.color='rgba(255,255,255,.35)'">💬 Support</a> &nbsp;·&nbsp; <a href="mailto:support@multiportllc.com" style="color:rgba(255,255,255,.35);text-decoration:none;transition:color .18s" onmouseover="this.style.color='#e94560'" onmouseout="this.style.color='rgba(255,255,255,.35)'">✉️ Contact Us</a> &nbsp;·&nbsp; <a href="privacy.html" style="color:rgba(255,255,255,.35);text-decoration:none;transition:color .18s" onmouseover="this.style.color='#e94560'" onmouseout="this.style.color='rgba(255,255,255,.35)'">Privacy</a> &nbsp;·&nbsp; <a href="terms.html" style="color:rgba(255,255,255,.35);text-decoration:none;transition:color .18s" onmouseover="this.style.color='#e94560'" onmouseout="this.style.color='rgba(255,255,255,.35)'">Terms</a> &nbsp;·&nbsp; <a href="https://github.com/36elyanm/multiport-games/tree/claude/mini-games-website-Nscyd" target="_blank" rel="noopener noreferrer" style="color:rgba(255,255,255,.35);text-decoration:none;transition:color .18s" onmouseover="this.style.color='#e94560'" onmouseout="this.style.color='rgba(255,255,255,.35)'">GitHub</a> &nbsp;·&nbsp; <a href="https://claude.ai" target="_blank" rel="noopener noreferrer" style="color:rgba(255,255,255,.35);text-decoration:none;transition:color .18s" onmouseover="this.style.color='#e94560'" onmouseout="this.style.color='rgba(255,255,255,.35)'">✨ Made with Claude</a> &nbsp;·&nbsp; <a href="admin.html" style="color:rgba(255,255,255,.35);text-decoration:none;transition:color .18s;position:relative" onmouseover="this.style.color='#e94560'" onmouseout="this.style.color='rgba(255,255,255,.35)'">Admin<span id="admin-badge-footer" style="display:none;position:absolute;top:-8px;right:-12px;background:#e94560;color:#fff;font-size:.6rem;font-weight:800;line-height:1;min-width:15px;height:15px;border-radius:50%;align-items:center;justify-content:center;padding:2px;box-shadow:0 0 0 2px #0f0f1e"></span></a>
+  <div class="footer-cols">
+    <div class="footer-col">
+      <h4>Games</h4>
+      <a onclick="footerCat('all')">All Games</a>
+      <a onclick="footerCat('arcade')">Arcade</a>
+      <a onclick="footerCat('puzzle')">Puzzle</a>
+      <a onclick="footerCat('action')">Action</a>
+      <a onclick="footerCat('racing')">Racing</a>
+      <a onclick="footerCat('sports')">Sports</a>
+      <a onclick="footerCat('skill')">Skill</a>
+      <a onclick="footerCat('edu')">Education</a>
+    </div>
+    <div class="footer-col">
+      <h4>Support</h4>
+      <a href="bug-report.html">🐛 Report a Bug</a>
+      <a href="https://support.multiportllc.com" target="_blank" rel="noopener noreferrer">💬 Help Center</a>
+      <a href="mailto:support@multiportllc.com">✉️ Contact Us</a>
+    </div>
+    <div class="footer-col">
+      <h4>Legal</h4>
+      <a href="privacy.html">Privacy Policy</a>
+      <a href="terms.html">Terms of Service</a>
+    </div>
+    <div class="footer-col">
+      <h4>Developer</h4>
+      <a href="https://github.com/36elyanm/multiport-games/tree/claude/mini-games-website-Nscyd" target="_blank" rel="noopener noreferrer">GitHub</a>
+      <a href="https://claude.ai" target="_blank" rel="noopener noreferrer">✨ Made with Claude</a>
+      <a href="admin.html" style="position:relative">Admin<span id="admin-badge-footer" style="display:none;position:absolute;top:-6px;right:-34px;background:#e94560;color:#fff;font-size:.6rem;font-weight:800;line-height:1;min-width:15px;height:15px;border-radius:50%;align-items:center;justify-content:center;padding:2px;box-shadow:0 0 0 2px #0f0f1e"></span></a>
+    </div>
+  </div>
+  <div class="footer-tags">🔒 Secure (HTTPS) &nbsp;·&nbsp; No downloads or installs &nbsp;·&nbsp; Family-friendly &nbsp;·&nbsp; No ad trackers</div>
+  <div class="footer-bottom">
+    <span>Copyright Multiport &copy; 2026 – 103 Free Browser Games</span>
+    <span><a href="privacy.html">Privacy</a> | <a href="terms.html">Terms</a></span>
+  </div>
 </footer>
 
 <script>
@@ -283,6 +316,11 @@ function filterCat(cat, btn) {
   document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   filterGames();
+}
+function footerCat(cat) {
+  const btn = document.querySelector(`.cat-btn[onclick*="'${cat}'"]`);
+  if (btn) filterCat(cat, btn);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 renderGames(GAMES);
