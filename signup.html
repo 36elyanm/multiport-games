@@ -23,6 +23,12 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh;pad
 .success{background:rgba(126,200,80,.15);border:1px solid rgba(126,200,80,.35);color:#a8e67a;border-radius:10px;padding:10px 14px;font-size:.88rem;margin-bottom:14px;display:none}
 .logo{text-align:center;font-size:1.1rem;font-weight:800;color:#fff;margin-bottom:24px}
 .logo span{background:linear-gradient(135deg,#e94560,#ff8fa3);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.agree-field{display:flex;align-items:flex-start;gap:9px;margin-bottom:16px}
+.agree-field input{margin-top:3px;flex-shrink:0}
+.agree-field label{text-transform:none;font-weight:400;font-size:.85rem;color:rgba(255,255,255,.55);letter-spacing:normal}
+.agree-field a{color:#e94560;text-decoration:none;font-weight:600}
+.agree-field a:hover{text-decoration:underline}
+.auth-btn:disabled{opacity:.5;cursor:default}
 </style></head><body>
 <div style="width:100%;max-width:400px">
   <a href="index.html" class="back-home">← Back to games</a>
@@ -36,8 +42,12 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh;pad
     <div class="field"><label>Email</label><input id="email" type="email" placeholder="your@email.com" autocomplete="email"></div>
     <div class="field"><label>Password</label><input id="password" type="password" placeholder="At least 6 characters" autocomplete="new-password"></div>
     <div class="field"><label>Confirm Password</label><input id="confirm" type="password" placeholder="Repeat password" autocomplete="new-password"></div>
+    <div class="agree-field">
+      <input type="checkbox" id="agree">
+      <label for="agree">I agree to the <a href="terms.html" target="_blank" rel="noopener noreferrer">Terms of Service</a> and <a href="privacy.html" target="_blank" rel="noopener noreferrer">Privacy Policy</a></label>
+    </div>
     <div class="cf-turnstile" style="margin-bottom:16px" data-sitekey="0x4AAAAAADWNTS62UeiB1Gk3"></div>
-    <button class="auth-btn" onclick="doSignup()">Create Account</button>
+    <button class="auth-btn" id="signup-btn" onclick="doSignup()" disabled>Create Account</button>
     <div class="auth-links">Already have an account? <a href="login.html">Sign in</a></div>
   </div>
 </div>
@@ -54,6 +64,7 @@ async function doSignup(){
   if(p.length<6){err.textContent='Password must be at least 6 characters.';err.style.display='block';return;}
   if(p!==cf){err.textContent='Passwords do not match.';err.style.display='block';return;}
   if(!/\S+@\S+\.\S+/.test(e)){err.textContent='Please enter a valid email.';err.style.display='block';return;}
+  if(!document.getElementById('agree').checked){err.textContent='You must agree to the Terms of Service and Privacy Policy.';err.style.display='block';return;}
 
   const turnstileToken=window.turnstile?turnstile.getResponse():'';
   if(!turnstileToken){err.textContent='Please complete the human verification.';err.style.display='block';return;}
@@ -80,5 +91,8 @@ async function doSignup(){
   }
 }
 document.addEventListener('keydown',e=>{if(e.key==='Enter')doSignup();});
+document.getElementById('agree').addEventListener('change',e=>{
+  document.getElementById('signup-btn').disabled=!e.target.checked;
+});
 </script>
 </body></html>
