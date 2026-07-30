@@ -1,3 +1,5 @@
+// Requires GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET set as Cloudflare Pages
+// environment variables (Production environment) to function.
 export async function onRequestGet({ request, env }) {
   const clientId = env.GOOGLE_CLIENT_ID;
   if (!clientId) return new Response('Google sign-in is not configured.', { status: 500 });
