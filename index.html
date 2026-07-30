@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="trustpilot-one-time-domain-verification-id" content="0050e94a-1aef-4545-bbd9-1ffd9e5d81a4"/>
 <title>Multiport Games™ – 103 Free Games</title>
 <meta name="description" content="Play 103 free browser games instantly — no downloads, no signup, no malware. A safe, secure (HTTPS), family-friendly site for kids and adults.">
 <link rel="canonical" href="https://games.multiportllc.com/">
@@ -29,7 +30,7 @@
 <link rel="icon" type="image/png" href="apple-touch-icon.png">
 <link rel="icon" href="favicon.ico">
 <link rel="manifest" href="manifest.json">
-<link rel="stylesheet" href="css/style.css?v=2">
+<link rel="stylesheet" href="css/style.css?v=5">
 <style>
 .auth-pill{padding:7px 16px;border-radius:50px;font-family:inherit;font-size:.85rem;font-weight:600;cursor:pointer;transition:all .18s;text-decoration:none;display:inline-block;letter-spacing:.1px}
 .auth-pill.outline{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);color:rgba(255,255,255,.8)}
@@ -48,18 +49,35 @@
   <div id="header-actions" style="display:flex;gap:8px;align-items:center;flex-shrink:0">
     <div id="streak-badge"></div>
     <button class="icon-btn" id="achievements-btn" title="Achievements" onclick="openAchievements()">🏆</button>
-    <button class="icon-btn" id="theme-btn" title="Theme" onclick="toggleThemePanel()">🎨</button>
+    <button class="icon-btn" id="settings-btn" title="Settings" onclick="toggleThemePanel()">⚙️</button>
     <button class="icon-btn" id="changelog-btn" title="What's New" onclick="openChangelog()">📋</button>
     <button class="auth-pill outline" id="tour-btn" onclick="startTour()">🧭<span class="pill-label"> Take a Tour</span></button>
     <a href="bug-report.html" id="bug-report-btn" class="auth-pill outline">🐛<span class="pill-label"> Report Bug</span></a>
-    <a href="admin.html" class="auth-pill outline" style="position:relative">🛠️<span class="pill-label"> Admin</span><span id="admin-badge" style="display:none;position:absolute;top:-6px;right:-6px;background:#e94560;color:#fff;font-size:.65rem;font-weight:800;line-height:1;min-width:16px;height:16px;border-radius:50%;align-items:center;justify-content:center;padding:2px;box-shadow:0 0 0 2px #0f0f1e"></span></a>
+    <a href="admin.html" class="auth-pill outline" style="position:relative">🐞<span class="pill-label"> Bug List</span><span id="admin-badge" style="display:none;position:absolute;top:-6px;right:-6px;background:#e94560;color:#fff;font-size:.65rem;font-weight:800;line-height:1;min-width:16px;height:16px;border-radius:50%;align-items:center;justify-content:center;padding:2px;box-shadow:0 0 0 2px #0f0f1e"></span></a>
     <div id="auth-btns" style="display:flex;gap:8px;align-items:center"></div>
   </div>
 </header>
 
 <div id="theme-panel">
-  <h3>🎨 Accent Color</h3>
+  <h3>⚙️ Settings</h3>
+  <h4>Accent Color</h4>
   <div class="swatch-row" id="swatch-row"></div>
+</div>
+
+<div id="account-overlay">
+  <div id="account-modal">
+    <h2>👤 Your Account</h2>
+    <div class="ach-sub" id="account-username"></div>
+    <div id="account-error" class="account-error"></div>
+    <div id="account-confirm" style="display:none">
+      <p class="account-warning">This permanently deletes your account. Enter your password to confirm.</p>
+      <input type="password" id="account-password" placeholder="Your password" autocomplete="current-password">
+    </div>
+    <div id="account-actions">
+      <button id="account-delete-btn">🗑️ Delete Account</button>
+      <button id="account-cancel-btn">Cancel</button>
+    </div>
+  </div>
 </div>
 
 <div id="changelog-overlay">
@@ -139,9 +157,49 @@
 <div class="games-grid" id="games-grid"></div>
 
 <footer>
-  <div style="color:rgba(255,255,255,.3);font-size:.78rem;margin-bottom:8px;letter-spacing:.2px">🔒 Secure (HTTPS) &nbsp;·&nbsp; No downloads or installs &nbsp;·&nbsp; Family-friendly &nbsp;·&nbsp; No ad trackers</div>
-  Copyright Multiport &copy; 2026 – 103 Free Browser Games &nbsp;·&nbsp; <a href="bug-report.html" style="color:rgba(255,255,255,.35);text-decoration:none;transition:color .18s" onmouseover="this.style.color='#e94560'" onmouseout="this.style.color='rgba(255,255,255,.35)'">🐛 Report a Bug</a> &nbsp;·&nbsp; <a href="https://support.multiportllc.com" target="_blank" rel="noopener noreferrer" style="color:rgba(255,255,255,.35);text-decoration:none;transition:color .18s" onmouseover="this.style.color='#e94560'" onmouseout="this.style.color='rgba(255,255,255,.35)'">💬 Support</a> &nbsp;·&nbsp; <a href="privacy.html" style="color:rgba(255,255,255,.35);text-decoration:none;transition:color .18s" onmouseover="this.style.color='#e94560'" onmouseout="this.style.color='rgba(255,255,255,.35)'">Privacy</a> &nbsp;·&nbsp; <a href="terms.html" style="color:rgba(255,255,255,.35);text-decoration:none;transition:color .18s" onmouseover="this.style.color='#e94560'" onmouseout="this.style.color='rgba(255,255,255,.35)'">Terms</a> &nbsp;·&nbsp; <a href="https://github.com/36elyanm/multiport-games/tree/claude/mini-games-website-Nscyd" target="_blank" rel="noopener noreferrer" style="color:rgba(255,255,255,.35);text-decoration:none;transition:color .18s" onmouseover="this.style.color='#e94560'" onmouseout="this.style.color='rgba(255,255,255,.35)'">GitHub</a> &nbsp;·&nbsp; <a href="https://claude.ai" target="_blank" rel="noopener noreferrer" style="color:rgba(255,255,255,.35);text-decoration:none;transition:color .18s" onmouseover="this.style.color='#e94560'" onmouseout="this.style.color='rgba(255,255,255,.35)'">✨ Made with Claude</a> &nbsp;·&nbsp; <a href="admin.html" style="color:rgba(255,255,255,.35);text-decoration:none;transition:color .18s;position:relative" onmouseover="this.style.color='#e94560'" onmouseout="this.style.color='rgba(255,255,255,.35)'">Admin<span id="admin-badge-footer" style="display:none;position:absolute;top:-8px;right:-12px;background:#e94560;color:#fff;font-size:.6rem;font-weight:800;line-height:1;min-width:15px;height:15px;border-radius:50%;align-items:center;justify-content:center;padding:2px;box-shadow:0 0 0 2px #0f0f1e"></span></a>
+  <div class="footer-cols">
+    <div class="footer-col">
+      <h4>Games</h4>
+      <a onclick="footerCat('all')">All Games</a>
+      <a onclick="footerCat('arcade')">Arcade</a>
+      <a onclick="footerCat('puzzle')">Puzzle</a>
+      <a onclick="footerCat('action')">Action</a>
+      <a onclick="footerCat('racing')">Racing</a>
+      <a onclick="footerCat('sports')">Sports</a>
+      <a onclick="footerCat('skill')">Skill</a>
+      <a onclick="footerCat('edu')">Education</a>
+    </div>
+    <div class="footer-col">
+      <h4>Support</h4>
+      <a href="bug-report.html">🐛 Report a Bug</a>
+      <a href="https://support.multiportllc.com" target="_blank" rel="noopener noreferrer">💬 Help Center</a>
+      <a href="mailto:support@multiportllc.com">✉️ Contact Us</a>
+    </div>
+    <div class="footer-col">
+      <h4>Legal</h4>
+      <a href="privacy.html" class="legal-link" data-url="privacy">Privacy Policy</a>
+      <a href="terms.html" class="legal-link" data-url="terms">Terms of Service</a>
+    </div>
+    <div class="footer-col">
+      <h4>Developer</h4>
+      <a href="https://github.com/36elyanm/multiport-games/tree/claude/mini-games-website-Nscyd" target="_blank" rel="noopener noreferrer">GitHub</a>
+      <a href="https://claude.ai" target="_blank" rel="noopener noreferrer">✨ Made with Claude</a>
+      <a href="admin.html" style="position:relative">Bug List<span id="admin-badge-footer" style="display:none;position:absolute;top:-6px;right:-34px;background:#e94560;color:#fff;font-size:.6rem;font-weight:800;line-height:1;min-width:15px;height:15px;border-radius:50%;align-items:center;justify-content:center;padding:2px;box-shadow:0 0 0 2px #0f0f1e"></span></a>
+    </div>
+  </div>
+  <div class="footer-tags">🔒 Secure (HTTPS) &nbsp;·&nbsp; No downloads or installs &nbsp;·&nbsp; Family-friendly &nbsp;·&nbsp; No ad trackers</div>
+  <div class="footer-bottom">
+    <span>Copyright Multiport &copy; 2026 – 103 Free Browser Games</span>
+    <span><a href="privacy.html" class="legal-link" data-url="privacy">Privacy</a> | <a href="terms.html" class="legal-link" data-url="terms">Terms</a></span>
+  </div>
 </footer>
+
+<div id="legal-overlay">
+  <div id="legal-modal">
+    <button id="legal-modal-close">✕</button>
+    <div id="legal-modal-body"></div>
+  </div>
+</div>
 
 <script>
 const GAMES = [
@@ -284,6 +342,11 @@ function filterCat(cat, btn) {
   btn.classList.add('active');
   filterGames();
 }
+function footerCat(cat) {
+  const btn = document.querySelector(`.cat-btn[onclick*="'${cat}'"]`);
+  if (btn) filterCat(cat, btn);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
 
 renderGames(GAMES);
 
@@ -293,9 +356,11 @@ renderGames(GAMES);
   const el=document.getElementById('auth-btns');
   if(session){
     const {username}=JSON.parse(session);
-    const nameSpan=document.createElement('span');
-    nameSpan.className='auth-user';
+    const nameSpan=document.createElement('button');
+    nameSpan.className='auth-user auth-user-btn';
     nameSpan.textContent='👋 '+username;
+    nameSpan.title='Account settings';
+    nameSpan.onclick=()=>openAccountModal(username);
     const logoutBtn=document.createElement('button');
     logoutBtn.className='auth-pill outline';
     logoutBtn.onclick=logout;
@@ -308,6 +373,87 @@ renderGames(GAMES);
   }
 })();
 function logout(){localStorage.removeItem('miniarcade_session');location.reload();}
+
+// ── Account modal ─────────────────────────────
+let accountUsername = null;
+function openAccountModal(username){
+  accountUsername = username;
+  document.getElementById('account-username').textContent = 'Signed in as ' + username;
+  document.getElementById('account-error').textContent = '';
+  document.getElementById('account-confirm').style.display = 'none';
+  document.getElementById('account-password').value = '';
+  document.getElementById('account-delete-btn').textContent = '🗑️ Delete Account';
+  document.getElementById('account-overlay').classList.add('open');
+}
+function closeAccountModal(){
+  document.getElementById('account-overlay').classList.remove('open');
+}
+
+// ── Legal mini-page modal ─────────────────────
+async function openLegalModal(url){
+  const body=document.getElementById('legal-modal-body');
+  body.innerHTML='<div style="padding:32px;text-align:center;color:rgba(255,255,255,.4)">Loading…</div>';
+  document.getElementById('legal-overlay').classList.add('open');
+  try{
+    const res=await fetch(url);
+    const html=await res.text();
+    const doc=new DOMParser().parseFromString(html,'text/html');
+    const content=doc.querySelector('.doc');
+    body.innerHTML=content?content.outerHTML:'<div style="padding:32px">Could not load content.</div>';
+  }catch{
+    body.innerHTML='<div style="padding:32px">Could not load content.</div>';
+  }
+}
+function closeLegalModal(){
+  document.getElementById('legal-overlay').classList.remove('open');
+}
+document.querySelectorAll('.legal-link').forEach(link=>{
+  link.addEventListener('click',e=>{
+    e.preventDefault();
+    openLegalModal(link.dataset.url);
+  });
+});
+document.getElementById('legal-modal-close').addEventListener('click',closeLegalModal);
+document.getElementById('legal-overlay').addEventListener('click',e=>{
+  if(e.target.id==='legal-overlay')closeLegalModal();
+});
+document.getElementById('account-overlay').addEventListener('click', e => {
+  if (e.target.id === 'account-overlay') closeAccountModal();
+});
+document.getElementById('account-cancel-btn').addEventListener('click', closeAccountModal);
+document.getElementById('account-delete-btn').addEventListener('click', async () => {
+  const confirmBox = document.getElementById('account-confirm');
+  const errEl = document.getElementById('account-error');
+  const btn = document.getElementById('account-delete-btn');
+  errEl.textContent = '';
+
+  if (confirmBox.style.display === 'none') {
+    confirmBox.style.display = 'block';
+    return;
+  }
+
+  const password = document.getElementById('account-password').value;
+  if (!password) { errEl.textContent = 'Please enter your password.'; return; }
+
+  btn.disabled = true; btn.textContent = 'Deleting…';
+  try {
+    const res = await fetch('/api/delete-account', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: accountUsername, password })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      errEl.textContent = data.error || 'Could not delete account.';
+      btn.disabled = false; btn.textContent = '🗑️ Delete Account';
+      return;
+    }
+    localStorage.removeItem('miniarcade_session');
+    location.reload();
+  } catch {
+    errEl.textContent = 'Could not connect. Please try again.';
+    btn.disabled = false; btn.textContent = '🗑️ Delete Account';
+  }
+});
 
 // ── Theme Customizer ──────────────────────────
 const THEMES = [
@@ -346,7 +492,7 @@ function toggleThemePanel() {
 }
 document.addEventListener('click', e => {
   const panel = document.getElementById('theme-panel');
-  if (panel.classList.contains('open') && !panel.contains(e.target) && e.target.id !== 'theme-btn') {
+  if (panel.classList.contains('open') && !panel.contains(e.target) && e.target.id !== 'settings-btn') {
     panel.classList.remove('open');
   }
 });
@@ -520,7 +666,7 @@ const TOUR_STEPS = [
   { sel: '.categories', text: 'Filter games by category — Arcade, Puzzle, Action, Racing, Sports, Skill, or Education.' },
   { sel: '#download-btns', text: 'Prefer a desktop app? Download Multiport Games for Windows or Mac here.' },
   { sel: '#achievements-btn', text: 'Track your progress and unlock achievements as you play.' },
-  { sel: '#theme-btn', text: 'Pick your favorite accent color to personalize the site.' },
+  { sel: '#settings-btn', text: 'Pick your favorite accent color and manage other settings here.' },
   { sel: '#bug-report-btn', text: 'Found something broken? Use Report Bug to let us know.' },
   { sel: '.games-grid', text: 'Browse all the games here — just click any tile to start playing!' },
 ];
