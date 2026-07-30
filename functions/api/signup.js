@@ -12,8 +12,13 @@ export async function onRequestPost({ request, env }) {
     if (!username || !email || !password) return Response.json({ error: 'Missing fields' }, { status: 400, headers });
 
     const ip = request.headers.get('CF-Connecting-IP');
-    const humanVerified = await verifyTurnstile(turnstileToken, env.TURNSTILE_SECRET_KEY, ip);
-    if (!humanVerified) return Response.json({ error: 'Human verification failed. Please try again.' }, { status: 400, headers });
+    const verify = await verifyTurnstile(turnstileToken, env.TURNSTILE_SECRET_KEY, ip);
+    if (!verify.success) {
+      const msg = verify.reason === 'not-configured'
+        ? 'Human verification is not configured on the server. Please contact support.'
+        : `Human verification failed (${verify.reason}). Please try again.`;
+      return Response.json({ error: msg }, { status: 400, headers });
+    }
     if (username.length < 3)  return Response.json({ error: 'Username must be at least 3 characters.' }, { status: 400, headers });
     if (password.length < 6)  return Response.json({ error: 'Password must be at least 6 characters.' }, { status: 400, headers });
     if (!/\S+@\S+\.\S+/.test(email)) return Response.json({ error: 'Invalid email address.' }, { status: 400, headers });

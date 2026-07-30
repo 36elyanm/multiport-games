@@ -12,8 +12,13 @@ export async function onRequestPost({ request, env }) {
     if (!username || !password) return Response.json({ error: 'Please fill in all fields.' }, { status: 400, headers });
 
     const ip = request.headers.get('CF-Connecting-IP');
-    const humanVerified = await verifyTurnstile(turnstileToken, env.TURNSTILE_SECRET_KEY, ip);
-    if (!humanVerified) return Response.json({ error: 'Human verification failed. Please try again.' }, { status: 400, headers });
+    const verify = await verifyTurnstile(turnstileToken, env.TURNSTILE_SECRET_KEY, ip);
+    if (!verify.success) {
+      const msg = verify.reason === 'not-configured'
+        ? 'Human verification is not configured on the server. Please contact support.'
+        : `Human verification failed (${verify.reason}). Please try again.`;
+      return Response.json({ error: msg }, { status: 400, headers });
+    }
 
     const hash = await sha256(password);
     const user = await env.DB.prepare(
