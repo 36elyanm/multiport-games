@@ -18,7 +18,7 @@ body{background:#0a0a0a}
 <script>
 const c=document.getElementById('c'),ctx=c.getContext('2d');
 const W=600,H=380,FLOOR=H-52,CEIL=52,SZ=32,SPK=36;
-const SPEED=6.5,GRAV=0.68,JUMP=-14;
+const SPEED=7.5,GRAV=0.7,JUMP=-14;
 let px,py,pvy,angle,camX,spikes,frame,score,state,hi=0,nextSpawn;
 
 function reset(){
@@ -60,7 +60,7 @@ function spawnPattern(wx){
 function genSpikes(){
   while(nextSpawn<camX+W+300){
     spawnPattern(nextSpawn);
-    nextSpawn+=95+Math.random()*130;
+    nextSpawn+=78+Math.random()*100;
   }
 }
 
@@ -69,9 +69,8 @@ function hitTest(){
     const sx=s.x-camX;
     if(sx>W+SPK||sx<-SPK)continue;
     const sy=s.floor?FLOOR:CEIL;
-    // Reduced hitbox: middle 55% of spike width, 75% of height
-    const hx=(s.x-camX)+SPK*.22,hw=SPK*.55;
-    const hy=s.floor?(FLOOR-SPK*.75):CEIL,hh=SPK*.75;
+    const hx=(s.x-camX)+SPK*.19,hw=SPK*.62;
+    const hy=s.floor?(FLOOR-SPK*.82):CEIL,hh=SPK*.82;
     if(px+SZ>hx&&px<hx+hw&&py+SZ>hy&&py<hy+hh)return true;
   }
   return false;
