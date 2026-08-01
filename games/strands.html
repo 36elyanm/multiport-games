@@ -51,7 +51,7 @@
       </div>
       <div id="status-row">
         <span>Found: <b id="found-ct">0</b>/<b id="total-ct">0</b></span>
-        <span>Hints left: <b id="hint-ct">3</b></span>
+        <span>Hints left: <b id="hint-ct">2</b></span>
       </div>
       <div id="grid-wrap">
         <svg id="svg-lines"></svg>
@@ -78,32 +78,32 @@
 // 6 columns × 8 rows = 48 cells per puzzle
 // _grid: 48-char array row-major
 // paths: {WORD: [[r,c], ...]} — every cell in exactly one word, spangram touches opposite edges
-const PUZZLES = [
+const PUZZLES_FINAL = [
   {
     theme: '🦁 Wild Animals',
     spangram: 'WILDLIFE',
     words: ['EAGLE','TIGER','FROG','BEAR','DEER','WOLF','LION','SHARK','RAVEN'],
     _grid: [
-      'W','E','A','G','L','E',  // row 0
-      'I','T','I','G','E','R',  // row 1
-      'L','F','R','O','G','B',  // row 2
-      'D','D','E','R','A','E',  // row 3
-      'L','L','E','R','W','O',  // row 4
-      'I','I','O','N','F','L',  // row 5
-      'F','S','H','A','R','K',  // row 6
-      'E','R','A','V','E','N',  // row 7
+      'W','L','I','O','N','E',  // row 0
+      'I','W','E','L','G','A',  // row 1
+      'L','O','L','F','B','E',  // row 2
+      'D','A','H','S','R','A',  // row 3
+      'L','R','K','T','I','G',  // row 4
+      'I','E','E','D','R','E',  // row 5
+      'F','R','R','A','V','E',  // row 6
+      'E','G','O','R','F','N',  // row 7
     ],
     paths: {
       WILDLIFE: [[0,0],[1,0],[2,0],[3,0],[4,0],[5,0],[6,0],[7,0]],
-      EAGLE:    [[0,1],[0,2],[0,3],[0,4],[0,5]],
-      TIGER:    [[1,1],[1,2],[1,3],[1,4],[1,5]],
-      FROG:     [[2,1],[2,2],[2,3],[2,4]],
-      BEAR:     [[2,5],[3,5],[3,4],[3,3]],
-      DEER:     [[3,1],[3,2],[4,2],[4,3]],
-      WOLF:     [[4,4],[4,5],[5,5],[5,4]],
-      LION:     [[4,1],[5,1],[5,2],[5,3]],
-      SHARK:    [[6,1],[6,2],[6,3],[6,4],[6,5]],
-      RAVEN:    [[7,1],[7,2],[7,3],[7,4],[7,5]],
+      EAGLE: [[0,5],[1,5],[1,4],[1,3],[1,2]],
+      TIGER: [[4,3],[4,4],[4,5],[5,5],[5,4]],
+      FROG: [[7,4],[7,3],[7,2],[7,1]],
+      BEAR: [[2,4],[2,5],[3,5],[3,4]],
+      DEER: [[5,3],[5,2],[5,1],[6,1]],
+      WOLF: [[1,1],[2,1],[2,2],[2,3]],
+      LION: [[0,1],[0,2],[0,3],[0,4]],
+      SHARK: [[3,3],[3,2],[3,1],[4,1],[4,2]],
+      RAVEN: [[6,2],[6,3],[6,4],[6,5],[7,5]],
     }
   },
   {
@@ -111,26 +111,26 @@ const PUZZLES = [
     spangram: 'CHAMPION',
     words: ['GOLF','SWIM','RACE','KICK','JUMP','SERVE','SCORE','SHOOT','MATCH'],
     _grid: [
-      'C','G','O','L','F','S',  // row 0
-      'H','R','A','C','E','W',  // row 1
-      'A','K','I','C','K','I',  // row 2
-      'M','J','U','M','P','M',  // row 3
-      'P','S','E','R','V','E',  // row 4
-      'I','S','C','O','R','E',  // row 5
-      'O','S','H','O','O','T',  // row 6
-      'N','M','A','T','C','H',  // row 7
+      'C','K','I','C','K','S',  // row 0
+      'H','S','E','V','R','E',  // row 1
+      'A','H','O','O','T','S',  // row 2
+      'M','A','R','M','I','W',  // row 3
+      'P','C','E','M','A','T',  // row 4
+      'I','O','C','S','H','C',  // row 5
+      'O','R','E','J','U','M',  // row 6
+      'N','F','L','O','G','P',  // row 7
     ],
     paths: {
       CHAMPION: [[0,0],[1,0],[2,0],[3,0],[4,0],[5,0],[6,0],[7,0]],
-      GOLF:     [[0,1],[0,2],[0,3],[0,4]],
-      SWIM:     [[0,5],[1,5],[2,5],[3,5]],
-      RACE:     [[1,1],[1,2],[1,3],[1,4]],
-      KICK:     [[2,1],[2,2],[2,3],[2,4]],
-      JUMP:     [[3,1],[3,2],[3,3],[3,4]],
-      SERVE:    [[4,1],[4,2],[4,3],[4,4],[4,5]],
-      SCORE:    [[5,1],[5,2],[5,3],[5,4],[5,5]],
-      SHOOT:    [[6,1],[6,2],[6,3],[6,4],[6,5]],
-      MATCH:    [[7,1],[7,2],[7,3],[7,4],[7,5]],
+      GOLF: [[7,4],[7,3],[7,2],[7,1]],
+      SWIM: [[2,5],[3,5],[3,4],[3,3]],
+      RACE: [[3,2],[3,1],[4,1],[4,2]],
+      KICK: [[0,1],[0,2],[0,3],[0,4]],
+      JUMP: [[6,3],[6,4],[6,5],[7,5]],
+      SERVE: [[0,5],[1,5],[1,4],[1,3],[1,2]],
+      SCORE: [[5,3],[5,2],[5,1],[6,1],[6,2]],
+      SHOOT: [[1,1],[2,1],[2,2],[2,3],[2,4]],
+      MATCH: [[4,3],[4,4],[4,5],[5,5],[5,4]],
     }
   },
   {
@@ -138,26 +138,26 @@ const PUZZLES = [
     spangram: 'COOKBOOK',
     words: ['FORK','CHEF','BOWL','SALT','OVEN','STOVE','PLATE','SPOON','LADLE'],
     _grid: [
-      'C','F','O','R','K','C',  // row 0
-      'O','B','O','W','L','H',  // row 1
-      'O','S','A','L','T','E',  // row 2
-      'K','O','V','E','N','F',  // row 3
-      'B','S','T','O','V','E',  // row 4
-      'O','P','L','A','T','E',  // row 5
-      'O','S','P','O','O','N',  // row 6
-      'K','L','A','D','L','E',  // row 7
+      'C','B','O','W','L','O',  // row 0
+      'O','P','S','N','E','V',  // row 1
+      'O','O','O','N','P','L',  // row 2
+      'K','T','S','E','T','A',  // row 3
+      'B','O','V','E','L','A',  // row 4
+      'O','A','S','E','L','D',  // row 5
+      'O','L','T','C','H','E',  // row 6
+      'K','K','R','O','F','F',  // row 7
     ],
     paths: {
       COOKBOOK: [[0,0],[1,0],[2,0],[3,0],[4,0],[5,0],[6,0],[7,0]],
-      FORK:     [[0,1],[0,2],[0,3],[0,4]],
-      CHEF:     [[0,5],[1,5],[2,5],[3,5]],
-      BOWL:     [[1,1],[1,2],[1,3],[1,4]],
-      SALT:     [[2,1],[2,2],[2,3],[2,4]],
-      OVEN:     [[3,1],[3,2],[3,3],[3,4]],
-      STOVE:    [[4,1],[4,2],[4,3],[4,4],[4,5]],
-      PLATE:    [[5,1],[5,2],[5,3],[5,4],[5,5]],
-      SPOON:    [[6,1],[6,2],[6,3],[6,4],[6,5]],
-      LADLE:    [[7,1],[7,2],[7,3],[7,4],[7,5]],
+      FORK: [[7,4],[7,3],[7,2],[7,1]],
+      CHEF: [[6,3],[6,4],[6,5],[7,5]],
+      BOWL: [[0,1],[0,2],[0,3],[0,4]],
+      SALT: [[5,2],[5,1],[6,1],[6,2]],
+      OVEN: [[0,5],[1,5],[1,4],[1,3]],
+      STOVE: [[3,2],[3,1],[4,1],[4,2],[4,3]],
+      PLATE: [[2,4],[2,5],[3,5],[3,4],[3,3]],
+      SPOON: [[1,2],[1,1],[2,1],[2,2],[2,3]],
+      LADLE: [[4,4],[4,5],[5,5],[5,4],[5,3]],
     }
   },
   {
@@ -165,26 +165,26 @@ const PUZZLES = [
     spangram: 'STUDENTS',
     words: ['MATH','BOOK','READ','DESK','EXAM','CHALK','RULER','PAPER','GRADE'],
     _grid: [
-      'S','M','A','T','H','B',  // row 0
-      'T','R','E','A','D','O',  // row 1
-      'U','D','E','S','K','O',  // row 2
-      'D','E','X','A','M','K',  // row 3
-      'E','C','H','A','L','K',  // row 4
-      'N','R','U','L','E','R',  // row 5
-      'T','P','A','P','E','R',  // row 6
-      'S','G','R','A','D','E',  // row 7
+      'S','D','E','S','K','G',  // row 0
+      'T','C','E','D','A','R',  // row 1
+      'U','H','A','L','K','B',  // row 2
+      'D','E','R','K','O','O',  // row 3
+      'E','A','D','P','A','P',  // row 4
+      'N','L','U','R','R','E',  // row 5
+      'T','E','R','M','A','T',  // row 6
+      'S','M','A','X','E','H',  // row 7
     ],
     paths: {
       STUDENTS: [[0,0],[1,0],[2,0],[3,0],[4,0],[5,0],[6,0],[7,0]],
-      MATH:     [[0,1],[0,2],[0,3],[0,4]],
-      BOOK:     [[0,5],[1,5],[2,5],[3,5]],
-      READ:     [[1,1],[1,2],[1,3],[1,4]],
-      DESK:     [[2,1],[2,2],[2,3],[2,4]],
-      EXAM:     [[3,1],[3,2],[3,3],[3,4]],
-      CHALK:    [[4,1],[4,2],[4,3],[4,4],[4,5]],
-      RULER:    [[5,1],[5,2],[5,3],[5,4],[5,5]],
-      PAPER:    [[6,1],[6,2],[6,3],[6,4],[6,5]],
-      GRADE:    [[7,1],[7,2],[7,3],[7,4],[7,5]],
+      MATH: [[6,3],[6,4],[6,5],[7,5]],
+      BOOK: [[2,5],[3,5],[3,4],[3,3]],
+      READ: [[3,2],[3,1],[4,1],[4,2]],
+      DESK: [[0,1],[0,2],[0,3],[0,4]],
+      EXAM: [[7,4],[7,3],[7,2],[7,1]],
+      CHALK: [[1,1],[2,1],[2,2],[2,3],[2,4]],
+      RULER: [[5,3],[5,2],[5,1],[6,1],[6,2]],
+      PAPER: [[4,3],[4,4],[4,5],[5,5],[5,4]],
+      GRADE: [[0,5],[1,5],[1,4],[1,3],[1,2]],
     }
   },
   {
@@ -192,92 +192,56 @@ const PUZZLES = [
     spangram: 'SEAWATER',
     words: ['FISH','PEARL','CRAB','KELP','REEF','WAVE','SHARK','CORAL','WHALE'],
     _grid: [
-      'S','F','I','S','H','P',  // row 0
-      'E','C','R','A','B','E',  // row 1
-      'A','K','E','L','P','A',  // row 2
-      'W','R','E','E','F','R',  // row 3
-      'A','W','A','V','E','L',  // row 4
-      'T','S','H','A','R','K',  // row 5
-      'E','C','O','R','A','L',  // row 6
-      'R','W','H','A','L','E',  // row 7
+      'S','W','A','V','E','S',  // row 0
+      'E','R','K','R','A','H',  // row 1
+      'A','E','E','F','C','O',  // row 2
+      'W','R','C','L','A','R',  // row 3
+      'A','A','B','F','I','S',  // row 4
+      'T','L','A','H','W','H',  // row 5
+      'E','E','P','E','A','R',  // row 6
+      'R','P','L','E','K','L',  // row 7
     ],
     paths: {
       SEAWATER: [[0,0],[1,0],[2,0],[3,0],[4,0],[5,0],[6,0],[7,0]],
-      FISH:     [[0,1],[0,2],[0,3],[0,4]],
-      PEARL:    [[0,5],[1,5],[2,5],[3,5],[4,5]],
-      CRAB:     [[1,1],[1,2],[1,3],[1,4]],
-      KELP:     [[2,1],[2,2],[2,3],[2,4]],
-      REEF:     [[3,1],[3,2],[3,3],[3,4]],
-      WAVE:     [[4,1],[4,2],[4,3],[4,4]],
-      SHARK:    [[5,1],[5,2],[5,3],[5,4],[5,5]],
-      CORAL:    [[6,1],[6,2],[6,3],[6,4],[6,5]],
-      WHALE:    [[7,1],[7,2],[7,3],[7,4],[7,5]],
+      FISH: [[4,3],[4,4],[4,5],[5,5]],
+      PEARL: [[6,2],[6,3],[6,4],[6,5],[7,5]],
+      CRAB: [[3,2],[3,1],[4,1],[4,2]],
+      KELP: [[7,4],[7,3],[7,2],[7,1]],
+      REEF: [[1,1],[2,1],[2,2],[2,3]],
+      WAVE: [[0,1],[0,2],[0,3],[0,4]],
+      SHARK: [[0,5],[1,5],[1,4],[1,3],[1,2]],
+      CORAL: [[2,4],[2,5],[3,5],[3,4],[3,3]],
+      WHALE: [[5,4],[5,3],[5,2],[5,1],[6,1]],
     }
   },
   {
     theme: '🎵 Music',
     spangram: 'SYMPHONY',
-    words: ['JAZZ','BEAT','BASS','DRUM','TUNE','CHORD','PIANO','TEMPO','VOICE'],
+    words: ['JAZZ','ROCK','BEAT','DRUM','TUNE','CHORD','PIANO','TEMPO','LYRIC'],
     _grid: [
-      'S','J','A','Z','Z','B',  // row 0
-      'Y','B','E','A','T','A',  // row 1
-      'M','B','A','S','S','S',  // row 2
-      'P','D','R','U','M','S',  // row 3
-      'H','T','U','N','E','C',  // row 4  ← wait BASS starts at row 2
-      'O','C','H','O','R','D',  // row 5  hmm need to re-verify
-      'N','P','I','A','N','O',  // row 6
-      'Y','T','E','M','P','O',  // row 7... TEMPO at row 7 cols 1-5? T,E,M,P,O — but O is there
+      'S','J','A','Z','Z','T',  // row 0
+      'Y','L','O','P','M','E',  // row 1
+      'M','Y','R','I','C','D',  // row 2
+      'P','I','P','M','U','R',  // row 3
+      'H','A','N','O','T','U',  // row 4
+      'O','A','E','B','E','N',  // row 5
+      'N','T','C','H','O','R',  // row 6
+      'Y','K','C','O','R','D',  // row 7
     ],
-    // Let me redo: SYMPHONY(8) in col 0; JAZZ(4)+BEAT(4)+BASS(4)+DRUM(4)+TUNE(4) = 20 in cols 1-4 rows 0-4
-    // Plus BASS has col5 for first rows, CHORD(5)+PIANO(5)+TEMPO(5)+VOICE(5)=20 in rows 4-7 cols 1-5
-    // But 20+20=40, SYMPHONY=8, total=48 ✓
-    // Let me re-check row by row:
-    // Row 0: S J A Z Z B → SYMPHONY[S], JAZZ:(0,1-4), B start of BASS? No BASS is B,A,S,S
-    //   → BEAT starts at (0,5)? B(0,5)E(1,5)A(2,5)... hmm
-    // Let me redo this puzzle
-    _alt: true
+    paths: {
+      SYMPHONY: [[0,0],[1,0],[2,0],[3,0],[4,0],[5,0],[6,0],[7,0]],
+      JAZZ: [[0,1],[0,2],[0,3],[0,4]],
+      ROCK: [[7,4],[7,3],[7,2],[7,1]],
+      BEAT: [[5,3],[5,2],[5,1],[6,1]],
+      DRUM: [[2,5],[3,5],[3,4],[3,3]],
+      TUNE: [[4,4],[4,5],[5,5],[5,4]],
+      CHORD: [[6,2],[6,3],[6,4],[6,5],[7,5]],
+      PIANO: [[3,2],[3,1],[4,1],[4,2],[4,3]],
+      TEMPO: [[0,5],[1,5],[1,4],[1,3],[1,2]],
+      LYRIC: [[1,1],[2,1],[2,2],[2,3],[2,4]],
+    }
   },
 ];
-
-// Build clean list (skip _alt)
-const PUZZLES_FINAL = PUZZLES.filter(p => !p._alt);
-
-// Add Music puzzle cleanly
-PUZZLES_FINAL.push({
-  theme: '🎵 Music',
-  spangram: 'SYMPHONY',
-  words: ['JAZZ','ROCK','BEAT','DRUM','TUNE','CHORD','PIANO','TEMPO','LYRIC'],
-  // SYMPHONY col0 (8). Remaining 40:
-  // JAZZ(4) ROCK(4) BEAT(4) DRUM(4) TUNE(4) = 20, rows 0-3 cols 1-4 + col5 for LYRIC start
-  // Actually: cols 1-4 rows 0-4 = 20 cells for short words
-  // cols 1-5 rows 4-7 = 5×4 = 20 cells for 4×5-letter words
-  // But we need 4 short + 4 long + spangram = rows
-  // JAZZ(4) ROCK(4) BEAT(4) DRUM(4) TUNE(4) = 20 in rows 0-4 cols 1-4, col 5 rows 0-4 = LYRIC(5)
-  // CHORD(5)+PIANO(5)+TEMPO(5) = 15 in rows 5-7 cols 1-5
-  // 20+5+15 = 40 ✓
-  _grid: [
-    'S','J','A','Z','Z','L',  // row 0: SYMPHONY[S], JAZZ:(0,1-4), LYRIC starts (0,5)
-    'Y','R','O','C','K','Y',  // row 1: SYMPHONY[Y], ROCK:(1,1-4), LYRIC cont (1,5)
-    'M','B','E','A','T','R',  // row 2: SYMPHONY[M], BEAT:(2,1-4), LYRIC cont (2,5)
-    'P','D','R','U','M','I',  // row 3: SYMPHONY[P], DRUM:(3,1-4), LYRIC cont (3,5)
-    'H','T','U','N','E','C',  // row 4: SYMPHONY[H], TUNE:(4,1-4), LYRIC ends (4,5)
-    'O','C','H','O','R','D',  // row 5: SYMPHONY[O], CHORD:(5,1-5)
-    'N','P','I','A','N','O',  // row 6: SYMPHONY[N], PIANO:(6,1-5)
-    'Y','T','E','M','P','O',  // row 7: SYMPHONY[Y], TEMPO:(7,1-5)
-  ],
-  paths: {
-    SYMPHONY: [[0,0],[1,0],[2,0],[3,0],[4,0],[5,0],[6,0],[7,0]],
-    JAZZ:     [[0,1],[0,2],[0,3],[0,4]],
-    LYRIC:    [[0,5],[1,5],[2,5],[3,5],[4,5]],
-    ROCK:     [[1,1],[1,2],[1,3],[1,4]],
-    BEAT:     [[2,1],[2,2],[2,3],[2,4]],
-    DRUM:     [[3,1],[3,2],[3,3],[3,4]],
-    TUNE:     [[4,1],[4,2],[4,3],[4,4]],
-    CHORD:    [[5,1],[5,2],[5,3],[5,4],[5,5]],
-    PIANO:    [[6,1],[6,2],[6,3],[6,4],[6,5]],
-    TEMPO:    [[7,1],[7,2],[7,3],[7,4],[7,5]],
-  }
-});
 
 const ROWS=8, COLS=6;
 let pIdx=0, puzzle, gridLetters, cellEls, selected, foundSet, hintsLeft, isDragging;
@@ -291,7 +255,7 @@ function loadPuzzle(idx){
   gridLetters = puzzle._grid;
   selected = [];
   foundSet = new Set();
-  hintsLeft = 3;
+  hintsLeft = 2;
   isDragging = false;
 
   renderGrid();
