@@ -18,7 +18,7 @@ body{background:#1a0533}
 <script>
 const c=document.getElementById('c'),ctx=c.getContext('2d');
 const W=600,H=380,FLOOR=H-52,CEIL=52,SZ=32,SPK=36;
-const SPEED=4,GRAV=0.54,JUMP=-12;
+const SPEED=5,GRAV=0.6,JUMP=-12.5;
 const MEMES=['😎','🤣','💀','🗿','🐸','🤡','😤','🥴','🫡','💅'];
 let px,py,pvy,camX,spikes,frame,score,state,hi=0,nextSpawn,meme,wobble=0;
 
@@ -58,7 +58,7 @@ function spawnPattern(wx){
 function genSpikes(){
   while(nextSpawn<camX+W+300){
     spawnPattern(nextSpawn);
-    nextSpawn+=130+Math.random()*180;// wider gaps = easier
+    nextSpawn+=100+Math.random()*150;
   }
 }
 
@@ -66,9 +66,8 @@ function hitTest(){
   for(const s of spikes){
     const sx=s.x-camX;
     if(sx>W+SPK||sx<-SPK)continue;
-    // 45% hitbox width, 65% height = very forgiving
-    const hx=(s.x-camX)+SPK*.27,hw=SPK*.45;
-    const hy=s.floor?(FLOOR-SPK*.65):CEIL,hh=SPK*.65;
+    const hx=(s.x-camX)+SPK*.25,hw=SPK*.50;
+    const hy=s.floor?(FLOOR-SPK*.70):CEIL,hh=SPK*.70;
     if(px+SZ>hx&&px<hx+hw&&py+SZ>hy&&py<hy+hh)return true;
   }
   return false;

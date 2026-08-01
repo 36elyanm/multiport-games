@@ -109,11 +109,11 @@ function loop(){
   frame++;
   score++;
   if(score>hi)hi=score;
-  spd=5+score/400;
+  spd=6+score/300;
 
   // Spawn
-  if(frame%Math.round(Math.max(60,120-score/50))===0)spawnObs();
-  if(score>300&&frame%180===0)spawnBird();
+  if(frame%Math.round(Math.max(42,105-score/40))===0)spawnObs();
+  if(score>150&&frame%140===0)spawnBird();
 
   // Physics
   dino.vy+=0.7;

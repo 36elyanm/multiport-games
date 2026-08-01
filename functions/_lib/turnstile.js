@@ -2,6 +2,7 @@
 // a distinct message when the secret key itself is missing/wrong (a server
 // config problem) vs. an actually-invalid/expired token (a client problem) —
 // otherwise both look identical as a generic "verification failed".
+// Secret comes from the TURNSTILE_SECRET_KEY Cloudflare Pages env var.
 export async function verifyTurnstile(token, secret, ip) {
   if (!secret) return { success: false, reason: 'not-configured' };
   if (!token) return { success: false, reason: 'missing-token' };
