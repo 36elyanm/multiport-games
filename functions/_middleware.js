@@ -32,7 +32,7 @@ export async function onRequest(context) {
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}' 'unsafe-hashes' ${HANDLER_HASHES} https://challenges.cloudflare.com`,
     "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: blob:",
+    "img-src 'self' data: blob: https://files.scamadviser.com",
     "font-src 'self' data:",
     "media-src 'self'",
     "connect-src 'self'",
