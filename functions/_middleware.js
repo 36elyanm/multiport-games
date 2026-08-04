@@ -18,12 +18,6 @@ class NonceInjector {
 }
 
 export async function onRequest(context) {
-  const url = new URL(context.request.url);
-  if (url.hostname === 'multiportgames.pages.dev' || url.hostname === 'www.games.multiportllc.com' || url.hostname === 'mws.games.multiportllc.com') {
-    url.hostname = 'games.multiportllc.com';
-    return Response.redirect(url.toString(), 301);
-  }
-
   const response = await context.next();
   const contentType = response.headers.get('content-type') || '';
   const nonce = makeNonce();
