@@ -50,8 +50,18 @@ export async function onRequestPost({ request, env }) {
 
     const sent = await sendEmail(env.RESEND_API_KEY, {
       to: trimmedEmail,
-      subject: `Your Multiport Games verification code: ${code}`,
-      html: `<p>Your verification code is:</p><p style="font-size:28px;font-weight:700;letter-spacing:4px">${code}</p><p>This code expires in 10 minutes.</p>`,
+      subject: `${code} is your Multiport Games verification code`,
+      html: `
+        <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;color:#1a1a2e">
+          <div style="text-align:center;font-size:1.2rem;font-weight:800;margin-bottom:24px">Multiport<span style="color:#e94560">Games</span></div>
+          <div style="background:#f7f7fa;border-radius:16px;padding:32px 24px;text-align:center">
+            <p style="margin:0 0 8px;font-size:.95rem;color:#555">Verify your email to finish creating your account</p>
+            <p style="margin:0 0 20px;font-size:.85rem;color:#888">Hi ${trimmedUsername}, enter this code to continue:</p>
+            <div style="font-size:36px;font-weight:800;letter-spacing:10px;color:#1a1a2e;background:#fff;border-radius:12px;padding:16px 8px;display:inline-block;min-width:220px">${code}</div>
+            <p style="margin:20px 0 0;font-size:.8rem;color:#999">This code expires in 10 minutes.</p>
+          </div>
+          <p style="margin:24px 0 0;font-size:.78rem;color:#999;text-align:center">If you didn't request this, you can safely ignore this email.</p>
+        </div>`,
     });
     if (!sent.success) {
       const msg = sent.reason === 'not-configured'
