@@ -18,12 +18,6 @@ class NonceInjector {
 }
 
 export async function onRequest(context) {
-  const url = new URL(context.request.url);
-  if (url.hostname === 'multiportgames.pages.dev' || url.hostname === 'www.games.multiportllc.com' || url.hostname === 'mws.games.multiportllc.com') {
-    url.hostname = 'games.multiportllc.com';
-    return Response.redirect(url.toString(), 301);
-  }
-
   const response = await context.next();
   const contentType = response.headers.get('content-type') || '';
   const nonce = makeNonce();
@@ -32,7 +26,7 @@ export async function onRequest(context) {
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}' 'unsafe-hashes' ${HANDLER_HASHES} https://challenges.cloudflare.com`,
     "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: blob:",
+    "img-src 'self' data: blob: https://files.scamadviser.com",
     "font-src 'self' data:",
     "media-src 'self'",
     "connect-src 'self'",

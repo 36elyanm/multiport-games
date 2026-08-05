@@ -34,3 +34,12 @@ CREATE TABLE IF NOT EXISTS admin_login_attempts (
   attempts INTEGER NOT NULL DEFAULT 0,
   locked_until INTEGER NOT NULL DEFAULT 0
 );
+
+CREATE TABLE IF NOT EXISTS signup_codes (
+  email TEXT PRIMARY KEY COLLATE NOCASE,
+  code TEXT NOT NULL,
+  username TEXT NOT NULL,
+  password_hash TEXT NOT NULL,
+  attempts INTEGER NOT NULL DEFAULT 0,
+  expires_at INTEGER NOT NULL
+);
