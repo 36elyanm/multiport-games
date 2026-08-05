@@ -1,3 +1,5 @@
+// Requires RESEND_API_KEY set as a Cloudflare Pages environment variable
+// (Production environment) and multiportllc.com verified in Resend.
 export async function sendEmail(apiKey, { to, subject, html }) {
   if (!apiKey) return { success: false, reason: 'not-configured' };
 
